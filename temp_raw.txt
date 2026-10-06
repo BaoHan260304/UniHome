@@ -1,0 +1,70 @@
+                    } catch (aiError) {
+                        console.error("Lỗi gọi Google Gemini API:", aiError);
+                        
+                        const getZodiac = (dobStr: string) => {
+                            if (!dobStr) return 'Bí ẩn';
+                            const [, m, d] = dobStr.split('-').map(Number);
+                            if (!m || !d) return 'Bí ẩn';
+                            if ((m===3 && d>=21) || (m===4 && d<=19)) return 'Bạch Dương';
+                            if ((m===4 && d>=20) || (m===5 && d<=20)) return 'Kim Ngưu';
+                            if ((m===5 && d>=21) || (m===6 && d<=21)) return 'Song Tử';
+                            if ((m===6 && d>=22) || (m===7 && d<=22)) return 'Cự Giải';
+                            if ((m===7 && d>=23) || (m===8 && d<=22)) return 'Sư Tử';
+                            if ((m===8 && d>=23) || (m===9 && d<=22)) return 'Xử Nữ';
+                            if ((m===9 && d>=23) || (m===10 && d<=23)) return 'Thiên Bình';
+                            if ((m===10 && d>=24) || (m===11 && d<=21)) return 'Thiên Yết';
+                            if ((m===11 && d>=22) || (m===12 && d<=21)) return 'Nhân Mã';
+                            if ((m===12 && d>=22) || (m===1 && d<=19)) return 'Ma Kết';
+                            if ((m===1 && d>=20) || (m===2 && d<=18)) return 'Bảo Bình';
+                            return 'Song Ngư';
+                        };
+
+                        const endings = [
+                            "Tổng quan, đây là một sự lựa chọn rất đáng cân nhắc!",
+                            "Nhìn chung, sự kết hợp này khá triển vọng cho việc ở ghép lâu dài.",
+                            "Tóm lại, nếu hai bạn nhường nhịn nhau một chút thì đây sẽ là một tình bạn đẹp.",
+                            "Bạn hoàn toàn có thể thử kết nối với ứng viên này nhé!",
+                            "Chắc chắn sự bù trừ này sẽ mang lại không gian sống thú vị."
+                        ];
+
+                        uncachedOthers = uncachedOthers.map((u: any) => {
+                            let points = 50;
+                            let reasons = [];
+                            
+                            const budA = parseInt((loggedInUser.matchingBio || '').split('|||')[2]?.replace(/\D/g, '') || '0');
+                            const budB = parseInt((u.matchingBio || '').split('|||')[2]?.replace(/\D/g, '') || '0');
+                            if (budA > 0 && budB > 0) {
+                                if (Math.abs(budA - budB) <= 500000) { points+=20; reasons.push("tài chính tương đồng"); }
+                                else { points-=5; reasons.push("mức ngân sách có chút chênh lệch"); }
+                            }
+                            
+                            const cA = (loggedInUser.characteristics || '').split('|').filter(Boolean);
+                            const cB = (u.characteristics || '').split('|').filter(Boolean);
+                            const common = cA.filter((c: string) => cB.includes(c));
+                            if (common.length > 0) {
+                                points += (common.length * 5);
+                                reasons.push(`có chung thói quen (${common[0]})`);
+                            }
+                            
+                            points += ((u.id * 7) % 15);
+                            const score = Math.min(99, Math.max(40, points));
+                            
+                            const zodA = getZodiac(loggedInUser.dob);
+                            const zodB = getZodiac(u.dob);
+                            
+                            let astroText = '';
+                            if (zodA !== 'Bí ẩn' && zodB !== 'Bí ẩn') {
+                                astroText = `Đặc biệt xét theo chiêm tinh, bạn cung ${zodA} khi ở cùng với bạn này cung ${zodB} sẽ tạo ra ${score > 70 ? 'sự bù trừ hoàn hảo, giúp duy trì hòa khí lâu dài' : 'vài khác biệt nhỏ nhưng hoàn toàn có thể dung hòa'}.`;
+                            } else {
+                                astroText = `Xét về mặt cung mệnh và tuổi tác, hai bạn ở mức bình hòa, dễ dàng chia sẻ không gian chung.`;
+                            }
+
+                            const dynamicEnding = endings[u.id % endings.length];
+                            const reasonTxt = `Dựa trên phân tích, hai bạn ${reasons.length > 0 ? reasons.join(' và ') : 'có một số điểm tương đồng cơ bản'}. ${astroText} ${dynamicEnding}`;
+                            
+                            return { ...u, score, reason: reasonTxt };
+                        });
+                    }
+                }
+                
+                others = [...cachedOthers, ...uncachedOthers];
