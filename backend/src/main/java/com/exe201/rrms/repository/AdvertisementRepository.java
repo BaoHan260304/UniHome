@@ -1,0 +1,1 @@
+package com.exe201.rrms.repository; import com.exe201.rrms.entity.Advertisement; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface AdvertisementRepository extends JpaRepository<Advertisement,Long>{ List<Advertisement> findByPlacement(String placement); }

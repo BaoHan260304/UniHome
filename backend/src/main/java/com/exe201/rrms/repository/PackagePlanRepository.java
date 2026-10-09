@@ -1,0 +1,1 @@
+package com.exe201.rrms.repository; import com.exe201.rrms.entity.PackagePlan; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface PackagePlanRepository extends JpaRepository<PackagePlan,Long>{ Optional<PackagePlan> findByCode(String code); List<PackagePlan> findByActiveTrueOrderByPriorityAsc(); }

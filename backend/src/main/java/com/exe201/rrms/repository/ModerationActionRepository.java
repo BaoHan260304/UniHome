@@ -1,0 +1,1 @@
+package com.exe201.rrms.repository; import com.exe201.rrms.entity.ModerationAction; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface ModerationActionRepository extends JpaRepository<ModerationAction,Long>{ List<ModerationAction> findByListingIdOrderByCreatedAtDesc(Long listingId); }

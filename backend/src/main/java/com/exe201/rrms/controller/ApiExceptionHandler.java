@@ -1,0 +1,3 @@
+package com.exe201.rrms.controller;
+import org.springframework.http.*; import org.springframework.web.bind.annotation.*; import java.util.*;
+@RestControllerAdvice public class ApiExceptionHandler { @ExceptionHandler(SecurityException.class) public ResponseEntity<?> sec(SecurityException e){return ResponseEntity.status(403).body(Map.of("message",e.getMessage()));} @ExceptionHandler({IllegalArgumentException.class,IllegalStateException.class}) public ResponseEntity<?> bad(RuntimeException e){return ResponseEntity.badRequest().body(Map.of("message",e.getMessage()));} @ExceptionHandler(Exception.class) public ResponseEntity<?> err(Exception e){e.printStackTrace();return ResponseEntity.status(500).body(Map.of("message",e.getMessage()==null?"Lỗi hệ thống":e.getMessage()));} }

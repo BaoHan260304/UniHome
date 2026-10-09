@@ -1,0 +1,1 @@
+package com.exe201.rrms.repository; import com.exe201.rrms.entity.AuthSession; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface AuthSessionRepository extends JpaRepository<AuthSession,String>{ List<AuthSession> findByUserId(Long userId); }

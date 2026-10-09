@@ -1,0 +1,1 @@
+package com.exe201.rrms.repository; import com.exe201.rrms.entity.MarketplaceComment; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface MarketplaceCommentRepository extends JpaRepository<MarketplaceComment,Long>{ List<MarketplaceComment> findByListingIdAndStatusOrderByCreatedAtAsc(Long listingId,String status); }

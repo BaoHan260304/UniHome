@@ -1,0 +1,1 @@
+package com.exe201.rrms.repository; import com.exe201.rrms.entity.Report; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface ReportRepository extends JpaRepository<Report,Long>{ List<Report> findByStatusOrderByCreatedAtDesc(String status); }

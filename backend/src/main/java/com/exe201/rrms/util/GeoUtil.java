@@ -1,0 +1,2 @@
+package com.exe201.rrms.util;
+public final class GeoUtil { private GeoUtil(){} public static double km(Double lat1,Double lon1,Double lat2,Double lon2){ if(lat1==null||lon1==null||lat2==null||lon2==null)return Double.MAX_VALUE; double r=6371.0,dLat=Math.toRadians(lat2-lat1),dLon=Math.toRadians(lon2-lon1); double a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(Math.toRadians(lat1))*Math.cos(Math.toRadians(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2); return 2*r*Math.asin(Math.sqrt(a)); } }

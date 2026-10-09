@@ -1,202 +1,151 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { api, getUser, mediaList, money } from '../lib/api';
+import AdSlot from '../components/AdSlot';
+import RoomCard from '../components/RoomCard';
 
 export default function PropertyDetail() {
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const [prop, setProp] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+  const { id } = useParams();
+  const nav = useNavigate();
+  const location = useLocation();
+  const [prop, setProp] = useState<any>();
+  const [landlord, setLandlord] = useState<any>();
+  const [contact, setContact] = useState<any>();
+  const [match, setMatch] = useState<any[]>([]);
+  const [similar, setSimilar] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
+  const user = getUser();
 
-    const userStr = localStorage.getItem('user');
-    const userRole = userStr ? JSON.parse(userStr).role : null;
-    const user = userStr ? JSON.parse(userStr) : null;
+  const requireLogin = (action: string) => {
+    nav('/login', { state: { from: location.pathname, action } });
+  };
 
-    const [likes, setLikes] = useState<Record<number, number>>({});
-    const [comments, setComments] = useState<string[]>([]);
-    const [commentInput, setCommentInput] = useState('');
-    const [userLikes, setUserLikes] = useState<Record<number, boolean>>({});
+  const load = async () => {
+    const r = await api.get(`/marketplace/listings/${id}`);
+    const d = r.data;
+    setProp(d);
+    try { setLandlord((await api.get(`/users/${d.landlordId}/public`)).data); } catch {}
+    try {
+      const sr = await api.get('/marketplace/listings', { params: { district: d.district || '', school: d.nearestSchool || '', sort: 'RELEVANCE' } });
+      setSimilar((sr.data || []).filter((x: any) => String(x.listingId) !== String(id)).slice(0, 3));
+    } catch {}
+    try {
+      const sv = await api.get('/content/services');
+      const rows = (sv.data || []).filter((x: any) => !d.province || !x.province || x.province === d.province);
+      setServices(rows.slice(0, 3));
+    } catch {}
+  };
 
-    useEffect(() => {
-        axios.get(`http://localhost:8080/api/properties/available`)
-            .then(res => {
-                const found = res.data.find((p: any) => p.id === Number(id));
-                setProp(found);
-                setLoading(false);
-            })
-            .catch(() => setLoading(false));
+  useEffect(() => { void load(); }, [id]);
 
-        setLikes(JSON.parse(localStorage.getItem('social_likes') || '{}'));
-        const allComments = JSON.parse(localStorage.getItem('social_comments') || '{}');
-        setComments(allComments[Number(id)] || []);
-        
-        if (user) {
-            setUserLikes(JSON.parse(localStorage.getItem(`user_likes_${user.id}`) || '{}'));
-        }
-    }, [id]);
+  if (!prop) return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" /></div>;
+  const media = mediaList(prop.imageUrl);
+  const verification = prop.verification || {};
 
-    const safeParseMedia = (mediaStr: string) => {
-        if (!mediaStr) return [];
-        try {
-            if (mediaStr.startsWith('[')) return JSON.parse(mediaStr);
-            return [mediaStr];
-        } catch { return [mediaStr]; }
-    }
+  const reveal = () => {
+    if (!user) return requireLogin('SHOW_CONTACT');
+    void api.get(`/marketplace/listings/${id}/contact`).then(r => setContact(r.data)).catch(e => alert(e.response?.data?.message || 'Không thể xem liên hệ'));
+  };
 
-    const handleLike = () => {
-        if (!user) return alert("Vui lòng đăng nhập để tương tác!");
-        const propId = Number(id);
-        const isLiked = userLikes[propId];
-        const newLikes = { ...likes, [propId]: isLiked ? Math.max(0, (likes[propId] || 1) - 1) : (likes[propId] || 0) + 1 };
-        const newUserLikes = { ...userLikes, [propId]: !isLiked };
-        setLikes(newLikes);
-        setUserLikes(newUserLikes);
-        localStorage.setItem('social_likes', JSON.stringify(newLikes));
-        localStorage.setItem(`user_likes_${user.id}`, JSON.stringify(newUserLikes));
-    }
+  const interest = (matchingEnabled = false) => {
+    if (!user) return requireLogin(matchingEnabled ? 'MATCH_ROOMMATE' : 'INTEREST_ROOM');
+    void api.post(`/listings/${id}/interest`, { matchingEnabled }).then(() => {
+      if (!matchingEnabled) return alert('Đã thêm phòng vào danh sách quan tâm.');
+      alert('Đã quan tâm và bật tìm bạn cùng phòng.');
+      api.get(`/matching/listing/${id}`).then(r => setMatch(r.data || [])).catch((e) => {
+        if (e.response?.status === 400 || e.response?.status === 409) nav(`/tenant/matching?listingId=${id}`);
+        else nav(`/tenant/matching?listingId=${id}`);
+      });
+    });
+  };
 
-    const handleShare = () => {
-        navigator.clipboard.writeText(window.location.href).then(() => alert('Đã sao chép link bài đăng!'));
-    }
+  const chatUser = (otherUserId: number, contextType = 'ROOM', contextId: number = Number(prop.listingId)) => {
+    if (!user) return requireLogin('CHAT');
+    void api.post('/chat/conversations', { otherUserId, contextType, contextId }).then(() => nav('/chat'));
+  };
 
-    const submitComment = () => {
-        if (!commentInput.trim()) return;
-        const propId = Number(id);
-        const newCmtList = [...comments, commentInput];
-        setComments(newCmtList);
-        
-        const allComments = JSON.parse(localStorage.getItem('social_comments') || '{}');
-        allComments[propId] = newCmtList;
-        localStorage.setItem('social_comments', JSON.stringify(allComments));
-        setCommentInput('');
-    }
+  const report = () => {
+    if (!user) return requireLogin('REPORT');
+    const details = prompt('Mô tả vấn đề: sai giá, phòng hết, ảnh sai, phí ẩn, spam...');
+    if (details) void api.post('/community/reports', { targetType: 'LISTING', targetId: prop.listingId, reasonCode: 'USER_REPORT', details }).then(() => alert('Đã gửi báo cáo cho UniHome.'));
+  };
 
-    const handleRent = () => {
-        if (!user) { navigate('/login'); return; }
-        axios.post('http://localhost:8080/api/notifications', {
-            senderId: user.id, receiverId: prop.landlordId, type: 'RENT_REQUEST',
-            propertyId: prop.id, status: 'PENDING', message: `${user.fullName} muốn thuê ${prop.name}`
-        }).then(() => alert(`Đã gửi yêu cầu thuê tới chủ trọ!`))
-    }
+  const verifyRows = [
+    ['Phòng tồn tại', verification.roomExists], ['Vị trí', verification.locationVerified], ['Ảnh / video', verification.mediaVerified],
+    ['Giá thuê', verification.priceVerified], ['Điện nước', verification.utilityVerified], ['Tiện ích', verification.amenityVerified], ['Tình trạng còn phòng', verification.availabilityVerified]
+  ];
 
-    if (loading) return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
-    if (!prop) return <div className="text-center py-20 text-xl text-gray-500">Không tìm thấy bài đăng.</div>;
+  return <div className="max-w-5xl mx-auto space-y-8 pb-12">
+    <div className="flex justify-between items-center"><button onClick={() => nav(-1)} className="text-indigo-600 font-medium hover:underline">← Quay lại</button><button onClick={() => nav('/')} className="text-sm font-semibold text-gray-600 hover:text-indigo-600">Trang chủ</button></div>
 
-    const mediaList = safeParseMedia(prop.imageUrl);
-
-    return (
-        <div className="max-w-4xl mx-auto space-y-8 pb-12 animate-in fade-in duration-500">
-            <button onClick={() => navigate(-1)} className="text-indigo-600 font-medium hover:underline flex items-center gap-1">← Quay lại Bảng tin</button>
-            
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                {/* Media Carousel / Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-1 bg-gray-100">
-                    {mediaList.length > 0 ? mediaList.map((url: string, idx: number) => (
-                        <div key={idx} className={`relative ${mediaList.length === 1 ? 'md:col-span-2' : ''} h-72 md:h-96`}>
-                            {url.startsWith('data:video') ? (
-                                <video src={url} controls className="w-full h-full object-cover" />
-                            ) : (
-                                <img src={url} alt="Media" className="w-full h-full object-cover" />
-                            )}
-                        </div>
-                    )) : (
-                        <div className="md:col-span-2 h-64 flex items-center justify-center text-gray-400">Không có hình ảnh/video</div>
-                    )}
-                </div>
-
-                <div className="p-8">
-                    <div className="flex justify-between items-start mb-6">
-                        <div>
-                            <div className="inline-block px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full mb-3 shadow-sm border border-indigo-100">
-                                {prop.postType === 'group' ? '🏢 Khu trọ' : '🏠 Phòng lẻ'}
-                            </div>
-                            <h1 className="text-3xl font-extrabold text-gray-900">{prop.name}</h1>
-                            <p className="text-gray-500 mt-2 flex items-center gap-2">
-                                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                {prop.street}, {prop.ward}, {prop.district}, {prop.province}
-                            </p>
-                        </div>
-                        <p className="text-3xl font-extrabold text-indigo-600 text-right">
-                            {(prop.price / 1000000).toFixed(1)}<span className="block text-sm font-normal text-gray-500">triệu VNĐ / tháng</span>
-                        </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                        <div className="bg-gray-50 p-4 rounded-2xl text-center border border-gray-100">
-                            <span className="block text-gray-500 text-sm mb-1">Diện tích</span>
-                            <strong className="text-lg text-gray-900">{prop.area} m²</strong>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-2xl text-center border border-gray-100">
-                            <span className="block text-gray-500 text-sm mb-1">Giá điện</span>
-                            <strong className="text-lg text-gray-900">{(prop.electricityPrice||0)/1000}k / số</strong>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-2xl text-center border border-gray-100">
-                            <span className="block text-gray-500 text-sm mb-1">Giá nước</span>
-                            <strong className="text-lg text-gray-900">{(prop.waterPrice||0)/1000}k / khối</strong>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-2xl text-center border border-gray-100">
-                            <span className="block text-gray-500 text-sm mb-1">Nội thất</span>
-                            <strong className="text-lg text-gray-900">{prop.furniture === 'full' ? 'Đầy đủ' : 'Cơ bản'}</strong>
-                        </div>
-                    </div>
-
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">Thông tin chi tiết</h3>
-                    <p className="text-gray-700 leading-relaxed whitespace-pre-wrap bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-8">{prop.description}</p>
-
-                    {userRole !== 'manager' && (
-                        <div className="flex gap-4">
-                            <button onClick={handleRent} className="flex-1 bg-indigo-600 text-white font-bold text-lg py-4 rounded-xl hover:bg-indigo-700 shadow-md transition-colors">
-                                Yêu cầu thuê phòng
-                            </button>
-                            <button onClick={() => navigate('/tenant/matching')} className="flex-1 bg-purple-100 text-purple-700 font-bold text-lg py-4 rounded-xl hover:bg-purple-200 transition-colors border border-purple-200">
-                                Tìm bạn ở ghép
-                            </button>
-                        </div>
-                    )}
-                </div>
-
-                <div className="bg-gray-50 border-t border-gray-100 p-8">
-                    <div className="flex items-center gap-6 mb-8 text-gray-600 font-medium border-b border-gray-200 pb-4">
-                        <button onClick={handleLike} className={`flex items-center gap-2 hover:text-indigo-600 transition-colors ${userLikes[prop.id] ? 'text-indigo-600' : ''}`}>
-                            <svg className="w-6 h-6" fill={userLikes[prop.id] ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" /></svg>
-                            {likes[prop.id] || 0} Thích
-                        </button>
-                        <button className="flex items-center gap-2">
-                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                            {comments.length} Bình luận
-                        </button>
-                        <button onClick={handleShare} className="flex items-center gap-2 hover:text-indigo-600 transition-colors">
-                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
-                            Chia sẻ
-                        </button>
-                    </div>
-
-                    <div className="space-y-6">
-                        <h4 className="font-bold text-lg text-gray-900">Bình luận</h4>
-                        {comments.length === 0 && <p className="text-gray-500 italic">Chưa có bình luận nào. Hãy là người đầu tiên!</p>}
-                        
-                        <div className="space-y-4">
-                            {comments.map((cmt, idx) => {
-                                const displayCmt = cmt.replace(/^👤 Khách Ẩn Danh:\s*/, '');
-                                return (
-                                <div key={idx} className="flex gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-xl shrink-0">👤</div>
-                                    <div className="bg-white p-3 rounded-2xl rounded-tl-none border border-gray-200 shadow-sm flex items-center">
-                                        <p className="text-gray-700">{displayCmt}</p>
-                                    </div>
-                                </div>
-                                );
-                            })}
-                        </div>
-
-                        <div className="flex gap-3 pt-4">
-                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-xl shrink-0 border border-indigo-200">😉</div>
-                            <input type="text" placeholder="Viết bình luận ẩn danh..." className="flex-1 border-gray-300 rounded-xl px-4 py-3 shadow-sm focus:ring-indigo-500 focus:border-indigo-500" value={commentInput} onChange={e => setCommentInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitComment()} />
-                            <button onClick={submitComment} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-md hover:bg-indigo-700">Gửi</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_250px] gap-8">
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-1 bg-gray-100">
+          {media.length ? media.map((u: string, i: number) => <div key={i} className={`${media.length === 1 ? 'md:col-span-2' : ''} h-72 md:h-96`}>{u.startsWith('data:video') ? <video src={u} controls className="w-full h-full object-cover" /> : <img src={u} className="w-full h-full object-cover" />}</div>) : <div className="md:col-span-2 h-64 flex items-center justify-center text-gray-400">Không có hình ảnh/video</div>}
         </div>
-    );
+
+        <div className="p-8">
+          <div className="flex justify-between items-start mb-6 gap-6">
+            <div>
+              <div className="flex gap-2 flex-wrap mb-3">
+                <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full border border-indigo-100">{prop.propertyType || 'Phòng trọ'}</span>
+                {prop.packageTier !== 'FREE' && <span className="px-3 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full border border-amber-200">★ {prop.packageTier}</span>}
+                <span className="px-3 py-1 bg-green-50 text-green-700 text-xs font-bold rounded-full border border-green-200">{prop.verificationLevel === 'ON_SITE_VERIFIED' ? '✓ Xác minh thực địa' : prop.verificationLevel === 'REMOTE_VERIFIED' ? '✓ Xác minh từ xa' : 'Đã kiểm duyệt nội dung'}</span>
+              </div>
+              <h1 className="text-3xl font-extrabold text-gray-900">{prop.title}</h1>
+              <p className="text-gray-500 mt-2">📍 {[prop.street, prop.ward, prop.district, prop.province].filter(Boolean).join(', ')}</p>
+              {prop.nearestSchool && <p className="text-gray-500 mt-1">🎓 {prop.nearestSchool} {prop.nearestSchoolDistanceKm != null ? `• ${prop.nearestSchoolDistanceKm} km` : ''}</p>}
+            </div>
+            <p className="text-3xl font-extrabold text-indigo-600 text-right">{money(prop.price)}<span className="block text-sm font-normal text-gray-500">/ tháng</span></p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">{[
+            ['Diện tích', `${prop.area || '—'} m²`], ['Tầng', prop.floorText || '—'], ['Sức chứa', prop.maxOccupants ? `${prop.maxOccupants} người` : '—'], ['Trạng thái', prop.availability === 'AVAILABLE' ? 'Còn phòng' : prop.availability]
+          ].map(([a, b]) => <div key={a} className="bg-gray-50 p-4 rounded-2xl text-center border border-gray-100"><span className="block text-gray-500 text-sm mb-1">{a}</span><strong className="text-lg">{b}</strong></div>)}</div>
+
+          <h3 className="text-xl font-bold mb-4">Chi phí minh bạch</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8 text-sm">{[
+            ['Cọc', prop.deposit], ['Điện', prop.electricityPrice], ['Nước', prop.waterPrice], ['Internet', prop.internetPrice], ['Gửi xe', prop.parkingFee], ['Phí khác', prop.otherFees]
+          ].map(([a, b]) => <div key={String(a)} className="border rounded-xl p-3 bg-white"><div className="text-gray-500">{a}</div><b>{money(Number(b || 0))}</b></div>)}</div>
+
+          <h3 className="text-xl font-bold mb-4">Thông tin chi tiết</h3>
+          <p className="text-gray-700 leading-relaxed whitespace-pre-wrap bg-gray-50 p-6 rounded-2xl border mb-6">{prop.description || 'Chủ trọ chưa thêm mô tả.'}</p>
+          <div className="grid md:grid-cols-2 gap-5 mb-6">
+            <div><h3 className="text-lg font-bold mb-3">Tiện ích</h3><div className="flex flex-wrap gap-2">{String(prop.amenities || '').split('|').filter(Boolean).map((x: string) => <span className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-sm" key={x}>{x}</span>)}{!prop.amenities && <span className="text-sm text-gray-500">Chưa cập nhật.</span>}</div></div>
+            <div><h3 className="text-lg font-bold mb-3">Nội quy</h3><p className="text-sm text-gray-700 whitespace-pre-wrap">{prop.rules || 'Chưa cập nhật nội quy.'}</p><p className="text-sm text-gray-500 mt-2">Nội thất: <b>{prop.furniture || 'Chưa cập nhật'}</b></p></div>
+          </div>
+
+          <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5 mb-6">
+            <div className="flex justify-between gap-4"><div><h3 className="font-bold text-emerald-900">Xác minh UniHome</h3><p className="text-sm text-emerald-800 mt-1">Mức hiện tại: <b>{prop.verificationLevel}</b></p></div>{verification.verifiedAt && <div className="text-xs text-emerald-700">Xác minh: {new Date(verification.verifiedAt).toLocaleDateString('vi-VN')}</div>}</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">{verifyRows.map(([name, ok]: any) => <div key={name} className={`text-xs px-3 py-2 rounded-lg border ${ok ? 'bg-white text-emerald-700 border-emerald-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>{ok ? '✓' : '○'} {name}</div>)}</div>
+            {verification.note && <p className="text-xs text-emerald-800 mt-3">Ghi chú: {verification.note}</p>}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button onClick={reveal} className="bg-indigo-600 text-white font-bold text-lg py-4 rounded-xl hover:bg-indigo-700">{contact ? `${contact.phone || 'Không có SĐT'} ${contact.zalo ? `• ${contact.zalo}` : ''}` : 'Hiện SĐT / Zalo chủ trọ'}</button>
+            <button onClick={() => chatUser(prop.landlordId)} className="bg-blue-50 text-blue-700 font-bold text-lg py-4 rounded-xl border border-blue-100">Chat với chủ trọ</button>
+            <button onClick={() => interest(false)} className="bg-pink-50 text-pink-700 font-bold text-lg py-4 rounded-xl border border-pink-100">♥ Quan tâm phòng</button>
+            <button onClick={() => interest(true)} className="bg-purple-100 text-purple-700 font-bold text-lg py-4 rounded-xl border border-purple-200">Tìm bạn cùng thuê phòng này</button>
+          </div>
+
+          {match.length > 0 && <div className="mt-8"><div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold">Người cùng quan tâm phù hợp</h3><button onClick={() => nav(`/tenant/matching?listingId=${id}`)} className="text-sm text-purple-700 font-semibold">Xem Matching đầy đủ →</button></div><div className="space-y-3">{match.map((m: any) => <div key={m.userId} className="p-4 rounded-2xl border bg-white flex items-center gap-4"><button onClick={() => nav(`/users/${m.userId}`)}><img src={m.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.fullName)}`} className="w-14 h-14 rounded-full object-cover" /></button><div className="flex-1"><button onClick={() => nav(`/users/${m.userId}`)} className="font-bold hover:text-indigo-600">{m.fullName}</button><div className="text-sm text-gray-500">{m.reason}</div><div className="flex flex-wrap gap-3 mt-2 text-xs">{m.facebookUrl && <a className="text-indigo-600" href={m.facebookUrl} target="_blank">Facebook</a>}{m.zaloUrl && <a className="text-indigo-600" href={m.zaloUrl} target="_blank">Zalo</a>}{m.otherSocialUrl && <a className="text-indigo-600" href={m.otherSocialUrl} target="_blank">MXH khác</a>}<button onClick={() => chatUser(m.userId, 'MATCHING', Number(prop.listingId))} className="text-blue-600 font-semibold">Chat UniHome</button></div></div><div className="text-xl font-extrabold text-green-600">{m.score}%</div></div>)}</div></div>}
+
+          {prop.latitude && prop.longitude && <div className="mt-8"><h3 className="text-xl font-bold mb-4">Vị trí & bản đồ</h3><iframe title="Bản đồ phòng trọ" className="w-full h-72 rounded-2xl border" loading="lazy" src={`https://maps.google.com/maps?q=${prop.latitude},${prop.longitude}&z=15&output=embed`} /><div className="text-xs text-gray-500 mt-2">Tọa độ: {prop.latitude}, {prop.longitude}</div></div>}
+
+          <div className="mt-8"><h3 className="text-xl font-bold mb-4">Đánh giá phòng/khu trọ</h3><div className="space-y-3">{(prop.reviews || []).map((r: any) => <div key={r.id} className="border rounded-xl p-4 bg-gray-50"><div className="font-bold">{r.rating || 0}★</div><div className="text-sm text-gray-700 mt-1">{r.comment}</div><div className="text-xs text-gray-400 mt-1">Accuracy {r.accuracyRating || '-'} • Price {r.priceTransparencyRating || '-'} • Utility {r.utilityTransparencyRating || '-'}</div></div>)}{!(prop.reviews || []).length && <div className="text-sm text-gray-500">Chưa có đánh giá.</div>}</div>{user && <button onClick={() => { const c = prompt('Nhận xét của bạn'); if (c) api.post('/community/reviews', { propertyId: prop.propertyId, rating: 5, accuracyRating: 5, priceTransparencyRating: 5, utilityTransparencyRating: 5, landlordCommunicationRating: 5, comment: c }).then(() => { alert('Đã gửi đánh giá'); void load(); }); }} className="mt-3 text-indigo-600 font-medium text-sm">+ Viết đánh giá</button>}</div>
+
+          <div className="mt-8 flex flex-wrap gap-4 text-sm"><button onClick={report} className="text-red-600 hover:underline">⚑ Báo cáo tin sai/vi phạm</button><span className="text-gray-400">Cập nhật gần nhất: {prop.lastAvailabilityConfirmedAt ? new Date(prop.lastAvailabilityConfirmedAt).toLocaleString('vi-VN') : 'Chưa xác nhận'}</span></div>
+        </div>
+      </div>
+
+      <div className="space-y-5">
+        <div className="bg-white rounded-2xl border p-5 shadow-sm"><h3 className="font-bold mb-3">Chủ trọ</h3><div className="flex items-center gap-3"><img src={landlord?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(landlord?.fullName || 'Landlord')}`} className="w-12 h-12 rounded-full object-cover" /><div><button onClick={() => nav(`/users/${prop.landlordId}`)} className="font-bold hover:text-indigo-600">{landlord?.fullName || 'Chủ trọ'}</button><div className="text-xs text-gray-500">{landlord?.followers || 0} người theo dõi</div></div></div><button onClick={() => nav(`/users/${prop.landlordId}`)} className="mt-4 w-full border rounded-xl py-2 text-sm font-medium">Xem hồ sơ chủ trọ</button></div>
+        <AdSlot placement="ROOM_DETAIL" className="w-full h-72" />
+      </div>
+    </div>
+
+    {similar.length > 0 && <section><div className="flex justify-between items-end mb-4"><div><h2 className="text-2xl font-extrabold">Phòng tương tự</h2><p className="text-sm text-gray-500">Gợi ý theo khu vực/trường và mức độ phù hợp.</p></div><button onClick={() => nav('/')} className="text-sm text-indigo-600 font-semibold">Xem tất cả →</button></div><div className="grid md:grid-cols-3 gap-6">{similar.map(x => <RoomCard key={x.listingId} item={x} />)}</div></section>}
+
+    {services.length > 0 && <section><div className="flex justify-between items-end mb-4"><div><h2 className="text-2xl font-extrabold">Dịch vụ tiện ích liên quan</h2><p className="text-sm text-gray-500">Chuyển trọ, vệ sinh, sửa chữa, Internet...</p></div><button onClick={() => nav('/services')} className="text-sm text-indigo-600 font-semibold">Xem dịch vụ →</button></div><div className="grid md:grid-cols-3 gap-5">{services.map((s: any) => <div key={s.id} className="bg-white border rounded-2xl overflow-hidden"><img src={s.imageUrl || '/demo/service-moving.png'} className="w-full h-36 object-cover" /><div className="p-4"><div className="text-xs text-indigo-600 font-bold">{s.category}</div><h3 className="font-bold mt-1">{s.title}</h3><p className="text-sm text-gray-500 mt-2 line-clamp-2">{s.description}</p><div className="mt-3 font-bold text-indigo-600">Từ {money(s.priceFrom)}</div></div></div>)}</div></section>}
+  </div>;
 }

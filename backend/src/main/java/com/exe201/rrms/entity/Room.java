@@ -14,10 +14,13 @@ public class Room {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    private Long propertyId;
     private String roomNumber;
-    private Double price;
+    private Integer floorNumber;
+    private Integer maxOccupants;
+    private Long price;
     private Double area;
-    private String status; // Available, Occupied, Under Maintenance
+    private String status; // AVAILABLE / OCCUPIED / UNDER_MAINTENANCE
     private String description;
     private String imageUrl;
 }
