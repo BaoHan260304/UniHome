@@ -1,13 +1,7 @@
 package com.exe201.rrms.controller;
 
-import com.exe201.rrms.entity.Follow;
-import com.exe201.rrms.entity.MatchingProfile;
-import com.exe201.rrms.entity.User;
-import com.exe201.rrms.repository.FollowRepository;
-import com.exe201.rrms.repository.ListingInterestRepository;
-import com.exe201.rrms.repository.ListingRepository;
-import com.exe201.rrms.repository.MatchingProfileRepository;
-import com.exe201.rrms.repository.UserRepository;
+import com.exe201.rrms.entity.*;
+import com.exe201.rrms.repository.*;
 import com.exe201.rrms.service.AuthService;
 import com.exe201.rrms.service.MatchingService;
 import com.exe201.rrms.util.GeoUtil;
@@ -26,9 +20,11 @@ public class UserController {
     private final MatchingProfileRepository matchingProfiles;
     private final ListingInterestRepository interests;
     private final MatchingService matchingService;
+    private final UserBlockRepository blocks;
 
     public UserController(UserRepository u, FollowRepository f, AuthService a, ListingRepository l,
-                          MatchingProfileRepository mp, ListingInterestRepository i, MatchingService ms) {
+                          MatchingProfileRepository mp, ListingInterestRepository i, MatchingService ms,
+                          UserBlockRepository blocks) {
         this.users = u;
         this.follows = f;
         this.auth = a;
@@ -36,6 +32,7 @@ public class UserController {
         this.matchingProfiles = mp;
         this.interests = i;
         this.matchingService = ms;
+        this.blocks = blocks;
     }
 
     @GetMapping("/{id}/public")
@@ -156,5 +153,82 @@ public class UserController {
         f.setFollowingId(id);
         follows.save(f);
         return Map.of("following", true, "followers", follows.countByFollowingId(id));
+    }
+
+    @PostMapping("/{id}/block")
+    public Map<String, Object> blockUser(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body, HttpServletRequest r) {
+        User me = auth.current(r);
+        if (me.getId().equals(id)) throw new IllegalArgumentException("Không thể tự chặn chính mình");
+        if (!blocks.existsByBlockerIdAndBlockedId(me.getId(), id)) {
+            com.exe201.rrms.entity.UserBlock b = new com.exe201.rrms.entity.UserBlock();
+            b.setBlockerId(me.getId());
+            b.setBlockedId(id);
+            b.setReason(body != null ? body.get("reason") : "Người dùng tự chặn");
+            blocks.save(b);
+        }
+        return Map.of("blocked", true, "blockedUserId", id);
+    }
+
+    @PostMapping("/{id}/unblock")
+    public Map<String, Object> unblockUser(@PathVariable Long id, HttpServletRequest r) {
+        User me = auth.current(r);
+        blocks.deleteByBlockerIdAndBlockedId(me.getId(), id);
+        return Map.of("blocked", false, "blockedUserId", id);
+    }
+
+    @GetMapping("/blocked")
+    public List<Map<String, Object>> getBlockedUsers(HttpServletRequest r) {
+        User me = auth.current(r);
+        List<com.exe201.rrms.entity.UserBlock> list = blocks.findByBlockerId(me.getId());
+        List<Map<String, Object>> res = new ArrayList<>();
+        for (var b : list) {
+            User target = users.findById(b.getBlockedId()).orElse(null);
+            if (target != null) {
+                res.add(Map.of(
+                        "id", b.getId(),
+                        "blockedUserId", target.getId(),
+                        "fullName", target.getFullName() != null ? target.getFullName() : "Người dùng #" + target.getId(),
+                        "avatarUrl", target.getAvatarUrl() != null ? target.getAvatarUrl() : "",
+                        "reason", b.getReason() != null ? b.getReason() : "",
+                        "createdAt", b.getCreatedAt()
+                ));
+            }
+        }
+        return res;
+    }
+
+    @PostMapping("/accept-terms")
+    public Map<String, Object> acceptTerms(@RequestBody Map<String, String> body, HttpServletRequest r) {
+        User me = auth.current(r);
+        String version = body.getOrDefault("version", "2026.1");
+        me.setTermsVersion(version);
+        me.setTermsAcceptedAt(java.time.LocalDateTime.now());
+        users.save(me);
+        return Map.of("success", true, "termsVersion", version, "termsAcceptedAt", me.getTermsAcceptedAt());
+    }
+
+    @PutMapping("/preferred-location")
+    public Map<String, Object> updatePreferredLocation(@RequestBody Map<String, Object> body, HttpServletRequest r) {
+        User me = auth.current(r);
+        if (body.get("preferredLocationName") != null) {
+            me.setPreferredLocationName(body.get("preferredLocationName").toString());
+        }
+        if (body.get("preferredLat") != null) {
+            me.setPreferredLat(Double.valueOf(body.get("preferredLat").toString()));
+        }
+        if (body.get("preferredLng") != null) {
+            me.setPreferredLng(Double.valueOf(body.get("preferredLng").toString()));
+        }
+        users.save(me);
+        return Map.of("success", true, "preferredLocationName", me.getPreferredLocationName() != null ? me.getPreferredLocationName() : "");
+    }
+
+    @PutMapping("/contact-visibility")
+    public Map<String, Object> updateContactVisibility(@RequestBody Map<String, String> body, HttpServletRequest r) {
+        User me = auth.current(r);
+        String vis = body.getOrDefault("contactVisibility", "LOGIN_REQUIRED");
+        me.setContactVisibility(vis);
+        users.save(me);
+        return Map.of("success", true, "contactVisibility", vis);
     }
 }

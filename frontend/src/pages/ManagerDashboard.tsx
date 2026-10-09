@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, getUser, mediaList, money, resolveMediaUrl } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 import ProfileSettings from '../components/ProfileSettings';
+import PanoramaViewer from '../components/PanoramaViewer';
 
 const emptyForm: any = {
   name: '',
@@ -52,13 +53,22 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
   const [plans, setPlans] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(user || {});
 
-  // Form state
+  // Form & Filter state
   const [form, setForm] = useState<any>(emptyForm);
   const [openModal, setOpenModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [activeStep, setActiveStep] = useState(1);
   const [filterTab, setFilterTab] = useState('ALL');
+  const [searchKeyword, setSearchKeyword] = useState('');
   const [actionMsg, setActionMsg] = useState('');
+
+  // Media states (separating normal photos, 360 panorama, videos, and private verification evidence)
+  const [images, setImages] = useState<{ url: string; isCover?: boolean }[]>([]);
+  const [panoramas, setPanoramas] = useState<{ url: string; title?: string }[]>([]);
+  const [videos, setVideos] = useState<{ url: string; title?: string }[]>([]);
+  const [evidences, setEvidences] = useState<{ url: string; note?: string }[]>([]);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [preview360Url, setPreview360Url] = useState<string | null>(null);
 
   const load = () => {
     if (!user) {
@@ -74,26 +84,104 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
     load();
   }, [view]);
 
-  // Handle image upload into form
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []).slice(0, 8);
+  // Handle uploading media files via backend API /api/listings/media
+  const handleUploadMedia = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    mediaType: 'IMAGE' | 'PANORAMA_360' | 'VIDEO' | 'VERIFICATION_EVIDENCE'
+  ) => {
+    const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    Promise.all(
-      files.map(f => new Promise<string>(resolve => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.readAsDataURL(f);
-      }))
-    ).then(arr => {
-      const existing = mediaList(form.imageUrl);
-      setForm({ ...form, imageUrl: JSON.stringify([...existing, ...arr]) });
-    });
+
+    if (mediaType === 'IMAGE' && images.length + files.length > 20) {
+      alert(`Chỉ được tải lên tối đa 20 ảnh thường (hiện có ${images.length} ảnh).`);
+      return;
+    }
+    if (mediaType === 'PANORAMA_360' && panoramas.length + files.length > 3) {
+      alert(`Chỉ được tải lên tối đa 3 ảnh 360 panorama (hiện có ${panoramas.length} ảnh).`);
+      return;
+    }
+    if (mediaType === 'VIDEO' && videos.length + files.length > 2) {
+      alert(`Chỉ được tải lên tối đa 2 video thực tế (hiện có ${videos.length} video).`);
+      return;
+    }
+
+    setUploadingMedia(true);
+    try {
+      for (const file of files) {
+        if (mediaType === 'IMAGE' && file.size > 8 * 1024 * 1024) {
+          alert(`File ảnh "${file.name}" vượt quá 8MB. Vui lòng chọn ảnh nhỏ hơn.`);
+          continue;
+        }
+        if (mediaType === 'PANORAMA_360' && file.size > 15 * 1024 * 1024) {
+          alert(`File 360 "${file.name}" vượt quá 15MB. Vui lòng chọn ảnh nhỏ hơn.`);
+          continue;
+        }
+        if (mediaType === 'VIDEO' && file.size > 100 * 1024 * 1024) {
+          alert(`Video "${file.name}" vượt quá 100MB.`);
+          continue;
+        }
+
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('mediaType', mediaType);
+        const res = await api.post('/listings/media', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        const data = res.data;
+
+        if (mediaType === 'IMAGE') {
+          setImages(prev => {
+            const isFirst = prev.length === 0;
+            return [...prev, { url: data.url, isCover: isFirst }];
+          });
+        } else if (mediaType === 'PANORAMA_360') {
+          setPanoramas(prev => [...prev, { url: data.url, title: file.name }]);
+        } else if (mediaType === 'VIDEO') {
+          setVideos(prev => [...prev, { url: data.url, title: file.name }]);
+        } else if (mediaType === 'VERIFICATION_EVIDENCE') {
+          setEvidences(prev => [...prev, { url: data.url, note: file.name }]);
+        }
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Tải tệp tin lên thất bại. Vui lòng kiểm tra định dạng và dung lượng.');
+    } finally {
+      setUploadingMedia(false);
+      e.target.value = '';
+    }
   };
 
-  const removeImage = (index: number) => {
-    const arr = mediaList(form.imageUrl);
-    arr.splice(index, 1);
-    setForm({ ...form, imageUrl: JSON.stringify(arr) });
+  const removeNormalImage = (index: number) => {
+    const wasCover = images[index]?.isCover;
+    const next = images.filter((_, i) => i !== index);
+    if (wasCover && next.length > 0) {
+      next[0].isCover = true;
+    }
+    setImages(next);
+  };
+
+  const setCoverImage = (index: number) => {
+    setImages(images.map((img, i) => ({ ...img, isCover: i === index })));
+  };
+
+  const moveImage = (index: number, direction: 'left' | 'right') => {
+    const target = direction === 'left' ? index - 1 : index + 1;
+    if (target < 0 || target >= images.length) return;
+    const next = [...images];
+    const [moved] = next.splice(index, 1);
+    next.splice(target, 0, moved);
+    setImages(next);
+  };
+
+  const removePanorama = (index: number) => {
+    setPanoramas(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeVideo = (index: number) => {
+    setVideos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeEvidence = (index: number) => {
+    setEvidences(prev => prev.filter((_, i) => i !== index));
   };
 
   const toggleAmenity = (name: string) => {
@@ -117,6 +205,10 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
   };
 
   const openCreateModal = () => {
+    setImages([]);
+    setPanoramas([]);
+    setVideos([]);
+    setEvidences([]);
     setForm({
       ...emptyForm,
       contactPhone: user?.phone || '',
@@ -132,6 +224,45 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
     try {
       const d = (await api.get(`/marketplace/listings/${l.id}`)).data;
       if (d) {
+        let parsedImages: { url: string; isCover?: boolean }[] = [];
+        let parsedPanoramas: { url: string; title?: string }[] = [];
+        let parsedVideos: { url: string; title?: string }[] = [];
+        let parsedEvidences: { url: string; note?: string }[] = [];
+
+        if (d.mediaJson) {
+          try {
+            const list = JSON.parse(d.mediaJson);
+            if (Array.isArray(list)) {
+              list.forEach((item: any) => {
+                if (item.mediaType === 'PANORAMA_360') {
+                  parsedPanoramas.push({ url: item.url, title: item.title });
+                } else if (item.mediaType === 'VIDEO') {
+                  parsedVideos.push({ url: item.url, title: item.title });
+                } else {
+                  parsedImages.push({ url: item.url, isCover: !!item.isCover });
+                }
+              });
+            }
+          } catch {}
+        }
+
+        if (parsedImages.length === 0 && d.imageUrl) {
+          const urls = mediaList(d.imageUrl);
+          parsedImages = urls.map((u, i) => ({ url: u, isCover: i === 0 }));
+        }
+
+        if (d.verificationEvidenceJson) {
+          try {
+            const evs = JSON.parse(d.verificationEvidenceJson);
+            if (Array.isArray(evs)) parsedEvidences = evs;
+          } catch {}
+        }
+
+        setImages(parsedImages);
+        setPanoramas(parsedPanoramas);
+        setVideos(parsedVideos);
+        setEvidences(parsedEvidences);
+
         setForm({ ...emptyForm, ...d, title: d.title, name: d.name });
         setEditingId(l.id);
         setActiveStep(1);
@@ -143,7 +274,49 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
   };
 
   const submitForm = async (draft = false) => {
-    const payload = { ...form, listingStatus: draft ? 'DRAFT' : 'PENDING_REVIEW' };
+    if (!draft) {
+      if (images.length < 4) {
+        alert('Vui lòng tải lên tối thiểu 4 hình ảnh phòng trọ (toàn cảnh, lối vào, WC, bếp,...) trước khi gửi duyệt.');
+        setActiveStep(7);
+        return;
+      }
+      if (!form.price || !form.title) {
+        alert('Vui lòng điền đầy đủ tiêu đề và giá thuê phòng.');
+        return;
+      }
+    }
+
+    const sortedImages = [...images].sort((a, b) => (b.isCover ? 1 : 0) - (a.isCover ? 1 : 0));
+    const imageUrlArray = sortedImages.map(img => img.url);
+
+    const combinedMedia = [
+      ...sortedImages.map((img, idx) => ({
+        url: img.url,
+        mediaType: 'IMAGE',
+        isCover: idx === 0
+      })),
+      ...panoramas.map(p => ({
+        url: p.url,
+        mediaType: 'PANORAMA_360',
+        title: p.title
+      })),
+      ...videos.map(v => ({
+        url: v.url,
+        mediaType: 'VIDEO',
+        title: v.title
+      }))
+    ];
+
+    const payload = {
+      ...form,
+      listingStatus: draft ? 'DRAFT' : 'PENDING_REVIEW',
+      imageUrl: JSON.stringify(imageUrlArray),
+      mediaJson: JSON.stringify(combinedMedia),
+      verificationEvidenceJson: JSON.stringify(evidences),
+      panoramaCount: panoramas.length,
+      videoCount: videos.length
+    };
+
     try {
       let savedListingId = editingId;
       if (editingId) {
@@ -161,94 +334,110 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
       setOpenModal(false);
       setEditingId(null);
       setForm(emptyForm);
+      setImages([]);
+      setPanoramas([]);
+      setVideos([]);
+      setEvidences([]);
       load();
     } catch (e: any) {
       alert(e.response?.data?.message || 'Không thể lưu tin đăng');
     }
   };
 
-  // Listing actions
-  const cancelReview = async (id: number) => {
-    if (!window.confirm('Hủy gửi duyệt tin này về trạng thái Bản nháp?')) return;
+  // Action handlers
+  const setAvailability = async (id: number, availability: string) => {
     try {
-      await api.post(`/listings/${id}/cancel-review`);
-      setActionMsg('Đã rút lại tin về trạng thái Bản nháp.');
+      await api.post(`/listings/${id}/availability`, { availability });
+      setActionMsg(availability === 'FULL' ? 'Đã đánh dấu hết phòng' : 'Đã đánh dấu còn phòng');
       load();
     } catch (e: any) {
-      alert(e.response?.data?.message || 'Không thể thao tác');
-    }
-  };
-
-  const setAvailability = async (id: number, avail: string) => {
-    try {
-      await api.post(`/listings/${id}/availability`, { availability: avail });
-      setActionMsg(avail === 'AVAILABLE' ? 'Đã đánh dấu còn phòng.' : 'Đã đánh dấu hết phòng.');
-      load();
-    } catch (e: any) {
-      alert(e.response?.data?.message || 'Không thể cập nhật tình trạng');
+      alert(e.response?.data?.message || 'Không thể cập nhật tình trạng phòng');
     }
   };
 
   const confirmAvailability = async (id: number) => {
     try {
-      await api.post(`/listings/${id}/confirm-availability`, { availability: 'AVAILABLE' });
-      setActionMsg('Đã gia hạn và xác nhận còn phòng thành công (+15 ngày).');
+      await api.post(`/listings/${id}/confirm-availability`);
+      setActionMsg('Đã xác nhận phòng còn trống và làm mới hạn tin');
       load();
     } catch (e: any) {
-      alert(e.response?.data?.message || 'Không thể xác nhận');
+      alert(e.response?.data?.message || 'Không thể xác nhận tình trạng');
+    }
+  };
+
+  const cancelReview = async (id: number) => {
+    if (!window.confirm('Bạn có chắc muốn hủy gửi duyệt để quay về bản nháp?')) return;
+    try {
+      await api.post(`/listings/${id}/cancel-review`);
+      setActionMsg('Đã hủy gửi duyệt tin, chuyển về Bản nháp');
+      load();
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Không thể hủy gửi duyệt');
     }
   };
 
   const archiveListing = async (id: number) => {
-    if (!window.confirm('Bạn có chắc muốn lưu trữ tin này? Tin sẽ ngừng hiển thị công khai.')) return;
+    if (!window.confirm('Lưu trữ tin này? Tin sẽ ngừng hiển thị trên hệ thống.')) return;
     try {
       await api.post(`/listings/${id}/archive`);
-      setActionMsg('Đã lưu trữ tin thành công.');
+      setActionMsg('Đã chuyển tin vào mục Lưu trữ');
       load();
     } catch (e: any) {
-      alert(e.response?.data?.message || 'Không thể lưu trữ');
+      alert(e.response?.data?.message || 'Không thể lưu trữ tin');
+    }
+  };
+
+  const restoreListing = async (id: number) => {
+    try {
+      await api.post(`/listings/${id}/restore`);
+      setActionMsg('Đã khôi phục tin về Bản nháp');
+      load();
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Không thể khôi phục tin');
     }
   };
 
   const deleteDraft = async (id: number) => {
-    if (!window.confirm('Xóa bản nháp này?')) return;
+    if (!window.confirm('Bạn có chắc chắn muốn xóa tin này vĩnh viễn?')) return;
     try {
       await api.delete(`/listings/${id}`);
-      setActionMsg('Đã xóa bản nháp.');
+      setActionMsg('Đã xóa tin đăng');
       load();
     } catch (e: any) {
-      alert(e.response?.data?.message || 'Không thể xóa');
+      alert(e.response?.data?.message || 'Không thể xóa tin');
     }
   };
 
-  const buyPlan = (listingId: number, plan: any) => {
-    if (plan.price === 0) return;
-    const useWallet = window.confirm(
-      `Mua ${plan.name} (${money(plan.price)}) bằng số dư ví UniHome?\nBấm OK để thanh toán bằng ví, hoặc Cancel để tạo mã QR thanh toán ngân hàng.`
-    );
-    if (useWallet) {
-      api.post(`/payments/listing/${listingId}/wallet`, { planId: plan.id })
-        .then(() => {
-          alert('Đã kích hoạt gói thành công!');
-          load();
-        })
-        .catch(e => alert(e.response?.data?.message || 'Thanh toán qua ví thất bại. Vui lòng kiểm tra số dư.'));
-    } else {
-      api.post(`/payments/listing/${listingId}/direct`, { planId: plan.id })
-        .then(r => {
-          window.open(r.data.qrUrl, '_blank');
-          alert(`Đã tạo mã thanh toán ${r.data.code}. Sau khi chuyển khoản, gói sẽ tự động kích hoạt.`);
-        })
-        .catch(e => alert(e.response?.data?.message || 'Không thể tạo mã thanh toán'));
+  const buyPlan = async (listingId: number, plan: any) => {
+    if (!window.confirm(`Xác nhận mua gói ${plan.name} với giá ${plan.price.toLocaleString('vi-VN')} đ?`)) return;
+    try {
+      await api.post('/payments/buy-plan', { listingId, planId: plan.id });
+      setActionMsg(`Đã nâng cấp gói ${plan.name} thành công!`);
+      load();
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Không thể nâng cấp gói. Vui lòng nạp thêm tiền vào ví.');
     }
   };
 
-  // Filter listings
-  const filteredList = list.filter(l => {
-    if (filterTab === 'ACTIVE') return l.status === 'ACTIVE' && l.availability === 'AVAILABLE';
-    if (filterTab === 'PENDING') return l.status === 'PENDING_REVIEW';
-    if (filterTab === 'REVISION') return l.status === 'NEED_REVISION';
-    if (filterTab === 'FULL') return l.availability === 'FULL' || l.availability === 'RENTED';
+  // Filtered listing items
+  const filteredList = list.filter((l: any) => {
+    if (searchKeyword.trim()) {
+      const q = searchKeyword.toLowerCase();
+      const match =
+        (l.title && l.title.toLowerCase().includes(q)) ||
+        (l.address && l.address.toLowerCase().includes(q)) ||
+        (l.contactPhone && l.contactPhone.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+
+    if (filterTab === 'ALL') return true;
+    if (filterTab === 'ACTIVE') return l.status === 'ACTIVE' && l.availability !== 'FULL' && l.availability !== 'RENTED';
+    if (filterTab === 'PENDING_REVIEW') return l.status === 'PENDING_REVIEW';
+    if (filterTab === 'NEED_REVISION') return l.status === 'NEED_REVISION';
+    if (filterTab === 'REJECTED') return l.status === 'REJECTED';
+    if (filterTab === 'DRAFT') return l.status === 'DRAFT';
+    if (filterTab === 'PENDING_PAYMENT') return l.status === 'PENDING_PAYMENT';
+    if (filterTab === 'EXPIRED') return l.status === 'EXPIRED' || l.status === 'HIDDEN_STALE';
     if (filterTab === 'ARCHIVED') return l.status === 'ARCHIVED';
     return true;
   });
@@ -345,26 +534,58 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
             </div>
           </div>
 
-          {/* Filter Tabs */}
-          <div className="flex flex-wrap gap-2 border-b pb-3 text-xs font-semibold">
-            {[
-              ['ALL', `Tất cả (${list.length})`],
-              ['ACTIVE', `Đang hiển thị (${list.filter(x => x.status === 'ACTIVE' && x.availability === 'AVAILABLE').length})`],
-              ['PENDING', `Chờ duyệt (${list.filter(x => x.status === 'PENDING_REVIEW').length})`],
-              ['REVISION', `Cần sửa (${list.filter(x => x.status === 'NEED_REVISION').length})`],
-              ['FULL', `Hết phòng (${list.filter(x => x.availability === 'FULL' || x.availability === 'RENTED').length})`],
-              ['ARCHIVED', `Đã lưu trữ (${list.filter(x => x.status === 'ARCHIVED').length})`]
-            ].map(([tab, label]) => (
-              <button
-                key={tab}
-                onClick={() => setFilterTab(tab)}
-                className={`px-3 py-1.5 rounded-lg transition-colors ${
-                  filterTab === tab ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          {/* Search bar & Filter Tabs */}
+          <div className="space-y-3 border-b pb-4">
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+              <div className="relative flex-1 max-w-md">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                  🔍
+                </span>
+                <input
+                  type="text"
+                  placeholder="Tìm theo tiêu đề, địa chỉ, số điện thoại..."
+                  value={searchKeyword}
+                  onChange={e => setSearchKeyword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-600 bg-white"
+                />
+                {searchKeyword && (
+                  <button
+                    onClick={() => setSearchKeyword('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <div className="text-xs text-gray-500 font-medium self-end sm:self-center">
+                Hiển thị <b className="text-gray-800">{filteredList.length}</b> / {list.length} tin đăng
+              </div>
+            </div>
+
+            {/* 8 Status Filter Tabs */}
+            <div className="flex flex-wrap gap-2 text-xs font-semibold">
+              {[
+                ['ALL', `Tất cả (${list.length})`],
+                ['ACTIVE', `Đang hiển thị (${list.filter(x => x.status === 'ACTIVE' && x.availability !== 'FULL' && x.availability !== 'RENTED').length})`],
+                ['PENDING_REVIEW', `Chờ duyệt (${list.filter(x => x.status === 'PENDING_REVIEW').length})`],
+                ['NEED_REVISION', `Cần sửa (${list.filter(x => x.status === 'NEED_REVISION').length})`],
+                ['REJECTED', `Bị từ chối (${list.filter(x => x.status === 'REJECTED').length})`],
+                ['DRAFT', `Bản nháp (${list.filter(x => x.status === 'DRAFT').length})`],
+                ['PENDING_PAYMENT', `Chờ thanh toán (${list.filter(x => x.status === 'PENDING_PAYMENT').length})`],
+                ['EXPIRED', `Hết hạn (${list.filter(x => x.status === 'EXPIRED' || x.status === 'HIDDEN_STALE').length})`],
+                ['ARCHIVED', `Đã lưu trữ (${list.filter(x => x.status === 'ARCHIVED').length})`]
+              ].map(([tab, label]) => (
+                <button
+                  key={tab}
+                  onClick={() => setFilterTab(tab)}
+                  className={`px-3 py-1.5 rounded-lg transition-colors ${
+                    filterTab === tab ? 'bg-indigo-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Table of listings */}
@@ -385,27 +606,54 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
                   {filteredList.map(l => {
                     const cover = l.imageUrl ? mediaList(l.imageUrl)[0] : '';
                     const isFull = l.availability === 'FULL' || l.availability === 'RENTED';
+                    const has360 = (l.panoramaCount && l.panoramaCount > 0) || (l.mediaJson && l.mediaJson.includes('PANORAMA_360'));
+                    const hasVideo = (l.videoCount && l.videoCount > 0) || (l.mediaJson && l.mediaJson.includes('VIDEO'));
+                    const imgCount = mediaList(l.imageUrl).length;
+
                     return (
                       <tr key={l.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            {cover && (
-                              <img
-                                src={resolveMediaUrl(cover)}
-                                alt=""
-                                className="w-12 h-12 rounded-xl object-cover shrink-0 border"
-                              />
-                            )}
+                            <div className="relative shrink-0">
+                              {cover ? (
+                                <img
+                                  src={resolveMediaUrl(cover)}
+                                  alt=""
+                                  className="w-14 h-14 rounded-xl object-cover border"
+                                />
+                              ) : (
+                                <div className="w-14 h-14 rounded-xl bg-gray-100 border flex items-center justify-center text-xs text-gray-400">
+                                  No img
+                                </div>
+                              )}
+                              {has360 && (
+                                <span className="absolute bottom-0 right-0 bg-indigo-600 text-white text-[9px] font-bold px-1 rounded-sm shadow-xs">
+                                  360°
+                                </span>
+                              )}
+                            </div>
                             <div className="min-w-0">
-                              <button
-                                onClick={() => nav(`/property/${l.id}`)}
-                                className="font-bold text-gray-900 hover:text-indigo-600 text-left line-clamp-1 text-sm"
-                              >
-                                {l.title}
-                              </button>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <button
+                                  onClick={() => nav(`/property/${l.id}`)}
+                                  className="font-bold text-gray-900 hover:text-indigo-600 text-left line-clamp-1 text-sm"
+                                >
+                                  {l.title}
+                                </button>
+                                {hasVideo && (
+                                  <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.2 rounded-md font-semibold border border-purple-200">
+                                    Video
+                                  </span>
+                                )}
+                                {imgCount > 0 && (
+                                  <span className="text-[10px] text-gray-400 font-medium">
+                                    📷 {imgCount}
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-xs text-gray-500 mt-0.5 truncate">{l.address || 'Chưa cập nhật địa chỉ'}</div>
                               {l.revisionNote && (
-                                <div className="text-xs text-red-600 font-semibold mt-1">
+                                <div className="text-xs text-red-600 font-semibold mt-1 bg-red-50 p-1.5 rounded-lg border border-red-200">
                                   ⚠ Admin phản hồi: {l.revisionNote}
                                 </div>
                               )}
@@ -424,8 +672,14 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
                                 ? 'bg-amber-100 text-amber-700'
                                 : l.status === 'NEED_REVISION'
                                 ? 'bg-red-100 text-red-700'
+                                : l.status === 'REJECTED'
+                                ? 'bg-rose-100 text-rose-700'
                                 : l.status === 'DRAFT'
                                 ? 'bg-gray-100 text-gray-600'
+                                : l.status === 'PENDING_PAYMENT'
+                                ? 'bg-blue-100 text-blue-700'
+                                : l.status === 'EXPIRED' || l.status === 'HIDDEN_STALE'
+                                ? 'bg-orange-100 text-orange-700'
                                 : 'bg-gray-200 text-gray-700'
                             }`}
                           >
@@ -435,8 +689,16 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
                               ? 'Chờ duyệt'
                               : l.status === 'NEED_REVISION'
                               ? 'Cần chỉnh sửa'
+                              : l.status === 'REJECTED'
+                              ? 'Bị từ chối'
                               : l.status === 'DRAFT'
                               ? 'Bản nháp'
+                              : l.status === 'PENDING_PAYMENT'
+                              ? 'Chờ thanh toán'
+                              : l.status === 'EXPIRED' || l.status === 'HIDDEN_STALE'
+                              ? 'Hết hạn'
+                              : l.status === 'ARCHIVED'
+                              ? 'Đã lưu trữ'
                               : l.status}
                           </span>
                         </td>
@@ -455,34 +717,53 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
                           </span>
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap text-right">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                            {/* Edit button */}
                             <button
                               onClick={() => editListing(l)}
-                              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 px-2 py-1 bg-indigo-50 rounded-lg"
+                              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 px-2.5 py-1 bg-indigo-50 rounded-lg"
                             >
                               Sửa
                             </button>
 
-                            {/* Availability toggle */}
-                            <button
-                              onClick={() => setAvailability(l.id, isFull ? 'AVAILABLE' : 'FULL')}
-                              className="text-xs font-semibold text-gray-700 hover:bg-gray-100 px-2 py-1 border rounded-lg"
-                            >
-                              {isFull ? 'Đánh dấu còn' : 'Báo hết'}
-                            </button>
-
-                            {/* Confirm availability */}
+                            {/* ACTIVE actions */}
                             {l.status === 'ACTIVE' && (
+                              <>
+                                <button
+                                  onClick={() => setAvailability(l.id, isFull ? 'AVAILABLE' : 'FULL')}
+                                  className="text-xs font-semibold text-gray-700 hover:bg-gray-100 px-2 py-1 border rounded-lg"
+                                >
+                                  {isFull ? 'Đánh dấu còn' : 'Báo hết'}
+                                </button>
+                                <button
+                                  onClick={() => confirmAvailability(l.id)}
+                                  className="text-xs font-semibold text-green-700 hover:bg-green-50 px-2 py-1 border border-green-200 rounded-lg"
+                                  title="Gia hạn xác nhận phòng còn trống"
+                                >
+                                  Gia hạn
+                                </button>
+                              </>
+                            )}
+
+                            {/* DRAFT actions: Submit review or delete */}
+                            {l.status === 'DRAFT' && (
                               <button
-                                onClick={() => confirmAvailability(l.id)}
-                                className="text-xs font-semibold text-green-700 hover:bg-green-50 px-2 py-1 border border-green-200 rounded-lg"
-                                title="Gia hạn xác nhận phòng còn trống"
+                                onClick={async () => {
+                                  try {
+                                    await api.post(`/listings/${l.id}/submit`);
+                                    setActionMsg('Đã gửi duyệt tin thành công!');
+                                    load();
+                                  } catch (err: any) {
+                                    alert(err.response?.data?.message || 'Không thể gửi duyệt. Tin cần tối thiểu 4 hình ảnh.');
+                                  }
+                                }}
+                                className="text-xs font-bold text-green-700 hover:bg-green-50 px-2 py-1 border border-green-200 rounded-lg"
                               >
-                                Gia hạn
+                                Gửi duyệt
                               </button>
                             )}
 
-                            {/* Cancel review if pending */}
+                            {/* PENDING_REVIEW: Cancel review */}
                             {l.status === 'PENDING_REVIEW' && (
                               <button
                                 onClick={() => cancelReview(l.id)}
@@ -492,39 +773,66 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
                               </button>
                             )}
 
-                            {/* Delete draft or archive */}
-                            {l.status === 'DRAFT' ? (
+                            {/* EXPIRED: Reactivate / confirm */}
+                            {(l.status === 'EXPIRED' || l.status === 'HIDDEN_STALE') && (
+                              <button
+                                onClick={() => confirmAvailability(l.id)}
+                                className="text-xs font-semibold text-indigo-700 hover:bg-indigo-50 px-2 py-1 border border-indigo-200 rounded-lg"
+                              >
+                                Tái kích hoạt
+                              </button>
+                            )}
+
+                            {/* ARCHIVED: Restore or Delete */}
+                            {l.status === 'ARCHIVED' ? (
+                              <>
+                                <button
+                                  onClick={() => restoreListing(l.id)}
+                                  className="text-xs font-semibold text-blue-700 hover:bg-blue-50 px-2 py-1 border border-blue-200 rounded-lg"
+                                >
+                                  Khôi phục
+                                </button>
+                                <button
+                                  onClick={() => deleteDraft(l.id)}
+                                  className="text-xs font-semibold text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg"
+                                >
+                                  Xóa
+                                </button>
+                              </>
+                            ) : l.status === 'DRAFT' || l.status === 'REJECTED' ? (
                               <button
                                 onClick={() => deleteDraft(l.id)}
                                 className="text-xs font-semibold text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg"
                               >
                                 Xóa
                               </button>
-                            ) : l.status !== 'ARCHIVED' ? (
+                            ) : (
                               <button
                                 onClick={() => archiveListing(l.id)}
                                 className="text-xs font-semibold text-gray-500 hover:bg-gray-100 px-2 py-1 rounded-lg"
                               >
                                 Lưu trữ
                               </button>
-                            ) : null}
+                            )}
 
-                            {/* Plan upgrade */}
-                            <select
-                              className="border border-gray-200 rounded-lg text-xs px-2 py-1 text-gray-700 bg-white"
-                              onChange={e => {
-                                const p = plans.find(x => String(x.id) === e.target.value);
-                                if (p) buyPlan(l.id, p);
-                              }}
-                              defaultValue=""
-                            >
-                              <option value="">Gói VIP</option>
-                              {plans.filter(p => p.price > 0).map(p => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} - {money(p.price)}
-                                </option>
-                              ))}
-                            </select>
+                            {/* Plan upgrade dropdown */}
+                            {l.status === 'ACTIVE' && (
+                              <select
+                                className="border border-gray-200 rounded-lg text-xs px-2 py-1 text-gray-700 bg-white"
+                                onChange={e => {
+                                  const p = plans.find(x => String(x.id) === e.target.value);
+                                  if (p) buyPlan(l.id, p);
+                                }}
+                                defaultValue=""
+                              >
+                                <option value="">Gói VIP</option>
+                                {plans.filter(p => p.price > 0).map(p => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name} - {money(p.price)}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -535,7 +843,7 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
 
               {filteredList.length === 0 && (
                 <div className="p-12 text-center text-sm text-gray-400">
-                  Không có tin đăng nào trong mục này.
+                  Không tìm thấy bài đăng nào phù hợp với bộ lọc.
                 </div>
               )}
             </div>
@@ -935,47 +1243,336 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
                   </div>
                 )}
 
-                {/* Step 7: Media Upload */}
+                {/* Step 7: Media Upload (Normal images, 360 Panorama, Video, and Verification Evidence) */}
                 {activeStep === 7 && (
-                  <div className="space-y-4">
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Ảnh & Video thực tế phòng trọ (Tối đa 8 tệp)
-                    </label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center bg-gray-50">
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*,video/*"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        id="wizard-media-upload"
-                      />
-                      <label
-                        htmlFor="wizard-media-upload"
-                        className="cursor-pointer bg-white px-5 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-indigo-600 hover:bg-gray-50 inline-block shadow-xs"
-                      >
-                        + Chọn ảnh/video tải lên
-                      </label>
-                      <p className="text-[11px] text-gray-400 mt-2">Định dạng JPG, PNG, WEBP hoặc MP4 ngắn</p>
+                  <div className="space-y-6">
+                    {uploadingMedia && (
+                      <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs font-semibold text-indigo-700 flex items-center gap-2 animate-pulse">
+                        <span className="animate-spin">⏳</span> Đang tải tệp tin lên máy chủ và xử lý... Vui lòng chờ trong giây lát.
+                      </div>
+                    )}
+
+                    {/* Section 1: Standard Photos */}
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold text-gray-800">
+                          1. Ảnh thực tế phòng trọ *
+                          <span className="text-[11px] font-normal text-gray-500 ml-1">
+                            (Tối thiểu 4 ảnh, tối đa 20 ảnh. Chọn ảnh bìa & sắp xếp thứ tự)
+                          </span>
+                        </label>
+                        <span className={`text-xs font-extrabold px-2 py-0.5 rounded-full ${
+                          images.length >= 4 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {images.length}/20 ảnh {images.length < 4 ? `(Thiếu ${4 - images.length} ảnh)` : '✓'}
+                        </span>
+                      </div>
+
+                      {/* Photo Checklist Suggestions */}
+                      <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 space-y-1.5">
+                        <span className="text-[11px] font-bold text-blue-800">
+                          💡 Gợi ý góc chụp giúp tin đăng thu hút và được duyệt nhanh:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5 text-[11px]">
+                          {[
+                            'Toàn cảnh phòng',
+                            'Lối vào / Cửa phòng',
+                            'Nhà vệ sinh',
+                            'Khu bếp nấu',
+                            'Cửa sổ / Ban công',
+                            'Nội thất & Tiện nghi',
+                            'Chỗ để xe',
+                            'Khu vực chung'
+                          ].map(tip => (
+                            <span key={tip} className="px-2 py-0.5 bg-white text-blue-700 rounded-md border border-blue-200 font-medium">
+                              • {tip}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Upload Box */}
+                      <div className="border-2 border-dashed border-gray-300 rounded-2xl p-5 text-center bg-gray-50 hover:bg-gray-100/50 transition-colors">
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/jpeg,image/png,image/webp"
+                          disabled={uploadingMedia || images.length >= 20}
+                          onChange={e => handleUploadMedia(e, 'IMAGE')}
+                          className="hidden"
+                          id="upload-normal-images"
+                        />
+                        <label
+                          htmlFor="upload-normal-images"
+                          className="cursor-pointer bg-white px-5 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-indigo-600 hover:bg-gray-50 inline-block shadow-xs"
+                        >
+                          + Chọn ảnh phòng tải lên (Tối đa 8MB/ảnh)
+                        </label>
+                        <p className="text-[11px] text-gray-400 mt-2">
+                          Hỗ trợ JPG, PNG, WEBP. Khuyến nghị tối thiểu 1280x720 để ảnh rõ nét.
+                        </p>
+                      </div>
+
+                      {/* Normal Images Grid with Cover & Reorder */}
+                      {images.length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {images.map((img, idx) => (
+                            <div
+                              key={idx}
+                              className={`relative rounded-xl overflow-hidden border-2 group bg-gray-100 ${
+                                img.isCover ? 'border-amber-500 ring-2 ring-amber-200' : 'border-gray-200'
+                              }`}
+                            >
+                              <img
+                                src={resolveMediaUrl(img.url)}
+                                alt=""
+                                className="w-full h-28 object-cover"
+                              />
+
+                              {/* Cover Badge */}
+                              {img.isCover && (
+                                <span className="absolute top-1 left-1 bg-amber-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-md shadow-xs">
+                                  ★ Ảnh bìa
+                                </span>
+                              )}
+
+                              {/* Controls */}
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-1.5">
+                                <div className="flex justify-between items-center">
+                                  {!img.isCover && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setCoverImage(idx)}
+                                      className="text-[10px] bg-white/90 hover:bg-white text-gray-800 font-bold px-1.5 py-0.5 rounded"
+                                    >
+                                      Đặt làm bìa
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => removeNormalImage(idx)}
+                                    className="ml-auto w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-xs"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                                <div className="flex justify-center gap-2">
+                                  {idx > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => moveImage(idx, 'left')}
+                                      className="px-2 py-0.5 bg-white/90 hover:bg-white text-gray-800 rounded text-xs font-bold"
+                                      title="Di chuyển sang trái"
+                                    >
+                                      ←
+                                    </button>
+                                  )}
+                                  {idx < images.length - 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => moveImage(idx, 'right')}
+                                      className="px-2 py-0.5 bg-white/90 hover:bg-white text-gray-800 rounded text-xs font-bold"
+                                      title="Di chuyển sang phải"
+                                    >
+                                      →
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex gap-3 overflow-x-auto py-2">
-                      {mediaList(form.imageUrl).map((u, i) => (
-                        <div key={i} className="relative w-24 h-24 border rounded-xl overflow-hidden shrink-0 group">
-                          {u.startsWith('data:video') ? (
-                            <video src={u} className="w-full h-full object-cover" />
-                          ) : (
-                            <img src={resolveMediaUrl(u)} alt="" className="w-full h-full object-cover" />
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => removeImage(i)}
-                            className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full flex items-center justify-center text-[10px] font-bold"
-                          >
-                            ✕
-                          </button>
+                    {/* Section 2: 360 Panorama (Optional) */}
+                    <div className="space-y-3 pt-3 border-t">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-extrabold rounded-md">
+                            360°
+                          </span>
+                          2. Ảnh 360° Panorama
+                          <span className="text-[11px] font-normal text-gray-500">
+                            (Tùy chọn, tối đa 3 ảnh, tỷ lệ 2:1 equirectangular, max 15MB)
+                          </span>
+                        </label>
+                        <span className="text-xs font-semibold text-gray-500">
+                          {panoramas.length}/3 ảnh
+                        </span>
+                      </div>
+
+                      <div className="border border-dashed border-gray-300 rounded-xl p-4 text-center bg-gray-50 flex items-center justify-between">
+                        <div className="text-left text-[11px] text-gray-500">
+                          Chụp từ smartphone (chế độ Pano) hoặc camera 360, định dạng JPG/WEBP.
                         </div>
-                      ))}
+                        <div>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            disabled={uploadingMedia || panoramas.length >= 3}
+                            onChange={e => handleUploadMedia(e, 'PANORAMA_360')}
+                            className="hidden"
+                            id="upload-panorama-file"
+                          />
+                          <label
+                            htmlFor="upload-panorama-file"
+                            className="cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-bold text-indigo-600 hover:bg-gray-50 inline-block shadow-xs"
+                          >
+                            + Thêm ảnh 360°
+                          </label>
+                        </div>
+                      </div>
+
+                      {panoramas.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {panoramas.map((pano, i) => (
+                            <div key={i} className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-100 p-2 space-y-2">
+                              <div className="h-24 rounded-lg overflow-hidden relative">
+                                <img src={resolveMediaUrl(pano.url)} alt="" className="w-full h-full object-cover" />
+                                <span className="absolute top-1 left-1 bg-indigo-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded">
+                                  360°
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreview360Url(pano.url)}
+                                  className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
+                                >
+                                  👁 Xem thử 360°
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removePanorama(i)}
+                                  className="text-xs text-red-600 hover:underline font-semibold"
+                                >
+                                  Xóa
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Section 3: Video (Optional) */}
+                    <div className="space-y-3 pt-3 border-t">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold text-gray-800">
+                          3. Video quay thực tế phòng
+                          <span className="text-[11px] font-normal text-gray-500 ml-1">
+                            (Tùy chọn, tối đa 2 video, MP4/WEBM, tối đa 100MB, thời lượng ≤ 120s)
+                          </span>
+                        </label>
+                        <span className="text-xs font-semibold text-gray-500">
+                          {videos.length}/2 video
+                        </span>
+                      </div>
+
+                      <div className="border border-dashed border-gray-300 rounded-xl p-4 text-center bg-gray-50 flex items-center justify-between">
+                        <div className="text-left text-[11px] text-gray-500">
+                          Video quay thực tế giúp người thuê tin tưởng gấp 3 lần.
+                        </div>
+                        <div>
+                          <input
+                            type="file"
+                            accept="video/mp4,video/webm"
+                            disabled={uploadingMedia || videos.length >= 2}
+                            onChange={e => handleUploadMedia(e, 'VIDEO')}
+                            className="hidden"
+                            id="upload-video-file"
+                          />
+                          <label
+                            htmlFor="upload-video-file"
+                            className="cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-bold text-indigo-600 hover:bg-gray-50 inline-block shadow-xs"
+                          >
+                            + Thêm video
+                          </label>
+                        </div>
+                      </div>
+
+                      {videos.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {videos.map((vid, i) => (
+                            <div key={i} className="rounded-xl border border-gray-200 p-2 space-y-2 bg-gray-50">
+                              <video
+                                src={resolveMediaUrl(vid.url)}
+                                controls
+                                muted
+                                playsInline
+                                preload="metadata"
+                                className="w-full h-36 object-cover rounded-lg bg-black"
+                              />
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs text-gray-600 truncate max-w-[200px]">
+                                  {vid.title || `Video ${i + 1}`}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeVideo(i)}
+                                  className="text-xs text-red-600 hover:underline font-semibold"
+                                >
+                                  Xóa video
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Section 4: Private Verification Evidence */}
+                    <div className="space-y-3 pt-3 border-t bg-amber-50/40 p-4 rounded-2xl border border-amber-200">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                          🔒 4. Hồ sơ minh chứng xác thực chính chủ
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                            Chỉ Admin & Kiểm duyệt viên xem
+                          </span>
+                        </label>
+                      </div>
+                      <p className="text-[11px] text-amber-800 leading-relaxed">
+                        Tải ảnh biển số nhà, hợp đồng sở hữu/quản lý, hoặc ảnh chụp thực tế có bạn trong phòng để nhận huy hiệu <b>Xác minh chính chủ</b>. Những tệp này <b>hoàn toàn bảo mật</b> và không hiển thị công khai cho khách thuê.
+                      </p>
+
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*,video/*,application/pdf"
+                          disabled={uploadingMedia}
+                          onChange={e => handleUploadMedia(e, 'VERIFICATION_EVIDENCE')}
+                          className="hidden"
+                          id="upload-evidence-files"
+                        />
+                        <label
+                          htmlFor="upload-evidence-files"
+                          className="cursor-pointer bg-white px-4 py-2 rounded-xl border border-amber-300 text-xs font-bold text-amber-800 hover:bg-amber-50 inline-block shadow-xs"
+                        >
+                          + Tải tệp minh chứng xác minh
+                        </label>
+                        <span className="text-xs text-amber-800">
+                          {evidences.length} tệp đã tải
+                        </span>
+                      </div>
+
+                      {evidences.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {evidences.map((ev, i) => (
+                            <div key={i} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-amber-200 text-xs text-amber-900">
+                              <span>📄 {ev.note || `Minh chứng ${i + 1}`}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeEvidence(i)}
+                                className="text-red-500 font-bold hover:text-red-700"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1057,6 +1654,27 @@ export default function ManagerDashboard({ view }: { view: 'posts' | 'notificati
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* 360 Panorama Interactive Preview Modal */}
+          {preview360Url && (
+            <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-4xl w-full p-6 space-y-4 shadow-2xl relative">
+                <div className="flex justify-between items-center border-b pb-3">
+                  <h3 className="font-extrabold text-base sm:text-lg text-gray-900 flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full">360°</span>
+                    Xem trước ảnh Panorama 360° UniHome
+                  </h3>
+                  <button
+                    onClick={() => setPreview360Url(null)}
+                    className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-sm"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <PanoramaViewer src={resolveMediaUrl(preview360Url)} />
               </div>
             </div>
           )}

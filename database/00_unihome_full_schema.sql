@@ -659,4 +659,198 @@ ON DUPLICATE KEY UPDATE
  featured=VALUES(featured), boost_credits=VALUES(boost_credits),
  active=VALUES(active), benefits=VALUES(benefits);
 
+-- ----------------- LOYALTY, REWARDS & ADVANCED PLATFORM ------------
+CREATE TABLE IF NOT EXISTS user_block (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  blocker_id BIGINT NOT NULL,
+  blocked_id BIGINT NOT NULL,
+  reason VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_user_block (blocker_id, blocked_id),
+  KEY idx_user_block_blocker (blocker_id),
+  KEY idx_user_block_blocked (blocked_id),
+  CONSTRAINT fk_user_block_blocker FOREIGN KEY (blocker_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_user_block_blocked FOREIGN KEY (blocked_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS conversation_participant_setting (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  conversation_id BIGINT NOT NULL,
+  user_id BIGINT NOT NULL,
+  is_muted BIT(1) NOT NULL DEFAULT b'0',
+  is_hidden BIT(1) NOT NULL DEFAULT b'0',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_conv_user_setting (conversation_id, user_id),
+  CONSTRAINT fk_cps_conversation FOREIGN KEY (conversation_id) REFERENCES conversation(id) ON DELETE CASCADE,
+  CONSTRAINT fk_cps_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS analytics_event (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  user_id BIGINT NULL,
+  session_id VARCHAR(100) NOT NULL,
+  event_type VARCHAR(50) NOT NULL,
+  entity_type VARCHAR(50) NULL,
+  entity_id BIGINT NULL,
+  metadata_json TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_analytics_type_date (event_type, created_at),
+  KEY idx_analytics_user (user_id, created_at),
+  KEY idx_analytics_entity (entity_type, entity_id),
+  KEY idx_analytics_created (created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS reward_account (
+  user_id BIGINT NOT NULL,
+  balance BIGINT NOT NULL DEFAULT 0,
+  lifetime_earned BIGINT NOT NULL DEFAULT 0,
+  lifetime_spent BIGINT NOT NULL DEFAULT 0,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id),
+  CONSTRAINT fk_reward_account_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS reward_transaction (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  type VARCHAR(30) NOT NULL,
+  source VARCHAR(50) NOT NULL,
+  points BIGINT NOT NULL,
+  balance_after BIGINT NOT NULL DEFAULT 0,
+  reference_type VARCHAR(50) NULL,
+  reference_id VARCHAR(100) NULL,
+  description TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_reward_tx_user (user_id, created_at),
+  KEY idx_reward_tx_type (type, created_at),
+  CONSTRAINT fk_reward_tx_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS daily_checkin (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  checkin_date DATE NOT NULL,
+  streak_day INT NOT NULL DEFAULT 1,
+  points_awarded BIGINT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_user_checkin_date (user_id, checkin_date),
+  KEY idx_checkin_user (user_id, checkin_date),
+  CONSTRAINT fk_checkin_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS reward_task (
+  task_code VARCHAR(50) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  description TEXT NULL,
+  points BIGINT NOT NULL,
+  action_url VARCHAR(255) NULL,
+  is_active BIT(1) NOT NULL DEFAULT b'1',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (task_code)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS user_reward_task (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  task_code VARCHAR(50) NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'CLAIMED',
+  claimed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_user_reward_task (user_id, task_code),
+  KEY idx_user_task_user (user_id),
+  CONSTRAINT fk_urt_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_urt_task FOREIGN KEY (task_code) REFERENCES reward_task(task_code) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS partner (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  name VARCHAR(255) NOT NULL,
+  category VARCHAR(100) NOT NULL,
+  logo_url TEXT NULL,
+  description TEXT NULL,
+  contact_email VARCHAR(255) NULL,
+  contact_phone VARCHAR(50) NULL,
+  website_url VARCHAR(500) NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_partner_category (category, status)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS voucher (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  partner_id BIGINT NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  category VARCHAR(100) NOT NULL DEFAULT 'ALL',
+  description TEXT NULL,
+  image_url TEXT NULL,
+  discount_type VARCHAR(50) NOT NULL DEFAULT 'PERCENT',
+  discount_value BIGINT NOT NULL,
+  min_order BIGINT NOT NULL DEFAULT 0,
+  points_cost BIGINT NOT NULL DEFAULT 100,
+  total_stock INT NOT NULL DEFAULT 100,
+  remaining_stock INT NOT NULL DEFAULT 100,
+  limit_per_user INT NOT NULL DEFAULT 1,
+  start_at DATETIME NULL,
+  end_at DATETIME NULL,
+  terms TEXT NULL,
+  usage_instructions TEXT NULL,
+  code_mode VARCHAR(50) NOT NULL DEFAULT 'GENERATED_UNIQUE',
+  shared_code VARCHAR(100) NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_voucher_partner (partner_id),
+  KEY idx_voucher_status (status, category),
+  KEY idx_voucher_cost (points_cost),
+  CONSTRAINT fk_voucher_partner FOREIGN KEY (partner_id) REFERENCES partner(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS voucher_code_pool (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  voucher_id BIGINT NOT NULL,
+  code VARCHAR(100) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'AVAILABLE',
+  assigned_to_user_id BIGINT NULL,
+  assigned_at DATETIME NULL,
+  used_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_voucher_code_pool (voucher_id, code),
+  KEY idx_vcode_status (voucher_id, status),
+  CONSTRAINT fk_vcode_voucher FOREIGN KEY (voucher_id) REFERENCES voucher(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS voucher_redemption (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  voucher_id BIGINT NOT NULL,
+  voucher_code VARCHAR(100) NOT NULL,
+  redemption_token VARCHAR(100) NOT NULL,
+  points_spent BIGINT NOT NULL,
+  discount_type VARCHAR(50) NOT NULL,
+  discount_value BIGINT NOT NULL,
+  min_order BIGINT NOT NULL DEFAULT 0,
+  partner_name VARCHAR(255) NULL,
+  voucher_title VARCHAR(255) NULL,
+  expires_at DATETIME NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'AVAILABLE',
+  used_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_voucher_redemption_token (redemption_token),
+  KEY idx_redemption_user (user_id, status),
+  KEY idx_redemption_voucher (voucher_id),
+  KEY idx_redemption_code (voucher_code),
+  CONSTRAINT fk_vred_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_vred_voucher FOREIGN KEY (voucher_id) REFERENCES voucher(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 SET FOREIGN_KEY_CHECKS = 1;

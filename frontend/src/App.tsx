@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { api, clearAuth, getUser, resolveMediaUrl } from './lib/api';
+import { api, clearAuth, getUser } from './lib/api';
 import Marketplace from './pages/Marketplace';
 import PropertyDetail from './pages/PropertyDetail';
 import Login from './pages/Login';
@@ -21,7 +21,14 @@ import BlogDetail from './pages/BlogDetail';
 import QaPage from './pages/QaPage';
 import AdminDashboard from './pages/AdminDashboard';
 import WalletPage from './pages/WalletPage';
+import ServiceDetail from './pages/ServiceDetail';
+import RewardsPage from './pages/RewardsPage';
+import MyVouchersPage from './pages/MyVouchersPage';
+import VoucherVerifyPage from './pages/VoucherVerifyPage';
+import TermsPage from './pages/TermsPage';
 import TenantAccountLayout from './components/TenantAccountLayout';
+import AccountQuickMenu from './components/AccountQuickMenu';
+import NotificationDropdown from './components/NotificationDropdown';
 import ErrorBoundary from './components/ErrorBoundary';
 
 function ChatRoute() {
@@ -60,10 +67,6 @@ function Layout() {
   const role = currentUser?.role;
   const logout = () => { clearAuth(); navigate('/'); };
 
-  const avatarSrc = currentUser?.avatarUrl
-    ? resolveMediaUrl(currentUser.avatarUrl)
-    : `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.fullName || 'UniHome')}&background=random`;
-
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
       {!isAuthPage ? (
@@ -80,9 +83,12 @@ function Layout() {
                   <Link className="hover:text-indigo-600 transition-colors" to="/secondhand">Đồ cũ</Link>
                   <Link className="hover:text-indigo-600 transition-colors" to="/blog">Blog</Link>
                   <Link className="hover:text-indigo-600 transition-colors" to="/qa">Hỏi đáp</Link>
+                  <Link className="hover:text-indigo-600 transition-colors flex items-center gap-1 text-indigo-700 font-bold bg-indigo-50 px-2.5 py-1 rounded-xl border border-indigo-100" to="/rewards">
+                    <span>💎</span> Ưu đãi
+                  </Link>
                 </div>
               </div>
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3 sm:space-x-4">
                 {role === 'LANDLORD' && (
                   <Link to="/manager/posts" className="text-gray-600 hover:text-indigo-600 font-semibold text-sm">
                     Quản lý Bài đăng
@@ -104,35 +110,14 @@ function Layout() {
                   </Link>
                 )}
                 {currentUser && (
-                  <Link
-                    to={role === 'LANDLORD' ? '/manager/notifications' : '/tenant/notifications'}
-                    className="text-gray-600 hover:text-indigo-600 font-semibold text-sm relative"
-                  >
-                    Thông báo
-                    {unreadCount > 0 && (
-                      <span className="absolute -top-2 -right-3 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                        {unreadCount}
-                      </span>
-                    )}
-                  </Link>
+                  <NotificationDropdown
+                    user={currentUser}
+                    unreadCount={unreadCount}
+                    onRefreshCount={() => setUnreadCount(0)}
+                  />
                 )}
                 {currentUser ? (
-                  <div className="flex items-center gap-3">
-                    <Link
-                      to={role === 'LANDLORD' ? '/manager/profile' : '/tenant/profile'}
-                      className="flex items-center justify-center transition-transform hover:scale-105"
-                      title={currentUser.fullName}
-                    >
-                      <img
-                        src={avatarSrc}
-                        alt={currentUser.fullName}
-                        className="w-9 h-9 rounded-full object-cover border-2 border-indigo-100 shadow-xs"
-                      />
-                    </Link>
-                    <button onClick={logout} className="text-xs font-semibold text-red-600 hover:text-red-800 transition-colors">
-                      Đăng xuất
-                    </button>
-                  </div>
+                  <AccountQuickMenu user={currentUser} onLogout={logout} />
                 ) : (
                   <Link
                     to="/login"
@@ -172,11 +157,16 @@ function Layout() {
             <Route path="/property/:id" element={<PropertyDetail />} />
             <Route path="/users/:id" element={<PublicProfile />} />
             <Route path="/services" element={<ServicesPage />} />
+            <Route path="/services/:id" element={<ServiceDetail />} />
             <Route path="/secondhand" element={<SecondHandPage />} />
             <Route path="/secondhand/:id" element={<SecondHandDetail />} />
             <Route path="/blog" element={<BlogPage />} />
             <Route path="/blog/:id" element={<BlogDetail />} />
             <Route path="/qa" element={<QaPage />} />
+            <Route path="/rewards" element={<RewardsPage />} />
+            <Route path="/rewards/my-vouchers" element={<MyVouchersPage />} />
+            <Route path="/voucher/verify/:token" element={<VoucherVerifyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
 
             {/* Landlord manager routes */}
             <Route path="/manager" element={<ManagerDashboard view="posts" />} />

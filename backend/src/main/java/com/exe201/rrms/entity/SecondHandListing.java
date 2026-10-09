@@ -20,6 +20,7 @@ public class SecondHandListing {
     @Column(length = 255) private String district;
     @Column(columnDefinition = "TEXT") private String description;
     @Column(name = "image_url", columnDefinition = "LONGTEXT") private String imageUrl;
+    @Column(name = "gallery_json", columnDefinition = "LONGTEXT") private String galleryJson;
     @Column(length = 50) private String status = "ACTIVE";
     @Column(name = "expires_at") private LocalDateTime expiresAt;
     @Column(name = "created_at") private LocalDateTime createdAt;

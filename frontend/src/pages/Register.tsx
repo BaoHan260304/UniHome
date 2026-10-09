@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import SocialAuthSection from '../components/SocialAuthSection';
+import TermsModal from '../components/TermsModal';
 
 export default function Register() {
   const [role, setRole] = useState<'TENANT' | 'LANDLORD'>('TENANT');
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [f, setF] = useState({
     fullName: '',
     email: '',
@@ -234,7 +236,12 @@ export default function Register() {
                 type="checkbox"
                 checked={agreeTerms}
                 onChange={e => {
-                  setAgreeTerms(e.target.checked);
+                  if (!agreeTerms && !e.target.checked) return;
+                  if (!agreeTerms) {
+                    setShowTermsModal(true);
+                  } else {
+                    setAgreeTerms(e.target.checked);
+                  }
                   if (errors.agreeTerms) {
                     setErrors(prev => {
                       const copy = { ...prev };
@@ -246,12 +253,38 @@ export default function Register() {
                 className="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
               />
               <span>
-                Tôi đồng ý với <span className="text-indigo-600 font-medium">Điều khoản dịch vụ</span> và{' '}
-                <span className="text-indigo-600 font-medium">Chính sách bảo mật</span> của UniHome.
+                Tôi đồng ý với{' '}
+                <button
+                  type="button"
+                  onClick={() => setShowTermsModal(true)}
+                  className="text-indigo-600 font-bold underline hover:text-indigo-800"
+                >
+                  Điều khoản dịch vụ (26 điều)
+                </button>{' '}
+                và{' '}
+                <Link to="/terms" target="_blank" className="text-indigo-600 font-medium hover:underline">
+                  Chính sách bảo mật
+                </Link>{' '}
+                của UniHome.
               </span>
             </label>
             {errors.agreeTerms && <p className="text-xs text-red-600 mt-1">{errors.agreeTerms}</p>}
           </div>
+
+          {/* Terms Modal */}
+          <TermsModal
+            isOpen={showTermsModal}
+            onClose={() => setShowTermsModal(false)}
+            onAccept={() => {
+              setAgreeTerms(true);
+              setErrors(prev => {
+                const copy = { ...prev };
+                delete copy.agreeTerms;
+                return copy;
+              });
+            }}
+            isAccepted={agreeTerms}
+          />
 
           <button
             type="submit"

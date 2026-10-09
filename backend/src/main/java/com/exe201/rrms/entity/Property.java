@@ -15,6 +15,10 @@ public class Property {
  private LocalDateTime lastAvailabilityConfirmedAt;
  @Column(columnDefinition="TEXT") private String description;
  @Column(columnDefinition="LONGTEXT") private String imageUrl;
+ @Column(columnDefinition="LONGTEXT") private String mediaJson;
+ @Column(columnDefinition="LONGTEXT") private String verificationEvidenceJson;
+ private Integer panoramaCount = 0;
+ private Integer videoCount = 0;
  private Boolean autoDrafted=false;
  private LocalDateTime createdAt; private LocalDateTime updatedAt;
  @PrePersist void p(){createdAt=LocalDateTime.now();updatedAt=createdAt;} @PreUpdate void u(){updatedAt=LocalDateTime.now();}

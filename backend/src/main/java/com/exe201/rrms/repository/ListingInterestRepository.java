@@ -10,4 +10,5 @@ public interface ListingInterestRepository extends JpaRepository<ListingInterest
     List<ListingInterest> findByUserId(Long userId);
     long countByListingId(Long listingId);
     long countByListingIdAndMatchingEnabledTrue(Long listingId);
+    long countByUserId(Long userId);
 }

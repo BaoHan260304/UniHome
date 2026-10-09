@@ -5,8 +5,12 @@ import com.exe201.rrms.exception.ValidationException;
 import com.exe201.rrms.repository.*;
 import com.exe201.rrms.service.*;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.InputStream;
+import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -20,6 +24,9 @@ public class ListingController {
     private final FavoriteRepository favs;
     private final NotificationService noti;
     private final VerificationRecordRepository verifs;
+
+    @Value("${unihome.upload.dir:uploads}")
+    private String uploadDir;
 
     public ListingController(AuthService a, ListingRepository l, PropertyRepository p,
                              ListingInterestRepository i, FavoriteRepository f, NotificationService n,
@@ -72,6 +79,10 @@ public class ListingController {
                 m.put("availability", p.getAvailability());
                 m.put("lastAvailabilityConfirmedAt", p.getLastAvailabilityConfirmedAt());
                 m.put("imageUrl", p.getImageUrl());
+                m.put("mediaJson", p.getMediaJson());
+                m.put("verificationEvidenceJson", p.getVerificationEvidenceJson());
+                m.put("panoramaCount", p.getPanoramaCount());
+                m.put("videoCount", p.getVideoCount());
             }
             VerificationRecord v = verifs.findByListingIdOrderByCreatedAtDesc(l.getId()).stream()
                     .filter(x -> "VERIFIED".equals(x.getStatus())).findFirst().orElse(null);
@@ -99,10 +110,14 @@ public class ListingController {
         l.setLandlordId(u.getId());
         l.setTitle(Objects.toString(b.get("title"), p.getName()));
         String listingStatus = Objects.toString(b.get("listingStatus"), "DRAFT");
-        l.setStatus(listingStatus);
-        if ("PENDING_REVIEW".equals(l.getStatus())) {
+        if ("PENDING_REVIEW".equals(listingStatus)) {
+            int imgCount = countImages(p.getImageUrl(), p.getMediaJson());
+            if (imgCount < 4) {
+                throw new ValidationException("images", "Vui lòng tải lên tối thiểu 4 hình ảnh phòng trọ (toàn cảnh, lối vào, WC, bếp,...) trước khi gửi duyệt.");
+            }
             l.setFreshnessDueAt(LocalDateTime.now().plusDays(15));
         }
+        l.setStatus(listingStatus);
         l = listings.save(l);
         return Map.of("property", p, "listing", l);
     }
@@ -129,8 +144,14 @@ public class ListingController {
         User u = auth.current(r);
         Listing l = listings.findById(id).orElseThrow();
         owner(u, l);
+        Property p = props.findById(l.getPropertyId()).orElseThrow();
+        int imgCount = countImages(p.getImageUrl(), p.getMediaJson());
+        if (imgCount < 4) {
+            throw new ValidationException("images", "Vui lòng tải lên tối thiểu 4 hình ảnh phòng trọ (toàn cảnh, lối vào, WC, bếp,...) trước khi gửi duyệt.");
+        }
         l.setStatus("PENDING_REVIEW");
         l.setRevisionNote(null);
+        l.setFreshnessDueAt(LocalDateTime.now().plusDays(15));
         return listings.save(l);
     }
 
@@ -191,6 +212,16 @@ public class ListingController {
         owner(u, l);
         l.setStatus("ARCHIVED");
         l.setArchivedAt(LocalDateTime.now());
+        return listings.save(l);
+    }
+
+    @PostMapping("/{id}/restore")
+    public Listing restore(@PathVariable Long id, HttpServletRequest r) {
+        User u = auth.current(r);
+        Listing l = listings.findById(id).orElseThrow();
+        owner(u, l);
+        l.setStatus("DRAFT");
+        l.setArchivedAt(null);
         return listings.save(l);
     }
 
@@ -367,6 +398,85 @@ public class ListingController {
         }
     }
 
+    @PostMapping("/media")
+    public Map<String, Object> uploadMedia(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "mediaType", defaultValue = "IMAGE") String mediaType,
+            HttpServletRequest req
+    ) throws Exception {
+        auth.current(req);
+        if (file == null || file.isEmpty()) throw new ValidationException("file", "Vui lòng chọn file phương tiện");
+
+        String contentType = file.getContentType() != null ? file.getContentType().toLowerCase() : "";
+        long size = file.getSize();
+
+        if ("PANORAMA_360".equalsIgnoreCase(mediaType)) {
+            if (size > 15 * 1024 * 1024) throw new ValidationException("file", "Ảnh 360 panorama không được vượt quá 15MB");
+            if (!Set.of("image/jpeg", "image/png", "image/webp").contains(contentType)) {
+                throw new ValidationException("file", "Ảnh 360 phải có định dạng JPG, PNG hoặc WEBP");
+            }
+        } else if ("VIDEO".equalsIgnoreCase(mediaType)) {
+            if (size > 100 * 1024 * 1024) throw new ValidationException("file", "Video không được vượt quá 100MB");
+            if (!Set.of("video/mp4", "video/webm").contains(contentType)) {
+                throw new ValidationException("file", "Video phải có định dạng MP4 hoặc WEBM");
+            }
+        } else if ("VERIFICATION_EVIDENCE".equalsIgnoreCase(mediaType)) {
+            if (size > 50 * 1024 * 1024) throw new ValidationException("file", "File minh chứng không được vượt quá 50MB");
+        } else { // default IMAGE
+            if (size > 8 * 1024 * 1024) throw new ValidationException("file", "Ảnh phòng không được vượt quá 8MB");
+            if (!Set.of("image/jpeg", "image/png", "image/webp").contains(contentType)) {
+                throw new ValidationException("file", "Ảnh phòng phải có định dạng JPG, PNG hoặc WEBP");
+            }
+        }
+
+        Path uploadPath = Paths.get(uploadDir, "media");
+        if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
+
+        String ext = "jpg";
+        String orig = file.getOriginalFilename();
+        if (orig != null && orig.contains(".")) {
+            ext = orig.substring(orig.lastIndexOf('.') + 1).toLowerCase();
+        }
+
+        String uniqueName = "med_" + UUID.randomUUID().toString().replace("-", "") + "." + ext;
+        Path target = uploadPath.resolve(uniqueName);
+        try (InputStream in = file.getInputStream()) {
+            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+
+        String url = "/uploads/media/" + uniqueName;
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("url", url);
+        res.put("mediaType", mediaType.toUpperCase());
+        res.put("originalName", orig != null ? orig : uniqueName);
+        res.put("size", size);
+        return res;
+    }
+
+    private int countImages(String imageUrl, String mediaJson) {
+        int count = 0;
+        if (mediaJson != null && !mediaJson.isBlank()) {
+            int idx = 0;
+            while ((idx = mediaJson.indexOf("\"url\"", idx)) != -1) {
+                count++;
+                idx += 5;
+            }
+        }
+        if (count == 0 && imageUrl != null && !imageUrl.isBlank()) {
+            if (imageUrl.startsWith("[")) {
+                int idx = 0;
+                while ((idx = imageUrl.indexOf("http", idx)) != -1 || (idx = imageUrl.indexOf("/uploads", idx)) != -1) {
+                    count++;
+                    idx += 8;
+                }
+            } else {
+                String[] parts = imageUrl.split(",");
+                count = (int) Arrays.stream(parts).filter(s -> !s.isBlank()).count();
+            }
+        }
+        return count;
+    }
+
     private void apply(Property p, Map<String, Object> b) {
         p.setName(str(b, "name", p.getName()));
         p.setProvince(str(b, "province", p.getProvince()));
@@ -400,6 +510,10 @@ public class ListingController {
         p.setDescription(str(b, "description", p.getDescription()));
         p.setImageUrl(str(b, "imageUrl", p.getImageUrl()));
         p.setAvailability(str(b, "availability", p.getAvailability()));
+        p.setMediaJson(str(b, "mediaJson", p.getMediaJson()));
+        p.setVerificationEvidenceJson(str(b, "verificationEvidenceJson", p.getVerificationEvidenceJson()));
+        p.setPanoramaCount(integer(b, "panoramaCount", p.getPanoramaCount() != null ? p.getPanoramaCount() : 0));
+        p.setVideoCount(integer(b, "videoCount", p.getVideoCount() != null ? p.getVideoCount() : 0));
     }
 
     private String str(Map<String, Object> b, String k, String d) { return b.get(k) == null ? d : b.get(k).toString(); }

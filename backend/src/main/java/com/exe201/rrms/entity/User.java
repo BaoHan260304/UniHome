@@ -35,6 +35,14 @@ public class User {
  private LocalDateTime phoneVerifiedAt;
  private LocalDateTime createdAt;
  private LocalDateTime lastLoginAt;
+ private String termsVersion;
+ private LocalDateTime termsAcceptedAt;
+ private String privacyVersion;
+ private LocalDateTime privacyAcceptedAt;
+ private String preferredLocationName;
+ private Double preferredLat;
+ private Double preferredLng;
+ private String contactVisibility = "LOGIN_REQUIRED";
  // Legacy fields kept only for backward compatibility with the original DB.
  private Integer postLimit=3;
  private String packageExpiryDate;

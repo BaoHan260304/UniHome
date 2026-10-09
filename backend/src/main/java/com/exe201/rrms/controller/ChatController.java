@@ -20,10 +20,16 @@ public class ChatController {
     private final PropertyRepository props;
     private final SecondHandListingRepository secondHand;
     private final ServiceListingRepository services;
+    private final UserBlockRepository blocks;
+    private final ConversationParticipantSettingRepository participantSettings;
+    private final ReportRepository reports;
 
     public ChatController(AuthService auth, ConversationRepository conversations, MessageRepository messages,
                           UserRepository users, ListingRepository listings, PropertyRepository props,
-                          SecondHandListingRepository secondHand, ServiceListingRepository services) {
+                          SecondHandListingRepository secondHand, ServiceListingRepository services,
+                          UserBlockRepository blocks,
+                          ConversationParticipantSettingRepository participantSettings,
+                          ReportRepository reports) {
         this.auth = auth;
         this.conversations = conversations;
         this.messages = messages;
@@ -32,6 +38,9 @@ public class ChatController {
         this.props = props;
         this.secondHand = secondHand;
         this.services = services;
+        this.blocks = blocks;
+        this.participantSettings = participantSettings;
+        this.reports = reports;
     }
 
     @GetMapping("/conversations")
@@ -42,6 +51,15 @@ public class ChatController {
 
         for (Conversation c : list) {
             Long otherId = c.getUser1Id().equals(me) ? c.getUser2Id() : c.getUser1Id();
+            if (blocks.existsByBlockerIdAndBlockedId(me, otherId) || blocks.existsByBlockerIdAndBlockedId(otherId, me)) {
+                continue; // Skip blocked conversations
+            }
+
+            var setting = participantSettings.findByConversationIdAndUserId(c.getId(), me).orElse(null);
+            if (setting != null && Boolean.TRUE.equals(setting.getIsHidden())) {
+                continue; // Skip hidden conversations
+            }
+
             User other = users.findById(otherId).orElse(null);
 
             Map<String, Object> dto = new LinkedHashMap<>();
@@ -51,6 +69,8 @@ public class ChatController {
             dto.put("otherUserName", other != null ? other.getFullName() : "Người dùng #" + otherId);
             dto.put("otherUserAvatar", other != null ? other.getAvatarUrl() : null);
             dto.put("otherUserRole", other != null ? other.getRole() : "TENANT");
+            dto.put("isMuted", setting != null && Boolean.TRUE.equals(setting.getIsMuted()));
+            dto.put("isHidden", setting != null && Boolean.TRUE.equals(setting.getIsHidden()));
 
             dto.put("contextType", c.getContextType());
             dto.put("contextId", c.getContextId());
@@ -144,6 +164,11 @@ public class ChatController {
         checkConversationPermission(user, c);
         if (input.getContent() == null || input.getContent().isBlank()) throw new IllegalArgumentException("Tin nhắn không được để trống");
 
+        Long otherId = c.getUser1Id().equals(user.getId()) ? c.getUser2Id() : c.getUser1Id();
+        if (blocks.existsByBlockerIdAndBlockedId(user.getId(), otherId) || blocks.existsByBlockerIdAndBlockedId(otherId, user.getId())) {
+            throw new IllegalArgumentException("Không thể gửi tin nhắn cho người dùng này do trạng thái chặn");
+        }
+
         Message message = new Message();
         message.setConversationId(conversationId);
         message.setSenderId(user.getId());
@@ -233,5 +258,56 @@ public class ChatController {
         if (!userId.equals(c.getUser1Id()) && !userId.equals(c.getUser2Id())) {
             throw new SecurityException("Bạn không thuộc hội thoại này");
         }
+    }
+
+    @PostMapping("/{conversationId}/mute")
+    public Map<String, Object> toggleMute(@PathVariable Long conversationId, HttpServletRequest request) {
+        User user = auth.current(request);
+        Conversation c = conversations.findById(conversationId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hội thoại"));
+        checkConversationPermission(user, c);
+
+        ConversationParticipantSetting setting = participantSettings.findByConversationIdAndUserId(conversationId, user.getId())
+                .orElseGet(() -> {
+                    ConversationParticipantSetting s = new ConversationParticipantSetting();
+                    s.setConversationId(conversationId);
+                    s.setUserId(user.getId());
+                    return s;
+                });
+        setting.setIsMuted(!Boolean.TRUE.equals(setting.getIsMuted()));
+        participantSettings.save(setting);
+        return Map.of("conversationId", conversationId, "isMuted", setting.getIsMuted());
+    }
+
+    @PostMapping("/{conversationId}/hide")
+    public Map<String, Object> toggleHide(@PathVariable Long conversationId, HttpServletRequest request) {
+        User user = auth.current(request);
+        Conversation c = conversations.findById(conversationId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hội thoại"));
+        checkConversationPermission(user, c);
+
+        ConversationParticipantSetting setting = participantSettings.findByConversationIdAndUserId(conversationId, user.getId())
+                .orElseGet(() -> {
+                    ConversationParticipantSetting s = new ConversationParticipantSetting();
+                    s.setConversationId(conversationId);
+                    s.setUserId(user.getId());
+                    return s;
+                });
+        setting.setIsHidden(!Boolean.TRUE.equals(setting.getIsHidden()));
+        participantSettings.save(setting);
+        return Map.of("conversationId", conversationId, "isHidden", setting.getIsHidden());
+    }
+
+    @PostMapping("/messages/{id}/report")
+    public Map<String, Object> reportMessage(@PathVariable Long id, @RequestBody Map<String, String> body, HttpServletRequest request) {
+        User user = auth.current(request);
+        Message msg = messages.findById(id).orElseThrow(() -> new IllegalArgumentException("Tin nhắn không tồn tại"));
+        Report rep = new Report();
+        rep.setReporterId(user.getId());
+        rep.setTargetType("MESSAGE");
+        rep.setTargetId(id);
+        rep.setReasonCode(body.getOrDefault("reason", "VIOLATION"));
+        rep.setDetails(body.getOrDefault("description", "Báo cáo tin nhắn: " + msg.getContent()));
+        rep.setStatus("OPEN");
+        reports.save(rep);
+        return Map.of("success", true, "message", "Báo cáo tin nhắn đã được gửi đến ban quản trị");
     }
 }

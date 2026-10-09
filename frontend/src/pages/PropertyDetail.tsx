@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api, getUser, mediaList, money, resolveMediaUrl } from '../lib/api';
 import AdSlot from '../components/AdSlot';
 import RoomCard from '../components/RoomCard';
+import PanoramaViewer from '../components/PanoramaViewer';
 
 export default function PropertyDetail() {
   const { id } = useParams();
@@ -14,6 +15,8 @@ export default function PropertyDetail() {
   const [match, setMatch] = useState<any[]>([]);
   const [similar, setSimilar] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
+  const [panoramas, setPanoramas] = useState<string[]>([]);
+  const [activePanoramaUrl, setActivePanoramaUrl] = useState<string | null>(null);
   const [interestStatus, setInterestStatus] = useState<{ interested: boolean; matchingEnabled: boolean; favorite: boolean }>({
     interested: false,
     matchingEnabled: false,
@@ -30,6 +33,18 @@ export default function PropertyDetail() {
       const r = await api.get(`/marketplace/listings/${id}`);
       const d = r.data;
       setProp(d);
+
+      // Extract 360 panorama URLs
+      let pList: string[] = [];
+      if (d.mediaJson) {
+        try {
+          const arr = JSON.parse(d.mediaJson);
+          if (Array.isArray(arr)) {
+            pList = arr.filter((x: any) => x.mediaType === 'PANORAMA_360').map((x: any) => x.url);
+          }
+        } catch {}
+      }
+      setPanoramas(pList);
 
       try {
         const lr = await api.get(`/users/${d.landlordId}/public`);
@@ -171,23 +186,39 @@ export default function PropertyDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-8">
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
           {/* Gallery */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-1 bg-gray-100">
-            {media.length ? (
-              media.map((u: string, i: number) => {
-                const resolved = resolveMediaUrl(u);
-                return (
-                  <div key={i} className={`${media.length === 1 ? 'md:col-span-2' : ''} h-72 md:h-96`}>
-                    {u.startsWith('data:video') ? (
-                      <video src={resolved} controls className="w-full h-full object-cover" />
-                    ) : (
-                      <img src={resolved} alt={prop.title} className="w-full h-full object-cover" />
-                    )}
-                  </div>
-                );
-              })
-            ) : (
-              <div className="md:col-span-2 h-64 flex items-center justify-center text-gray-400">
-                Không có hình ảnh/video
+          <div className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1 bg-gray-100">
+              {media.length ? (
+                media.map((u: string, i: number) => {
+                  const resolved = resolveMediaUrl(u);
+                  const isVid = u.startsWith('data:video') || u.endsWith('.mp4') || u.endsWith('.webm');
+                  return (
+                    <div key={i} className={`${media.length === 1 ? 'md:col-span-2' : ''} h-72 md:h-96 bg-black relative`}>
+                      {isVid ? (
+                        <video src={resolved} controls playsInline preload="metadata" className="w-full h-full object-cover" />
+                      ) : (
+                        <img src={resolved} alt={prop.title} className="w-full h-full object-cover" />
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="md:col-span-2 h-64 flex items-center justify-center text-gray-400">
+                  Không có hình ảnh/video
+                </div>
+              )}
+            </div>
+
+            {/* 360 Panorama CTA button */}
+            {panoramas.length > 0 && (
+              <div className="absolute bottom-4 right-4 z-10">
+                <button
+                  onClick={() => setActivePanoramaUrl(panoramas[0])}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-2xl font-bold text-xs shadow-lg flex items-center gap-2 backdrop-blur-xs transition-all hover:scale-105"
+                >
+                  <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-extrabold">360°</span>
+                  Trải nghiệm Panorama ({panoramas.length})
+                </button>
               </div>
             )}
           </div>
@@ -539,6 +570,46 @@ export default function PropertyDetail() {
             ))}
           </div>
         </section>
+      )}
+
+      {/* 360 Panorama Interactive Modal */}
+      {activePanoramaUrl && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 space-y-4 shadow-2xl relative">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full">360°</span>
+                <h3 className="font-extrabold text-base sm:text-lg text-gray-900 truncate max-w-lg">
+                  Xem phòng 360° Panorama - {prop.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setActivePanoramaUrl(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {panoramas.length > 1 && (
+              <div className="flex gap-2">
+                {panoramas.map((u, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActivePanoramaUrl(u)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      activePanoramaUrl === u ? 'bg-indigo-600 text-white shadow-xs' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Góc chụp {i + 1}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <PanoramaViewer src={resolveMediaUrl(activePanoramaUrl)} />
+          </div>
+        </div>
       )}
     </div>
   );
