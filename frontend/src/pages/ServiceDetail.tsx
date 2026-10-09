@@ -71,10 +71,9 @@ export default function ServiceDetail() {
       contextId: service.id,
     }).then((res) => {
       const convId = res.data?.id || res.data?.conversationId;
-      const targetRoute = currentUser.role === 'TENANT' ? '/tenant/chat' : '/chat';
-      navigate(targetRoute, { state: { openConversationId: convId } });
+      navigate(convId ? `/chat?conversationId=${convId}` : '/chat');
     }).catch(() => {
-      navigate(currentUser.role === 'TENANT' ? '/tenant/chat' : '/chat');
+      navigate('/chat');
     });
   };
 

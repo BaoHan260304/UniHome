@@ -109,8 +109,7 @@ export default function MatchingPage() {
     api.post('/chat/conversations', {
       otherUserId: m.userId,
       contextType: listingId ? 'ROOM_MATCH' : 'NEARBY_MATCH',
-      contextId: Number(listingId || 0)
-    }).then(() => nav('/chat'));
+    }).then(res => nav(`/chat?conversationId=${res.data?.id || res.data?.conversationId || ''}`));
 
   const social = (m: any) => m.facebookUrl || m.zaloUrl || m.otherSocialUrl;
 

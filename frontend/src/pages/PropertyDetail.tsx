@@ -142,7 +142,7 @@ export default function PropertyDetail() {
   const chatUser = (otherUserId: number, contextType = 'ROOM', contextId: number = Number(prop.listingId)) => {
     if (!user) return requireLogin('CHAT');
     void api.post('/chat/conversations', { otherUserId, contextType, contextId })
-      .then(() => nav(user.role === 'LANDLORD' ? '/chat' : '/tenant/chat'));
+      .then((res) => nav(`/chat?conversationId=${res.data?.id || res.data?.conversationId || ''}`));
   };
 
   const report = () => {

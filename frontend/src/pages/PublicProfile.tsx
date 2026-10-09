@@ -51,7 +51,7 @@ export default function PublicProfile() {
   const chat = () => {
     if (!me) return nav('/login');
     api.post('/chat/conversations', { otherUserId: Number(id), contextType: 'PROFILE', contextId: Number(id) })
-      .then(() => nav('/chat'));
+      .then(res => nav(`/chat?conversationId=${res.data?.id || res.data?.conversationId || ''}`));
   };
 
   const avatar = p.avatarUrl

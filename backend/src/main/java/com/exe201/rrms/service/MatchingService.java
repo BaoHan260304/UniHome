@@ -14,12 +14,14 @@ public class MatchingService {
     private final ListingInterestRepository interests;
     private final UserRepository users;
     private final AiCompatibilityService ai;
+    private final UserBlockRepository blocks;
 
-    public MatchingService(MatchingProfileRepository p, ListingInterestRepository i, UserRepository u, AiCompatibilityService ai) {
+    public MatchingService(MatchingProfileRepository p, ListingInterestRepository i, UserRepository u, AiCompatibilityService ai, UserBlockRepository blocks) {
         this.profiles = p;
         this.interests = i;
         this.users = u;
         this.ai = ai;
+        this.blocks = blocks;
     }
 
     public List<Map<String, Object>> sameRoom(Long userId, Long listingId) {
@@ -37,6 +39,9 @@ public class MatchingService {
 
         for (ListingInterest in : inPool) {
             if (in.getUserId().equals(userId)) continue;
+            if (blocks.existsByBlockerIdAndBlockedId(userId, in.getUserId()) || blocks.existsByBlockerIdAndBlockedId(in.getUserId(), userId)) {
+                continue;
+            }
             profiles.findByUserId(in.getUserId())
                     .filter(x -> Boolean.TRUE.equals(x.getEnabled()))
                     .ifPresent(p -> {
@@ -74,6 +79,9 @@ public class MatchingService {
 
         for (MatchingProfile p : candidates) {
             if (p.getUserId().equals(userId)) continue;
+            if (blocks.existsByBlockerIdAndBlockedId(userId, p.getUserId()) || blocks.existsByBlockerIdAndBlockedId(p.getUserId(), userId)) {
+                continue;
+            }
             if (p.getLatitude() == null || p.getLongitude() == null) continue;
 
             double d = GeoUtil.km(me.getLatitude(), me.getLongitude(), p.getLatitude(), p.getLongitude());

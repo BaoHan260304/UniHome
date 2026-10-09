@@ -72,7 +72,7 @@ export default function SecondHandDetail() {
       otherUserId: item.sellerId,
       contextType: 'SECOND_HAND',
       contextId: item.id
-    }).then(() => nav(user.role === 'LANDLORD' ? '/chat' : '/tenant/chat'));
+    }).then((res) => nav(`/chat?conversationId=${res.data?.id || res.data?.conversationId || ''}`));
   };
 
   const sellerAvatar = item.sellerAvatar

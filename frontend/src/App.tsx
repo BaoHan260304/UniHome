@@ -60,10 +60,27 @@ function Layout() {
         .catch(() => setUnreadCount(0));
 
       void api.get('/chat/unread-count')
-        .then(r => setUnreadChatCount(r.data?.unreadCount || 0))
+        .then(r => setUnreadChatCount(r.data?.unreadMessages ?? r.data?.unreadCount ?? 0))
         .catch(() => setUnreadChatCount(0));
     }
   }, [location.pathname, currentUser?.id, isAuthPage]);
+
+  // Reactive listener for chat unread events
+  useEffect(() => {
+    const refreshChatUnread = () => {
+      if (currentUser && !isAuthPage) {
+        void api.get('/chat/unread-count')
+          .then(r => setUnreadChatCount(r.data?.unreadMessages ?? r.data?.unreadCount ?? 0))
+          .catch(() => setUnreadChatCount(0));
+      }
+    };
+    window.addEventListener('chat_unread_changed', refreshChatUnread);
+    const interval = setInterval(refreshChatUnread, 8000);
+    return () => {
+      window.removeEventListener('chat_unread_changed', refreshChatUnread);
+      clearInterval(interval);
+    };
+  }, [currentUser?.id, isAuthPage]);
 
   const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'VERIFIER', 'CONTENT_ADMIN', 'FINANCE_ADMIN'];
   const role = currentUser?.role;

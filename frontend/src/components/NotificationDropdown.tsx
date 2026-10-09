@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 
 interface NotificationDropdownProps {
@@ -9,6 +9,7 @@ interface NotificationDropdownProps {
 }
 
 export default function NotificationDropdown({ user, unreadCount, onRefreshCount }: NotificationDropdownProps) {
+  const nav = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'activity' | 'news'>('activity');
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -59,7 +60,7 @@ export default function NotificationDropdown({ user, unreadCount, onRefreshCount
   };
 
   // Filter by tab
-  const activityTypes = ['INTEREST', 'MATCHING', 'CHAT', 'MESSAGE', 'LISTING_APPROVED', 'LISTING_REJECTED'];
+  const activityTypes = ['INTEREST', 'MATCHING', 'CHAT', 'MESSAGE', 'CHAT_MESSAGE', 'LISTING_APPROVED', 'LISTING_REJECTED'];
   const filteredList = notifications.filter((n) => {
     const isActivity = activityTypes.includes(n.type?.toUpperCase());
     return activeTab === 'activity' ? isActivity : !isActivity;
@@ -139,7 +140,13 @@ export default function NotificationDropdown({ user, unreadCount, onRefreshCount
                 return (
                   <div
                     key={n.id}
-                    onClick={() => isUnread && markSingleAsRead(n.id)}
+                    onClick={() => {
+                      if (isUnread) void markSingleAsRead(n.id);
+                      if ((n.type === 'CHAT_MESSAGE' || n.type === 'CHAT' || n.type === 'MESSAGE') && n.referenceId) {
+                        setIsOpen(false);
+                        nav(`/chat?conversationId=${n.referenceId}`);
+                      }
+                    }}
                     className={`px-5 py-3 hover:bg-gray-50 transition-colors cursor-pointer flex gap-3 items-start ${
                       isUnread ? 'bg-indigo-50/40' : ''
                     }`}

@@ -4,6 +4,7 @@ import com.exe201.rrms.entity.*;
 import com.exe201.rrms.repository.*;
 import com.exe201.rrms.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -47,33 +48,54 @@ public class ChatController {
     }
 
     @GetMapping("/conversations")
-    public List<Map<String, Object>> getConversations(HttpServletRequest request) {
+    public Map<String, Object> getConversations(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "30") int size,
+            @RequestParam(defaultValue = "ALL") String filter,
+            @RequestParam(required = false) String keyword,
+            HttpServletRequest request) {
         Long me = auth.current(request).getId();
         List<Conversation> list = conversations.findByUser1IdOrUser2IdOrderByUpdatedAtDesc(me, me);
-        List<Map<String, Object>> result = new ArrayList<>();
+        List<Map<String, Object>> filtered = new ArrayList<>();
 
         for (Conversation c : list) {
             Long otherId = c.getUser1Id().equals(me) ? c.getUser2Id() : c.getUser1Id();
-            if (blocks.existsByBlockerIdAndBlockedId(me, otherId) || blocks.existsByBlockerIdAndBlockedId(otherId, me)) {
-                continue; // Skip blocked conversations
-            }
+            boolean isBlockedByMe = blocks.existsByBlockerIdAndBlockedId(me, otherId);
+            boolean isBlockedByOther = blocks.existsByBlockerIdAndBlockedId(otherId, me);
+            boolean isBlocked = isBlockedByMe || isBlockedByOther;
 
             var setting = participantSettings.findByConversationIdAndUserId(c.getId(), me).orElse(null);
-            if (setting != null && Boolean.TRUE.equals(setting.getIsHidden())) {
-                continue; // Skip hidden conversations
+            boolean isHidden = setting != null && Boolean.TRUE.equals(setting.getIsHidden());
+            boolean isMuted = setting != null && Boolean.TRUE.equals(setting.getIsMuted());
+
+            long unread = messages.countByConversationIdAndSenderIdNotAndReadAtIsNull(c.getId(), me);
+
+            // Tab filtering
+            if ("HIDDEN".equalsIgnoreCase(filter)) {
+                if (!isHidden) continue;
+            } else if ("UNREAD".equalsIgnoreCase(filter)) {
+                if (isHidden || unread == 0) continue;
+            } else { // "ALL"
+                if (isHidden) continue;
             }
 
             User other = users.findById(otherId).orElse(null);
+            String otherName = (other != null && other.getFullName() != null && !other.getFullName().isBlank())
+                    ? other.getFullName().trim()
+                    : (other != null && other.getEmail() != null ? other.getEmail().split("@")[0] : "Người dùng");
 
             Map<String, Object> dto = new LinkedHashMap<>();
             dto.put("id", c.getId());
             dto.put("conversationId", c.getId());
             dto.put("otherUserId", otherId);
-            dto.put("otherUserName", other != null ? other.getFullName() : "Người dùng #" + otherId);
+            dto.put("otherUserName", otherName);
             dto.put("otherUserAvatar", other != null ? other.getAvatarUrl() : null);
-            dto.put("otherUserRole", other != null ? other.getRole() : "TENANT");
-            dto.put("isMuted", setting != null && Boolean.TRUE.equals(setting.getIsMuted()));
-            dto.put("isHidden", setting != null && Boolean.TRUE.equals(setting.getIsHidden()));
+            dto.put("otherUserRole", other != null ? other.getRole() : "USER");
+            dto.put("isMuted", isMuted);
+            dto.put("isHidden", isHidden);
+            dto.put("isBlocked", isBlocked);
+            dto.put("isBlockedByMe", isBlockedByMe);
+            dto.put("isBlockedByOther", isBlockedByOther);
 
             dto.put("contextType", c.getContextType());
             dto.put("contextId", c.getContextId());
@@ -94,20 +116,41 @@ public class ChatController {
                 dto.put("lastSenderId", null);
             }
 
-            long unread = messages.countByConversationIdAndSenderIdNotAndReadAtIsNull(c.getId(), me);
             dto.put("unreadCount", unread);
 
-            result.add(dto);
+            // Search filter by keyword
+            if (keyword != null && !keyword.isBlank()) {
+                String kw = keyword.toLowerCase().trim();
+                boolean match = otherName.toLowerCase().contains(kw)
+                        || (dto.get("lastMessage") != null && dto.get("lastMessage").toString().toLowerCase().contains(kw))
+                        || (dto.get("contextTitle") != null && dto.get("contextTitle").toString().toLowerCase().contains(kw));
+                if (!match) continue;
+            }
+
+            filtered.add(dto);
         }
 
-        return result;
+        int total = filtered.size();
+        int start = Math.min(page * size, total);
+        int end = Math.min(start + size, total);
+        List<Map<String, Object>> pageContent = filtered.subList(start, end);
+        int totalPages = size > 0 ? (int) Math.ceil((double) total / size) : 1;
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("content", pageContent);
+        res.put("page", page);
+        res.put("size", size);
+        res.put("totalElements", total);
+        res.put("totalPages", totalPages);
+        return res;
     }
 
     @GetMapping("/unread-count")
     public Map<String, Object> getUnreadCount(HttpServletRequest request) {
         Long me = auth.current(request).getId();
         List<Conversation> list = conversations.findByUser1IdOrUser2IdOrderByUpdatedAtDesc(me, me);
-        long totalUnread = 0;
+        long totalUnreadMessages = 0;
+        long totalUnreadConversations = 0;
         for (Conversation c : list) {
             Long otherId = c.getUser1Id().equals(me) ? c.getUser2Id() : c.getUser1Id();
             if (blocks.existsByBlockerIdAndBlockedId(me, otherId) || blocks.existsByBlockerIdAndBlockedId(otherId, me)) {
@@ -117,9 +160,17 @@ public class ChatController {
             if (setting != null && Boolean.TRUE.equals(setting.getIsHidden())) {
                 continue;
             }
-            totalUnread += messages.countByConversationIdAndSenderIdNotAndReadAtIsNull(c.getId(), me);
+            long unread = messages.countByConversationIdAndSenderIdNotAndReadAtIsNull(c.getId(), me);
+            if (unread > 0) {
+                totalUnreadMessages += unread;
+                totalUnreadConversations++;
+            }
         }
-        return Map.of("unreadCount", totalUnread);
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("unreadMessages", totalUnreadMessages);
+        res.put("unreadConversations", totalUnreadConversations);
+        res.put("unreadCount", totalUnreadMessages);
+        return res;
     }
 
     @PostMapping("/conversations")
@@ -179,10 +230,11 @@ public class ChatController {
     }
 
     @GetMapping("/{conversationId}/messages")
-    public List<Message> getMessages(@PathVariable Long conversationId,
-                                    @RequestParam(required = false) Long beforeId,
-                                    @RequestParam(defaultValue = "50") int size,
-                                    HttpServletRequest request) {
+    public Map<String, Object> getMessages(@PathVariable Long conversationId,
+                                          @RequestParam(required = false) Long beforeId,
+                                          @RequestParam(required = false) Long afterId,
+                                          @RequestParam(defaultValue = "30") int size,
+                                          HttpServletRequest request) {
         User user = auth.current(request);
         Conversation c = conversations.findById(conversationId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hội thoại"));
         checkConversationPermission(user, c);
@@ -197,14 +249,28 @@ public class ChatController {
             messages.saveAll(unread);
         }
 
-        List<Message> all = messages.findByConversationIdOrderBySentAtAsc(conversationId);
-        if (beforeId != null) {
-            all = all.stream().filter(m -> m.getId() < beforeId).toList();
+        List<Message> list;
+        boolean hasMore = false;
+
+        if (afterId != null) {
+            // Polling newer messages
+            list = messages.findByConversationIdAndIdGreaterThanOrderByIdAsc(conversationId, afterId);
+        } else if (beforeId != null) {
+            // Pagination: load older messages
+            list = new ArrayList<>(messages.findByConversationIdAndIdLessThanOrderByIdDesc(conversationId, beforeId, PageRequest.of(0, size)));
+            Collections.reverse(list); // chronological
+            hasMore = !list.isEmpty() && messages.countByConversationIdAndIdLessThan(conversationId, list.get(0).getId()) > 0;
+        } else {
+            // Initial load: newest messages
+            list = new ArrayList<>(messages.findByConversationIdOrderByIdDesc(conversationId, PageRequest.of(0, size)));
+            Collections.reverse(list); // chronological
+            hasMore = !list.isEmpty() && messages.countByConversationIdAndIdLessThan(conversationId, list.get(0).getId()) > 0;
         }
-        if (all.size() > size) {
-            all = all.subList(all.size() - size, all.size());
-        }
-        return all;
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("messages", list);
+        res.put("hasMore", hasMore);
+        return res;
     }
 
     @PostMapping("/{conversationId}/messages")
@@ -230,12 +296,27 @@ public class ChatController {
         c.setUpdatedAt(LocalDateTime.now());
         conversations.save(c);
 
-        // Send in-app notification if not muted
+        // Auto-unhide for both sender and recipient if hidden
+        try {
+            var otherSetting = participantSettings.findByConversationIdAndUserId(conversationId, otherId).orElse(null);
+            if (otherSetting != null && Boolean.TRUE.equals(otherSetting.getIsHidden())) {
+                otherSetting.setIsHidden(false);
+                participantSettings.save(otherSetting);
+            }
+            var mySetting = participantSettings.findByConversationIdAndUserId(conversationId, user.getId()).orElse(null);
+            if (mySetting != null && Boolean.TRUE.equals(mySetting.getIsHidden())) {
+                mySetting.setIsHidden(false);
+                participantSettings.save(mySetting);
+            }
+        } catch (Exception ignored) {}
+
+        // Send in-app Bell notification ONLY if other user has NOT muted this conversation
         try {
             var otherSetting = participantSettings.findByConversationIdAndUserId(conversationId, otherId).orElse(null);
             if (otherSetting == null || !Boolean.TRUE.equals(otherSetting.getIsMuted())) {
+                String senderName = (user.getFullName() != null && !user.getFullName().isBlank()) ? user.getFullName() : "Người dùng";
                 String preview = message.getContent().length() > 60 ? message.getContent().substring(0, 57) + "..." : message.getContent();
-                noti.send(otherId, "CHAT_MESSAGE", user.getFullName() + ": " + preview, "CONVERSATION", conversationId);
+                noti.send(user.getId(), otherId, "CHAT_MESSAGE", "Tin nhắn mới từ " + senderName + ": " + preview, "CONVERSATION", conversationId);
             }
         } catch (Exception ignored) {}
 
@@ -370,6 +451,68 @@ public class ChatController {
         return Map.of("conversationId", conversationId, "isHidden", setting.getIsHidden());
     }
 
+    @PostMapping("/{conversationId}/unhide")
+    public Map<String, Object> unhide(@PathVariable Long conversationId, HttpServletRequest request) {
+        User user = auth.current(request);
+        Conversation c = conversations.findById(conversationId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hội thoại"));
+        checkConversationPermission(user, c);
+
+        ConversationParticipantSetting setting = participantSettings.findByConversationIdAndUserId(conversationId, user.getId())
+                .orElseGet(() -> {
+                    ConversationParticipantSetting s = new ConversationParticipantSetting();
+                    s.setConversationId(conversationId);
+                    s.setUserId(user.getId());
+                    return s;
+                });
+        setting.setIsHidden(false);
+        participantSettings.save(setting);
+        return Map.of("conversationId", conversationId, "isHidden", false);
+    }
+
+    @PostMapping("/{conversationId}/unread")
+    public Map<String, Object> markUnread(@PathVariable Long conversationId, HttpServletRequest request) {
+        User user = auth.current(request);
+        Conversation c = conversations.findById(conversationId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hội thoại"));
+        checkConversationPermission(user, c);
+
+        Long otherId = c.getUser1Id().equals(user.getId()) ? c.getUser2Id() : c.getUser1Id();
+        Optional<Message> lastOther = messages.findTopByConversationIdAndSenderIdOrderBySentAtDesc(conversationId, otherId);
+        if (lastOther.isPresent()) {
+            Message m = lastOther.get();
+            m.setReadAt(null);
+            messages.save(m);
+        }
+        return Map.of("success", true, "conversationId", conversationId);
+    }
+
+    @PostMapping("/block/{userId}")
+    public Map<String, Object> blockUser(@PathVariable Long userId, @RequestBody(required = false) Map<String, String> body, HttpServletRequest request) {
+        User user = auth.current(request);
+        if (user.getId().equals(userId)) throw new IllegalArgumentException("Không thể tự chặn chính mình");
+        if (!blocks.existsByBlockerIdAndBlockedId(user.getId(), userId)) {
+            UserBlock b = new UserBlock();
+            b.setBlockerId(user.getId());
+            b.setBlockedId(userId);
+            b.setReason(body != null && body.containsKey("reason") ? body.get("reason") : "Người dùng chặn");
+            blocks.save(b);
+        }
+        return Map.of("success", true, "blocked", true, "userId", userId);
+    }
+
+    @PostMapping("/unblock/{userId}")
+    public Map<String, Object> unblockUserPost(@PathVariable Long userId, HttpServletRequest request) {
+        User user = auth.current(request);
+        blocks.deleteByBlockerIdAndBlockedId(user.getId(), userId);
+        return Map.of("success", true, "blocked", false, "userId", userId);
+    }
+
+    @DeleteMapping("/block/{userId}")
+    public Map<String, Object> unblockUserDelete(@PathVariable Long userId, HttpServletRequest request) {
+        User user = auth.current(request);
+        blocks.deleteByBlockerIdAndBlockedId(user.getId(), userId);
+        return Map.of("success", true, "blocked", false, "userId", userId);
+    }
+
     @PostMapping("/messages/{id}/report")
     public Map<String, Object> reportMessage(@PathVariable Long id, @RequestBody Map<String, String> body, HttpServletRequest request) {
         User user = auth.current(request);
@@ -383,5 +526,20 @@ public class ChatController {
         rep.setStatus("OPEN");
         reports.save(rep);
         return Map.of("success", true, "message", "Báo cáo tin nhắn đã được gửi đến ban quản trị");
+    }
+
+    @PostMapping("/users/{userId}/report")
+    public Map<String, Object> reportUser(@PathVariable Long userId, @RequestBody Map<String, String> body, HttpServletRequest request) {
+        User user = auth.current(request);
+        User target = users.findById(userId).orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
+        Report rep = new Report();
+        rep.setReporterId(user.getId());
+        rep.setTargetType("USER");
+        rep.setTargetId(userId);
+        rep.setReasonCode(body.getOrDefault("reason", "OTHER"));
+        rep.setDetails(body.getOrDefault("description", "Báo cáo người dùng " + target.getFullName()));
+        rep.setStatus("OPEN");
+        reports.save(rep);
+        return Map.of("success", true, "message", "Báo cáo người dùng đã được gửi đến ban quản trị");
     }
 }
