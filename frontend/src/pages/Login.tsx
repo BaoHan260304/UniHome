@@ -1,13 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { api, saveAuth } from '../lib/api';
-
-declare global {
-  interface Window {
-    google?: any;
-    FB?: any;
-  }
-}
+import SocialAuthSection from '../components/SocialAuthSection';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -19,7 +13,6 @@ export default function Login() {
 
   const nav = useNavigate();
   const location = useLocation();
-  const googleRef = useRef<HTMLDivElement>(null);
   const from = (location.state as any)?.from || '/';
 
   const validate = () => {
@@ -72,77 +65,6 @@ export default function Login() {
         }
       })
       .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    const id = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!id) return;
-    const setup = () => {
-      if (!window.google || !googleRef.current) return;
-      window.google.accounts.id.initialize({
-        client_id: id,
-        callback: (x: any) =>
-          api.post('/auth/google', { idToken: x.credential })
-            .then(r => go(r.data))
-            .catch(err => setServerError(err.response?.data?.message || 'Đăng nhập Google thất bại'))
-      });
-      window.google.accounts.id.renderButton(googleRef.current, {
-        theme: 'outline',
-        size: 'large',
-        width: 360,
-        text: 'signin_with'
-      });
-    };
-    if (window.google) {
-      setup();
-      return;
-    }
-    const s = document.createElement('script');
-    s.src = 'https://accounts.google.com/gsi/client';
-    s.async = true;
-    s.onload = setup;
-    document.head.appendChild(s);
-  }, [from]);
-
-  const handleFacebookLogin = () => {
-    const fbAppId = import.meta.env.VITE_FACEBOOK_APP_ID;
-    if (!fbAppId) {
-      alert('Chưa cấu hình VITE_FACEBOOK_APP_ID trong file môi trường .env');
-      return;
-    }
-
-    const runFbAuth = () => {
-      if (!window.FB) {
-        alert('Không thể kết nối tới Facebook SDK. Vui lòng thử lại sau.');
-        return;
-      }
-      window.FB.login((response: any) => {
-        if (response.authResponse?.accessToken) {
-          api.post('/auth/facebook', { accessToken: response.authResponse.accessToken })
-            .then(res => go(res.data))
-            .catch(err => setServerError(err.response?.data?.message || 'Đăng nhập Facebook không thành công'));
-        }
-      }, { scope: 'email,public_profile' });
-    };
-
-    if (window.FB) {
-      runFbAuth();
-      return;
-    }
-
-    (window as any).fbAsyncInit = function () {
-      window.FB.init({
-        appId: fbAppId,
-        cookie: true,
-        xfbml: true,
-        version: 'v18.0'
-      });
-      runFbAuth();
-    };
-    const s = document.createElement('script');
-    s.src = 'https://connect.facebook.net/vi_VN/sdk.js';
-    s.async = true;
-    document.head.appendChild(s);
   };
 
   return (
@@ -222,19 +144,8 @@ export default function Login() {
           <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-gray-400">Hoặc</span></div>
         </div>
 
-        <div className="space-y-2.5">
-          <div ref={googleRef} className="flex justify-center" />
-          <button
-            type="button"
-            onClick={handleFacebookLogin}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-gray-300 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-          >
-            <svg className="w-4 h-4 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-            </svg>
-            Đăng nhập bằng Facebook
-          </button>
-        </div>
+        {/* Unified Social Login Section */}
+        <SocialAuthSection from={from} onError={setServerError} />
 
         <p className="text-center text-xs text-gray-600">
           Chưa có tài khoản?{' '}
