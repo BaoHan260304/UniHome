@@ -191,11 +191,18 @@ export default function AdminDashboard() {
     setAdUploading(true);
     try {
       const formData = new FormData();
-      formData.append('file', file);
-      const res = await api.post('/content/ads/banner', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      setAd({ ...ad, bannerImage: res.data.bannerUrl });
+      let res;
+      try {
+        res = await api.post('/admin/ads/banner', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } catch {
+        res = await api.post('/content/ads/banner', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
+      const bannerUrl = res.data?.bannerUrl || res.data?.bannerImage;
+      setAd({ ...ad, bannerImage: bannerUrl });
       alert('Tải banner lên thành công!');
     } catch (err: any) {
       alert(err.response?.data?.message || 'Không thể tải ảnh banner');

@@ -29,8 +29,10 @@ export default function AdSlot({ placement, className = '' }: { placement: strin
   }, [placement]);
 
   useEffect(() => {
-    if (ads[currentIdx]?.id) {
-      void api.post(`/content/ads/${ads[currentIdx].id}/impression`).catch(() => {});
+    const rawId = ads[currentIdx]?.id;
+    const numId = Number(rawId);
+    if (Number.isFinite(numId) && numId > 0) {
+      void api.post(`/content/ads/${numId}/impression`).catch(() => {});
     }
   }, [currentIdx, ads]);
 
@@ -41,7 +43,10 @@ export default function AdSlot({ placement, className = '' }: { placement: strin
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    void api.post(`/content/ads/${ad.id}/click`).catch(() => {});
+    const numId = Number(ad?.id);
+    if (Number.isFinite(numId) && numId > 0) {
+      void api.post(`/content/ads/${numId}/click`).catch(() => {});
+    }
     if (ad.destinationUrl) {
       window.open(ad.destinationUrl, '_blank', 'noopener,noreferrer');
     }

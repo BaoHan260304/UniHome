@@ -5,6 +5,10 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 export const api = axios.create({ baseURL: `${API_URL}/api` });
 
 api.interceptors.request.use((config) => {
+  if (config.url && /(?:^|\/)(?:undefined|null|NaN)(?:$|\/|\?|#)/i.test(config.url)) {
+    console.warn(`[api] Request cancelled due to invalid URL segment: ${config.url}`);
+    return Promise.reject(new Error(`Invalid URL parameter: ${config.url}`));
+  }
   const token = localStorage.getItem('authToken');
   if (token) config.headers['X-Auth-Token'] = token;
   return config;

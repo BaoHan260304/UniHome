@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @RestController
-@RequestMapping("/api/content")
+@RequestMapping({"/api/content", "/content"})
 public class ContentController {
     private final AuthService auth;
     private final ServiceListingRepository services;
@@ -403,21 +403,32 @@ public class ContentController {
                 .toList();
     }
 
-    @PostMapping("/ads/{id}/impression")
+    @RequestMapping(value = {"/ads/{id}/impression", "/ads/{id}/impression/"}, method = {RequestMethod.POST, RequestMethod.GET})
     public Map<String, Object> impression(@PathVariable Long id) {
-        ads.findById(id).ifPresent(a -> {
+        if (id == null || id <= 0) {
+            return Map.of("ok", false, "status", 400, "message", "ID không hợp lệ");
+        }
+        Advertisement a = ads.findById(id).orElse(null);
+        if (a != null) {
             a.setImpressions((a.getImpressions() == null ? 0L : a.getImpressions()) + 1);
             ads.save(a);
-        });
-        return Map.of("ok", true);
+            return Map.of("ok", true, "id", id, "impressions", a.getImpressions());
+        }
+        return Map.of("ok", false, "status", 404, "message", "Quảng cáo không tồn tại");
     }
 
-    @PostMapping("/ads/{id}/click")
+    @RequestMapping(value = {"/ads/{id}/click", "/ads/{id}/click/"}, method = {RequestMethod.POST, RequestMethod.GET})
     public Map<String, Object> click(@PathVariable Long id) {
-        Advertisement a = ads.findById(id).orElseThrow();
+        if (id == null || id <= 0) {
+            return Map.of("ok", false, "status", 400, "message", "ID không hợp lệ");
+        }
+        Advertisement a = ads.findById(id).orElse(null);
+        if (a == null) {
+            return Map.of("ok", false, "status", 404, "message", "Quảng cáo không tồn tại");
+        }
         a.setClickCount((a.getClickCount() == null ? 0L : a.getClickCount()) + 1);
         ads.save(a);
-        return Map.of("destinationUrl", a.getDestinationUrl(), "clickCount", a.getClickCount());
+        return Map.of("destinationUrl", a.getDestinationUrl() != null ? a.getDestinationUrl() : "#", "clickCount", a.getClickCount());
     }
 
     private String maskPhone(String phone) {

@@ -93,13 +93,15 @@ export default function MyPostsPage() {
   // Actions
   const handleToggleHide = async (p: any) => {
     try {
+      const postId = Number(p.targetId || p.listingId || p.id);
+      if (!Number.isFinite(postId) || postId <= 0) return;
       const nextStatus = p.status === 'HIDDEN' ? 'ACTIVE' : 'HIDDEN';
       if (p.category === 'ROOM') {
-        await api.put(`/listings/${p.id}/status`, { status: nextStatus });
+        await api.put(`/listings/${postId}/status`, { status: nextStatus });
       } else if (p.category === 'SECOND_HAND') {
-        await api.put(`/content/secondhand/${p.id}`, { ...p, status: nextStatus });
+        await api.put(`/content/secondhand/${postId}`, { ...p, status: nextStatus });
       } else if (p.category === 'SERVICE') {
-        await api.put(`/content/services/${p.id}`, { ...p, status: nextStatus });
+        await api.put(`/content/services/${postId}`, { ...p, status: nextStatus });
       }
       setActionMsg({ type: 'success', text: `Đã ${nextStatus === 'HIDDEN' ? 'ẩn' : 'mở hiển thị'} bài đăng.` });
       loadPosts();
@@ -110,11 +112,13 @@ export default function MyPostsPage() {
 
   const handleMarkSold = async (p: any) => {
     try {
+      const postId = Number(p.targetId || p.listingId || p.id);
+      if (!Number.isFinite(postId) || postId <= 0) return;
       const targetStatus = p.category === 'ROOM' ? 'FULL' : 'SOLD';
       if (p.category === 'ROOM') {
-        await api.put(`/listings/${p.id}/status`, { status: targetStatus });
+        await api.put(`/listings/${postId}/status`, { status: targetStatus });
       } else if (p.category === 'SECOND_HAND') {
-        await api.put(`/content/secondhand/${p.id}`, { ...p, status: targetStatus });
+        await api.put(`/content/secondhand/${postId}`, { ...p, status: targetStatus });
       }
       setActionMsg({ type: 'success', text: 'Đã cập nhật trạng thái hoàn tất / hết phòng.' });
       loadPosts();
@@ -126,12 +130,14 @@ export default function MyPostsPage() {
   const handleDelete = async (p: any) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa bài đăng "${p.title}"?`)) return;
     try {
+      const postId = Number(p.targetId || p.listingId || p.id);
+      if (!Number.isFinite(postId) || postId <= 0) return;
       if (p.category === 'ROOM') {
-        await api.delete(`/listings/${p.id}`);
+        await api.delete(`/listings/${postId}`);
       } else if (p.category === 'SECOND_HAND') {
-        await api.delete(`/content/secondhand/${p.id}`);
+        await api.delete(`/content/secondhand/${postId}`);
       } else if (p.category === 'SERVICE') {
-        await api.delete(`/content/services/${p.id}`);
+        await api.delete(`/content/services/${postId}`);
       }
       setActionMsg({ type: 'success', text: 'Đã xóa bài đăng.' });
       loadPosts();
@@ -141,9 +147,10 @@ export default function MyPostsPage() {
   };
 
   const getDetailLink = (p: any) => {
-    if (p.category === 'ROOM') return `/property/${p.id}`;
-    if (p.category === 'SECOND_HAND') return `/secondhand/${p.id}`;
-    if (p.category === 'SERVICE') return `/services/${p.id}`;
+    const postId = Number(p.targetId || p.listingId || p.id);
+    if (p.category === 'ROOM') return `/property/${postId}`;
+    if (p.category === 'SECOND_HAND') return `/secondhand/${postId}`;
+    if (p.category === 'SERVICE') return `/services/${postId}`;
     return '#';
   };
 

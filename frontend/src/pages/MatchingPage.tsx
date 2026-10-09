@@ -7,7 +7,8 @@ export default function MatchingPage() {
   const location = useLocation();
   const user = getUser();
   const [sp] = useSearchParams();
-  const listingId = sp.get('listingId');
+  const rawListingId = sp.get('listingId');
+  const listingId = rawListingId && rawListingId !== 'undefined' && rawListingId !== 'null' && Number(rawListingId) > 0 ? rawListingId : null;
   const [p, setP] = useState<any>({ enabled: true, radiusKm: 5, gender: user?.gender || '', cleanlinessLevel: 3 });
   const [results, setResults] = useState<any[]>([]);
   const [mode, setMode] = useState<'profile' | 'results'>('profile');
@@ -105,11 +106,14 @@ export default function MatchingPage() {
     }
   };
 
-  const openChat = (m: any) =>
+  const openChat = (m: any) => {
+    if (!m?.userId) return;
     api.post('/chat/conversations', {
-      otherUserId: m.userId,
+      otherUserId: Number(m.userId),
       contextType: listingId ? 'ROOM_MATCH' : 'NEARBY_MATCH',
+      contextId: listingId ? Number(listingId) : undefined,
     }).then(res => nav(`/chat?conversationId=${res.data?.id || res.data?.conversationId || ''}`));
+  };
 
   const social = (m: any) => m.facebookUrl || m.zaloUrl || m.otherSocialUrl;
 

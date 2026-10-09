@@ -39,8 +39,10 @@ export default function TenantDashboard({ view }: { view: 'profile' | 'favorites
   }, [view]);
 
   const toggleMatching = async (listingId: number, currentEnabled: boolean) => {
+    const lid = Number(listingId);
+    if (!Number.isFinite(lid) || lid <= 0) return;
     try {
-      await api.post(`/listings/${listingId}/interest`, { matchingEnabled: !currentEnabled });
+      await api.post(`/listings/${lid}/interest`, { matchingEnabled: !currentEnabled });
       setActionMsg(!currentEnabled ? 'Đã bật tìm bạn cùng phòng cho tin này.' : 'Đã tắt tìm bạn cùng phòng.');
       loadData();
     } catch (e: any) {
@@ -49,9 +51,11 @@ export default function TenantDashboard({ view }: { view: 'profile' | 'favorites
   };
 
   const removeInterest = async (listingId: number) => {
+    const lid = Number(listingId);
+    if (!Number.isFinite(lid) || lid <= 0) return;
     if (!window.confirm('Bạn có chắc muốn bỏ quan tâm phòng này?')) return;
     try {
-      await api.delete(`/listings/${listingId}/interest`);
+      await api.delete(`/listings/${lid}/interest`);
       loadData();
     } catch (e: any) {
       alert(e.response?.data?.message || 'Không thể bỏ quan tâm');
@@ -59,8 +63,10 @@ export default function TenantDashboard({ view }: { view: 'profile' | 'favorites
   };
 
   const removeFavorite = async (listingId: number) => {
+    const lid = Number(listingId);
+    if (!Number.isFinite(lid) || lid <= 0) return;
     try {
-      await api.post(`/listings/${listingId}/favorite`);
+      await api.post(`/listings/${lid}/favorite`);
       loadData();
     } catch (e: any) {
       alert(e.response?.data?.message || 'Không thể thao tác');

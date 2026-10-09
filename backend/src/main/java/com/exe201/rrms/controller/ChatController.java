@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @RestController
-@RequestMapping("/api/chat")
+@RequestMapping({"/api/chat", "/api/chats", "/chat", "/chats"})
 public class ChatController {
     private final AuthService auth;
     private final ConversationRepository conversations;
@@ -145,31 +145,41 @@ public class ChatController {
         return res;
     }
 
-    @GetMapping("/unread-count")
+    @GetMapping({"/unread-count", "/unread"})
     public Map<String, Object> getUnreadCount(HttpServletRequest request) {
-        Long me = auth.current(request).getId();
-        List<Conversation> list = conversations.findByUser1IdOrUser2IdOrderByUpdatedAtDesc(me, me);
+        User me = auth.optional(request);
+        if (me == null) {
+            Map<String, Object> empty = new LinkedHashMap<>();
+            empty.put("count", 0L);
+            empty.put("unreadCount", 0L);
+            empty.put("unreadMessages", 0L);
+            empty.put("unreadConversations", 0L);
+            return empty;
+        }
+        Long myId = me.getId();
+        List<Conversation> list = conversations.findByUser1IdOrUser2IdOrderByUpdatedAtDesc(myId, myId);
         long totalUnreadMessages = 0;
         long totalUnreadConversations = 0;
         for (Conversation c : list) {
-            Long otherId = c.getUser1Id().equals(me) ? c.getUser2Id() : c.getUser1Id();
-            if (blocks.existsByBlockerIdAndBlockedId(me, otherId) || blocks.existsByBlockerIdAndBlockedId(otherId, me)) {
+            Long otherId = c.getUser1Id().equals(myId) ? c.getUser2Id() : c.getUser1Id();
+            if (blocks.existsByBlockerIdAndBlockedId(myId, otherId) || blocks.existsByBlockerIdAndBlockedId(otherId, myId)) {
                 continue;
             }
-            var setting = participantSettings.findByConversationIdAndUserId(c.getId(), me).orElse(null);
-            if (setting != null && Boolean.TRUE.equals(setting.getIsHidden())) {
+            var setting = participantSettings.findByConversationIdAndUserId(c.getId(), myId).orElse(null);
+            if (setting != null && (Boolean.TRUE.equals(setting.getIsHidden()) || Boolean.TRUE.equals(setting.getIsMuted()))) {
                 continue;
             }
-            long unread = messages.countByConversationIdAndSenderIdNotAndReadAtIsNull(c.getId(), me);
+            long unread = messages.countByConversationIdAndSenderIdNotAndReadAtIsNull(c.getId(), myId);
             if (unread > 0) {
                 totalUnreadMessages += unread;
                 totalUnreadConversations++;
             }
         }
         Map<String, Object> res = new LinkedHashMap<>();
+        res.put("count", totalUnreadMessages);
+        res.put("unreadCount", totalUnreadMessages);
         res.put("unreadMessages", totalUnreadMessages);
         res.put("unreadConversations", totalUnreadConversations);
-        res.put("unreadCount", totalUnreadMessages);
         return res;
     }
 
@@ -229,7 +239,7 @@ public class ChatController {
         return dto;
     }
 
-    @GetMapping("/{conversationId}/messages")
+    @GetMapping({"/{conversationId}/messages", "/conversations/{conversationId}/messages"})
     public Map<String, Object> getMessages(@PathVariable Long conversationId,
                                           @RequestParam(required = false) Long beforeId,
                                           @RequestParam(required = false) Long afterId,
@@ -273,7 +283,7 @@ public class ChatController {
         return res;
     }
 
-    @PostMapping("/{conversationId}/messages")
+    @PostMapping({"/{conversationId}/messages", "/conversations/{conversationId}/messages"})
     public Message sendMessage(@PathVariable Long conversationId, HttpServletRequest request, @RequestBody Message input) {
         User user = auth.current(request);
         Conversation c = conversations.findById(conversationId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hội thoại"));
@@ -415,10 +425,13 @@ public class ChatController {
         }
     }
 
-    @PostMapping("/{conversationId}/mute")
-    public Map<String, Object> toggleMute(@PathVariable Long conversationId, HttpServletRequest request) {
+    @RequestMapping(value = {"/{conversationId}/mute", "/conversations/{conversationId}/mute"}, method = {RequestMethod.POST, RequestMethod.PUT})
+    public Map<String, Object> toggleMute(@PathVariable Long conversationId,
+                                         @RequestBody(required = false) Map<String, Object> body,
+                                         HttpServletRequest request) {
         User user = auth.current(request);
-        Conversation c = conversations.findById(conversationId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hội thoại"));
+        Conversation c = conversations.findById(conversationId)
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy hội thoại #" + conversationId));
         checkConversationPermission(user, c);
 
         ConversationParticipantSetting setting = participantSettings.findByConversationIdAndUserId(conversationId, user.getId())
@@ -428,15 +441,23 @@ public class ChatController {
                     s.setUserId(user.getId());
                     return s;
                 });
-        setting.setIsMuted(!Boolean.TRUE.equals(setting.getIsMuted()));
+        if (body != null && body.containsKey("muted")) {
+            setting.setIsMuted(Boolean.parseBoolean(body.get("muted").toString()));
+        } else {
+            setting.setIsMuted(!Boolean.TRUE.equals(setting.getIsMuted()));
+        }
+        setting.setUpdatedAt(LocalDateTime.now());
         participantSettings.save(setting);
-        return Map.of("conversationId", conversationId, "isMuted", setting.getIsMuted());
+        return Map.of("conversationId", conversationId, "isMuted", Boolean.TRUE.equals(setting.getIsMuted()));
     }
 
-    @PostMapping("/{conversationId}/hide")
-    public Map<String, Object> toggleHide(@PathVariable Long conversationId, HttpServletRequest request) {
+    @RequestMapping(value = {"/{conversationId}/hide", "/conversations/{conversationId}/hide"}, method = {RequestMethod.POST, RequestMethod.PUT})
+    public Map<String, Object> toggleHide(@PathVariable Long conversationId,
+                                         @RequestBody(required = false) Map<String, Object> body,
+                                         HttpServletRequest request) {
         User user = auth.current(request);
-        Conversation c = conversations.findById(conversationId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hội thoại"));
+        Conversation c = conversations.findById(conversationId)
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy hội thoại #" + conversationId));
         checkConversationPermission(user, c);
 
         ConversationParticipantSetting setting = participantSettings.findByConversationIdAndUserId(conversationId, user.getId())
@@ -446,15 +467,21 @@ public class ChatController {
                     s.setUserId(user.getId());
                     return s;
                 });
-        setting.setIsHidden(!Boolean.TRUE.equals(setting.getIsHidden()));
+        if (body != null && body.containsKey("hidden")) {
+            setting.setIsHidden(Boolean.parseBoolean(body.get("hidden").toString()));
+        } else {
+            setting.setIsHidden(true);
+        }
+        setting.setUpdatedAt(LocalDateTime.now());
         participantSettings.save(setting);
-        return Map.of("conversationId", conversationId, "isHidden", setting.getIsHidden());
+        return Map.of("conversationId", conversationId, "isHidden", Boolean.TRUE.equals(setting.getIsHidden()));
     }
 
-    @PostMapping("/{conversationId}/unhide")
+    @RequestMapping(value = {"/{conversationId}/unhide", "/conversations/{conversationId}/unhide", "/{conversationId}/restore", "/conversations/{conversationId}/restore"}, method = {RequestMethod.POST, RequestMethod.PUT})
     public Map<String, Object> unhide(@PathVariable Long conversationId, HttpServletRequest request) {
         User user = auth.current(request);
-        Conversation c = conversations.findById(conversationId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hội thoại"));
+        Conversation c = conversations.findById(conversationId)
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy hội thoại #" + conversationId));
         checkConversationPermission(user, c);
 
         ConversationParticipantSetting setting = participantSettings.findByConversationIdAndUserId(conversationId, user.getId())
@@ -465,14 +492,16 @@ public class ChatController {
                     return s;
                 });
         setting.setIsHidden(false);
+        setting.setUpdatedAt(LocalDateTime.now());
         participantSettings.save(setting);
         return Map.of("conversationId", conversationId, "isHidden", false);
     }
 
-    @PostMapping("/{conversationId}/unread")
+    @RequestMapping(value = {"/{conversationId}/unread", "/conversations/{conversationId}/unread"}, method = {RequestMethod.POST, RequestMethod.PUT})
     public Map<String, Object> markUnread(@PathVariable Long conversationId, HttpServletRequest request) {
         User user = auth.current(request);
-        Conversation c = conversations.findById(conversationId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hội thoại"));
+        Conversation c = conversations.findById(conversationId)
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy hội thoại #" + conversationId));
         checkConversationPermission(user, c);
 
         Long otherId = c.getUser1Id().equals(user.getId()) ? c.getUser2Id() : c.getUser1Id();

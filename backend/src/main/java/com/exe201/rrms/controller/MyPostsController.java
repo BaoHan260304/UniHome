@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.*;
 
 @RestController
-@RequestMapping("/api/my-posts")
+@RequestMapping({"/api/my-posts", "/my-posts"})
 public class MyPostsController {
 
     private final AuthService auth;
@@ -44,9 +44,12 @@ public class MyPostsController {
         this.promotions = promotions;
     }
 
-    @GetMapping
+    @GetMapping({"", "/"})
     public List<Map<String, Object>> getMyPosts(HttpServletRequest req) {
-        User u = auth.current(req);
+        User u = auth.optional(req);
+        if (u == null) {
+            return Collections.emptyList();
+        }
         Long uid = u.getId();
         List<Map<String, Object>> allPosts = new ArrayList<>();
 
@@ -55,16 +58,19 @@ public class MyPostsController {
         for (Listing l : userListings) {
             Property p = props.findById(l.getPropertyId()).orElse(null);
             Map<String, Object> item = new LinkedHashMap<>();
-            item.put("id", "room_" + l.getId());
+            item.put("id", l.getId());
+            item.put("listingId", l.getId());
             item.put("targetId", l.getId());
             item.put("propertyId", p != null ? p.getId() : null);
 
             String postType = p != null && p.getPostType() != null ? p.getPostType() : "ROOM_FOR_RENT";
             boolean isTransferOrRoommate = Set.of("ROOM_TRANSFER", "ROOMMATE_WANTED", "SHARED_ROOM").contains(postType);
+            item.put("type", isTransferOrRoommate ? "ROOM_TRANSFER" : "ROOM");
             item.put("category", isTransferOrRoommate ? "ROOM_TRANSFER" : "ROOM");
             item.put("categoryLabel", isTransferOrRoommate ? "Nhượng phòng / Ở ghép" : "Phòng / Nhà");
             item.put("postType", postType);
             item.put("posterRelationship", p != null && p.getPosterRelationship() != null ? p.getPosterRelationship() : "OWNER");
+            item.put("relationship", p != null && p.getPosterRelationship() != null ? p.getPosterRelationship() : "OWNER");
 
             item.put("title", l.getTitle() != null ? l.getTitle() : (p != null ? p.getName() : "Tin phòng #" + l.getId()));
             item.put("status", l.getStatus());
@@ -78,17 +84,24 @@ public class MyPostsController {
             if (p != null && p.getImageUrl() != null && !p.getImageUrl().isBlank()) {
                 img = extractFirstImage(p.getImageUrl(), p.getMediaJson());
             }
+            item.put("coverImage", img);
             item.put("imageUrl", img);
             item.put("address", p != null ? formatAddress(p) : "");
             item.put("availability", p != null ? p.getAvailability() : "AVAILABLE");
 
             item.put("views", l.getViewCount() != null ? l.getViewCount() : 0L);
+            item.put("viewCount", l.getViewCount() != null ? l.getViewCount() : 0L);
             item.put("favorites", favs.countByListingId(l.getId()));
+            item.put("favoriteCount", favs.countByListingId(l.getId()));
             item.put("contacts", l.getInterestCount() != null ? l.getInterestCount() : 0L);
+            item.put("interests", l.getInterestCount() != null ? l.getInterestCount() : 0L);
+            item.put("interestCount", l.getInterestCount() != null ? l.getInterestCount() : 0L);
             item.put("chatCount", convs.countByContextTypeAndContextId("ROOM", l.getId()));
 
             item.put("packageTier", l.getPackageTier());
             item.put("packagePriority", l.getPackagePriority() != null ? l.getPackagePriority() : 0);
+            item.put("vipTier", l.getPackageTier());
+            item.put("vipBadge", l.getPackageTier());
             item.put("isVip", !"FREE".equalsIgnoreCase(l.getPackageTier()));
             item.put("boostUntil", l.getBoostUntil());
             item.put("revisionNote", l.getRevisionNote());
@@ -100,12 +113,14 @@ public class MyPostsController {
         List<SecondHandListing> userSecondHands = secondHandRepo.findBySellerIdOrderByCreatedAtDesc(uid);
         for (SecondHandListing s : userSecondHands) {
             Map<String, Object> item = new LinkedHashMap<>();
-            item.put("id", "secondhand_" + s.getId());
+            item.put("id", s.getId());
             item.put("targetId", s.getId());
+            item.put("type", "SECOND_HAND");
             item.put("category", "SECOND_HAND");
-            item.put("categoryLabel", "Đồ cũ");
+            item.put("categoryLabel", "Đồ cũ sinh viên");
             item.put("postType", s.getCategory() != null ? s.getCategory() : "OTHER");
             item.put("posterRelationship", "SELLER");
+            item.put("relationship", "SELLER");
 
             item.put("title", s.getTitle());
             item.put("status", s.getStatus());
@@ -118,17 +133,24 @@ public class MyPostsController {
             if ((img == null || img.isBlank()) && s.getGalleryJson() != null) {
                 img = extractFirstImage(s.getGalleryJson(), null);
             }
+            item.put("coverImage", img);
             item.put("imageUrl", img);
             item.put("address", (s.getDistrict() != null ? s.getDistrict() + ", " : "") + (s.getProvince() != null ? s.getProvince() : ""));
             item.put("availability", "ACTIVE".equals(s.getStatus()) ? "AVAILABLE" : s.getStatus());
 
             item.put("views", 0L);
+            item.put("viewCount", 0L);
             item.put("favorites", 0L);
+            item.put("favoriteCount", 0L);
             item.put("contacts", 0L);
+            item.put("interests", 0L);
+            item.put("interestCount", 0L);
             item.put("chatCount", convs.countByContextTypeAndContextId("SECOND_HAND", s.getId()));
 
             item.put("packageTier", "FREE");
             item.put("packagePriority", 0);
+            item.put("vipTier", "NONE");
+            item.put("vipBadge", null);
             item.put("isVip", false);
             item.put("boostUntil", null);
             item.put("conditionText", s.getConditionText());
@@ -140,12 +162,14 @@ public class MyPostsController {
         List<ServiceListing> userServices = serviceRepo.findByProviderIdOrderByCreatedAtDesc(uid);
         for (ServiceListing sv : userServices) {
             Map<String, Object> item = new LinkedHashMap<>();
-            item.put("id", "service_" + sv.getId());
+            item.put("id", sv.getId());
             item.put("targetId", sv.getId());
+            item.put("type", "SERVICE");
             item.put("category", "SERVICE");
-            item.put("categoryLabel", "Dịch vụ");
+            item.put("categoryLabel", "Dịch vụ sinh viên");
             item.put("postType", sv.getCategory() != null ? sv.getCategory() : "OTHER");
             item.put("posterRelationship", "SERVICE_PROVIDER");
+            item.put("relationship", "SERVICE_PROVIDER");
 
             item.put("title", sv.getTitle());
             item.put("status", sv.getStatus());
@@ -158,17 +182,24 @@ public class MyPostsController {
             if ((img == null || img.isBlank()) && sv.getGalleryJson() != null) {
                 img = extractFirstImage(sv.getGalleryJson(), null);
             }
+            item.put("coverImage", img);
             item.put("imageUrl", img);
-            item.put("address", sv.getServiceArea() != null ? sv.getServiceArea() : "");
+            item.put("address", sv.getServiceArea() != null ? sv.getServiceArea() : (sv.getDistrict() != null ? sv.getDistrict() + ", " + sv.getProvince() : ""));
             item.put("availability", "ACTIVE".equals(sv.getStatus()) ? "AVAILABLE" : sv.getStatus());
 
             item.put("views", 0L);
+            item.put("viewCount", 0L);
             item.put("favorites", 0L);
+            item.put("favoriteCount", 0L);
             item.put("contacts", 0L);
+            item.put("interests", 0L);
+            item.put("interestCount", 0L);
             item.put("chatCount", convs.countByContextTypeAndContextId("SERVICE", sv.getId()));
 
             item.put("packageTier", "FREE");
             item.put("packagePriority", 0);
+            item.put("vipTier", "NONE");
+            item.put("vipBadge", null);
             item.put("isVip", false);
             item.put("boostUntil", null);
 

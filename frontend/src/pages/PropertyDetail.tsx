@@ -29,6 +29,7 @@ export default function PropertyDetail() {
   };
 
   const load = async () => {
+    if (!id || id === 'undefined' || id === 'null') return;
     try {
       const r = await api.get(`/marketplace/listings/${id}`);
       const d = r.data;
@@ -46,16 +47,18 @@ export default function PropertyDetail() {
       }
       setPanoramas(pList);
 
-      try {
-        const lr = await api.get(`/users/${d.landlordId}/public`);
-        setLandlord(lr.data);
-      } catch {}
+      if (d.landlordId) {
+        try {
+          const lr = await api.get(`/users/${d.landlordId}/public`);
+          setLandlord(lr.data);
+        } catch {}
+      }
 
       try {
         const sr = await api.get('/marketplace/listings', {
           params: { district: d.district || '', school: d.nearestSchool || '', sort: 'RELEVANCE' }
         });
-        setSimilar((sr.data || []).filter((x: any) => String(x.listingId) !== String(id)).slice(0, 3));
+        setSimilar((sr.data || []).filter((x: any) => String(x.listingId || x.id) !== String(id)).slice(0, 3));
       } catch {}
 
       try {
@@ -64,7 +67,7 @@ export default function PropertyDetail() {
         setServices(rows.slice(0, 3));
       } catch {}
 
-      if (user) {
+      if (user && id && id !== 'undefined') {
         try {
           const isRes = await api.get(`/listings/${id}/interest-status`);
           setInterestStatus(isRes.data);

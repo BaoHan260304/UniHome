@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping({"/api/admin", "/admin"})
 public class AdminController {
     private final AuthService auth;
     private final UserRepository users;
@@ -427,7 +427,7 @@ public class AdminController {
         }
 
         String bannerUrl = "/uploads/ads/" + uniqueFilename;
-        return Map.of("bannerImage", bannerUrl);
+        return Map.of("bannerImage", bannerUrl, "bannerUrl", bannerUrl);
     }
 
     @PostMapping("/ads")
