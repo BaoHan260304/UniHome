@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, getUser, resolveMediaUrl, money } from '../lib/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 export default function ChatCenter() {
   const user = getUser();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
+  const queryConvId = searchParams.get('conversationId');
+
   const [convs, setConvs] = useState<any[]>([]);
   const [active, setActive] = useState<any>(null);
   const [msgs, setMsgs] = useState<any[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -21,10 +25,16 @@ export default function ChatCenter() {
       const r = await api.get('/chat/conversations');
       const list = r.data || [];
       setConvs(list);
-      // If we already have an active conversation, keep its data fresh
+
+      // If active conversation exists, keep fresh
       if (active) {
         const found = list.find((c: any) => c.id === active.id);
         if (found) setActive(found);
+      } else if (queryConvId) {
+        const target = list.find((c: any) => String(c.id) === String(queryConvId));
+        if (target) {
+          selectConversation(target);
+        }
       }
     } catch {}
   };
@@ -35,6 +45,59 @@ export default function ChatCenter() {
       setMsgs(r.data || []);
       setTimeout(scrollToBottom, 50);
     } catch {}
+  };
+
+  const handleRecallMessage = async (msgId: number) => {
+    if (!window.confirm('Bạn có chắc muốn thu hồi tin nhắn này?')) return;
+    try {
+      await api.post(`/chat/messages/${msgId}/recall`);
+      setMsgs(prev => prev.map(m => m.id === msgId ? { ...m, isRecalled: true, content: 'Tin nhắn đã được thu hồi.' } : m));
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Không thể thu hồi tin nhắn');
+    }
+  };
+
+  const handleToggleMute = async () => {
+    if (!active) return;
+    try {
+      const res = await api.post(`/chat/${active.id}/mute`);
+      setActive((prev: any) => ({ ...prev, isMuted: res.data.isMuted }));
+      setActionNotice(res.data.isMuted ? 'Đã tắt thông báo cuộc trò chuyện này.' : 'Đã bật lại thông báo.');
+      setTimeout(() => setActionNotice(null), 3000);
+    } catch {}
+  };
+
+  const handleToggleHide = async () => {
+    if (!active) return;
+    try {
+      await api.post(`/chat/${active.id}/hide`);
+      setActionNotice('Đã ẩn cuộc trò chuyện.');
+      setActive(null);
+      void loadConvs();
+    } catch {}
+  };
+
+  const selectConversation = (c: any) => {
+    setActive(c);
+    loadMessages(c.id);
+  };
+
+  const send = async () => {
+    if (!active || !text.trim() || sending) return;
+    const content = text.trim();
+    setText('');
+    setSending(true);
+
+    try {
+      const r = await api.post(`/chat/${active.id}/messages`, { content, type: 'TEXT' });
+      setMsgs(prev => [...prev, r.data]);
+      setTimeout(scrollToBottom, 50);
+      void loadConvs();
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Không thể gửi tin nhắn');
+    } finally {
+      setSending(false);
+    }
   };
 
   // Initial load
@@ -59,29 +122,6 @@ export default function ChatCenter() {
     }, 3000);
     return () => clearInterval(interval);
   }, [user?.id, active?.id]);
-
-  const selectConversation = (c: any) => {
-    setActive(c);
-    loadMessages(c.id);
-  };
-
-  const send = async () => {
-    if (!active || !text.trim() || sending) return;
-    const content = text.trim();
-    setText('');
-    setSending(true);
-
-    try {
-      const r = await api.post(`/chat/${active.id}/messages`, { content, type: 'TEXT' });
-      setMsgs(prev => [...prev, r.data]);
-      setTimeout(scrollToBottom, 50);
-      void loadConvs();
-    } catch (e: any) {
-      alert(e.response?.data?.message || 'Không thể gửi tin nhắn');
-    } finally {
-      setSending(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -181,41 +221,70 @@ export default function ChatCenter() {
                   </div>
                 </div>
 
-                {/* Context card badge */}
-                {active.contextTitle && (
-                  <div
-                    onClick={() => {
-                      if (active.contextType === 'ROOM' || active.contextType === 'ROOM_MATCH') {
-                        nav(`/property/${active.contextId}`);
-                      } else if (active.contextType === 'SECOND_HAND') {
-                        nav(`/secondhand/${active.contextId}`);
-                      }
-                    }}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 hover:bg-indigo-50 border border-gray-200 rounded-xl cursor-pointer transition-colors max-w-sm"
+                {/* Action buttons & Context card badge */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleToggleMute}
+                    className="text-xs px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors font-medium"
+                    title={active.isMuted ? 'Bật thông báo' : 'Tắt thông báo'}
                   >
-                    {active.contextImage && (
-                      <img
-                        src={resolveMediaUrl(active.contextImage)}
-                        alt=""
-                        className="w-8 h-8 rounded-lg object-cover"
-                      />
-                    )}
-                    <div className="text-left min-w-0">
-                      <div className="text-xs font-semibold text-gray-800 truncate">{active.contextTitle}</div>
-                      {active.contextPrice && (
-                        <div className="text-[11px] font-bold text-indigo-600">{money(active.contextPrice)}</div>
+                    {active.isMuted ? '🔔 Bật chuông' : '🔕 Tắt chuông'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleHide}
+                    className="text-xs px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors font-medium"
+                    title="Ẩn cuộc trò chuyện"
+                  >
+                    👁️ Ẩn
+                  </button>
+
+                  {active.contextTitle && (
+                    <div
+                      onClick={() => {
+                        if (active.contextType === 'ROOM' || active.contextType === 'ROOM_MATCH') {
+                          nav(`/property/${active.contextId}`);
+                        } else if (active.contextType === 'SECOND_HAND') {
+                          nav(`/secondhand/${active.contextId}`);
+                        } else if (active.contextType === 'SERVICE') {
+                          nav(`/services/${active.contextId}`);
+                        }
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 hover:bg-indigo-50 border border-gray-200 rounded-xl cursor-pointer transition-colors max-w-xs"
+                    >
+                      {active.contextImage && (
+                        <img
+                          src={resolveMediaUrl(active.contextImage)}
+                          alt=""
+                          className="w-8 h-8 rounded-lg object-cover"
+                        />
                       )}
+                      <div className="text-left min-w-0">
+                        <div className="text-xs font-semibold text-gray-800 truncate">{active.contextTitle}</div>
+                        {active.contextPrice && (
+                          <div className="text-[11px] font-bold text-indigo-600">{money(active.contextPrice)}</div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
+
+              {actionNotice && (
+                <div className="px-4 py-2 bg-indigo-50 text-indigo-800 text-xs font-semibold border-b border-indigo-100 text-center animate-fade-in">
+                  {actionNotice}
+                </div>
+              )}
 
               {/* Message bubbles */}
               <div className="flex-1 p-5 space-y-3 overflow-y-auto">
                 {msgs.map(m => {
                   const isMe = m.senderId === user?.id;
+                  const isRecalled = m.isRecalled || m.content === 'Tin nhắn đã được thu hồi.';
                   return (
-                    <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                    <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group`}>
                       <div
                         className={`max-w-[72%] px-4 py-2.5 rounded-2xl text-sm shadow-xs ${
                           isMe
@@ -223,11 +292,24 @@ export default function ChatCenter() {
                             : 'bg-white border border-gray-200 text-gray-900 rounded-bl-xs'
                         }`}
                       >
-                        <div className="whitespace-pre-wrap leading-relaxed">{m.content}</div>
-                        <div className={`text-[10px] mt-1 text-right ${isMe ? 'text-indigo-100' : 'text-gray-400'}`}>
-                          {m.sentAt
-                            ? new Date(m.sentAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-                            : ''}
+                        <div className={`whitespace-pre-wrap leading-relaxed ${isRecalled ? 'italic text-xs opacity-75' : ''}`}>
+                          {m.content}
+                        </div>
+                        <div className={`text-[10px] mt-1 flex items-center justify-between gap-3 ${isMe ? 'text-indigo-100' : 'text-gray-400'}`}>
+                          <span>
+                            {m.sentAt
+                              ? new Date(m.sentAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                              : ''}
+                          </span>
+                          {isMe && !isRecalled && (
+                            <button
+                              type="button"
+                              onClick={() => handleRecallMessage(m.id)}
+                              className="opacity-0 group-hover:opacity-100 text-[10px] underline hover:text-white transition-opacity"
+                            >
+                              Thu hồi
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

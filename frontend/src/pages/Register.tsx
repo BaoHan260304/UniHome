@@ -5,7 +5,7 @@ import SocialAuthSection from '../components/SocialAuthSection';
 import TermsModal from '../components/TermsModal';
 
 export default function Register() {
-  const [role, setRole] = useState<'TENANT' | 'LANDLORD'>('TENANT');
+  const role = 'USER';
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [f, setF] = useState({
     fullName: '',
@@ -104,29 +104,7 @@ export default function Register() {
       <div className="max-w-md w-full space-y-6 bg-white p-8 md:p-10 rounded-2xl shadow-xl">
         <div className="text-center">
           <h2 className="text-3xl font-extrabold text-indigo-600 tracking-tight">UniHome</h2>
-          <p className="mt-1.5 text-sm text-gray-600">Đăng ký tài khoản sinh viên hoặc chủ trọ</p>
-        </div>
-
-        {/* Role toggle */}
-        <div className="flex p-1 bg-gray-100 rounded-xl">
-          <button
-            type="button"
-            onClick={() => setRole('TENANT')}
-            className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${
-              role === 'TENANT' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            Sinh viên / Người thuê
-          </button>
-          <button
-            type="button"
-            onClick={() => setRole('LANDLORD')}
-            className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${
-              role === 'LANDLORD' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            Chủ trọ
-          </button>
+          <p className="mt-1.5 text-sm text-gray-600">Đăng ký tài khoản UniHome — Tìm phòng, ở ghép, pass đồ & dịch vụ tiện ích</p>
         </div>
 
         {serverError && (

@@ -1,6 +1,7 @@
 package com.exe201.rrms.controller;
 
 import com.exe201.rrms.entity.*;
+import com.exe201.rrms.exception.ValidationException;
 import com.exe201.rrms.repository.*;
 import com.exe201.rrms.service.AnalyticsService;
 import com.exe201.rrms.service.AuthService;
@@ -91,11 +92,57 @@ public class ContentController {
     @PostMapping("/services")
     public ServiceListing createService(HttpServletRequest r, @RequestBody ServiceListing s) {
         User u = auth.current(r);
-        auth.requireRole(u, "SERVICE_PROVIDER", "ADMIN", "SUPER_ADMIN");
+        if (s.getTitle() == null || s.getTitle().trim().isBlank()) {
+            throw new ValidationException("title", "Tiêu đề dịch vụ không được để trống");
+        }
+        if (s.getPhone() == null || s.getPhone().isBlank()) {
+            s.setPhone(u.getPhone());
+        }
+        if (s.getServiceArea() == null || s.getServiceArea().isBlank()) {
+            s.setServiceArea(s.getProvince() != null ? s.getProvince() : "Toàn quốc");
+        }
         s.setId(null);
         s.setProviderId(u.getId());
         s.setStatus("PENDING_REVIEW");
         return services.save(s);
+    }
+
+    @PutMapping("/services/{id}")
+    public ServiceListing updateService(@PathVariable Long id, HttpServletRequest r, @RequestBody ServiceListing b) {
+        User u = auth.current(r);
+        ServiceListing s = services.findById(id).orElseThrow();
+        if (!Objects.equals(s.getProviderId(), u.getId()) && !List.of("ADMIN", "SUPER_ADMIN", "MODERATOR").contains(u.getRole())) {
+            throw new SecurityException("Không phải dịch vụ của bạn");
+        }
+        if (b.getTitle() != null) s.setTitle(b.getTitle());
+        if (b.getCategory() != null) s.setCategory(b.getCategory());
+        if (b.getDescription() != null) s.setDescription(b.getDescription());
+        if (b.getPriceFrom() != null) s.setPriceFrom(b.getPriceFrom());
+        if (b.getProvince() != null) s.setProvince(b.getProvince());
+        if (b.getDistrict() != null) s.setDistrict(b.getDistrict());
+        if (b.getPhone() != null) s.setPhone(b.getPhone());
+        if (b.getZaloUrl() != null) s.setZaloUrl(b.getZaloUrl());
+        if (b.getImageUrl() != null) s.setImageUrl(b.getImageUrl());
+        if (b.getGalleryJson() != null) s.setGalleryJson(b.getGalleryJson());
+        if (b.getServiceArea() != null) s.setServiceArea(b.getServiceArea());
+        if (b.getPricingTiersJson() != null) s.setPricingTiersJson(b.getPricingTiersJson());
+        if (b.getAddOnFeesJson() != null) s.setAddOnFeesJson(b.getAddOnFeesJson());
+        if (b.getBusinessHours() != null) s.setBusinessHours(b.getBusinessHours());
+        if (b.getResponseTime() != null) s.setResponseTime(b.getResponseTime());
+        if (b.getFaqJson() != null) s.setFaqJson(b.getFaqJson());
+        if (b.getTerms() != null) s.setTerms(b.getTerms());
+        return services.save(s);
+    }
+
+    @DeleteMapping("/services/{id}")
+    public Map<String, Object> deleteService(@PathVariable Long id, HttpServletRequest r) {
+        User u = auth.current(r);
+        ServiceListing s = services.findById(id).orElseThrow();
+        if (!Objects.equals(s.getProviderId(), u.getId()) && !List.of("ADMIN", "SUPER_ADMIN", "MODERATOR").contains(u.getRole())) {
+            throw new SecurityException("Không phải dịch vụ của bạn");
+        }
+        services.delete(s);
+        return Map.of("message", "Đã xóa bài đăng dịch vụ");
     }
 
     @PostMapping("/services/{id}/reveal-contact")
@@ -174,6 +221,36 @@ public class ContentController {
         if (!s.getSellerId().equals(u.getId())) throw new SecurityException("Không phải tin của bạn");
         s.setStatus(b.get("status"));
         return second.save(s);
+    }
+
+    @PutMapping("/secondhand/{id}")
+    public SecondHandListing updateSecond(@PathVariable Long id, HttpServletRequest r, @RequestBody SecondHandListing b) {
+        User u = auth.current(r);
+        SecondHandListing s = second.findById(id).orElseThrow();
+        if (!Objects.equals(s.getSellerId(), u.getId()) && !List.of("ADMIN", "SUPER_ADMIN", "MODERATOR").contains(u.getRole())) {
+            throw new SecurityException("Không phải tin của bạn");
+        }
+        if (b.getTitle() != null) s.setTitle(b.getTitle());
+        if (b.getCategory() != null) s.setCategory(b.getCategory());
+        if (b.getPrice() != null) s.setPrice(b.getPrice());
+        if (b.getConditionText() != null) s.setConditionText(b.getConditionText());
+        if (b.getProvince() != null) s.setProvince(b.getProvince());
+        if (b.getDistrict() != null) s.setDistrict(b.getDistrict());
+        if (b.getDescription() != null) s.setDescription(b.getDescription());
+        if (b.getImageUrl() != null) s.setImageUrl(b.getImageUrl());
+        if (b.getGalleryJson() != null) s.setGalleryJson(b.getGalleryJson());
+        return second.save(s);
+    }
+
+    @DeleteMapping("/secondhand/{id}")
+    public Map<String, Object> deleteSecond(@PathVariable Long id, HttpServletRequest r) {
+        User u = auth.current(r);
+        SecondHandListing s = second.findById(id).orElseThrow();
+        if (!Objects.equals(s.getSellerId(), u.getId()) && !List.of("ADMIN", "SUPER_ADMIN", "MODERATOR").contains(u.getRole())) {
+            throw new SecurityException("Không phải tin của bạn");
+        }
+        second.delete(s);
+        return Map.of("message", "Đã xóa bài đăng đồ cũ");
     }
 
     @PostMapping("/secondhand/{id}/reveal-contact")

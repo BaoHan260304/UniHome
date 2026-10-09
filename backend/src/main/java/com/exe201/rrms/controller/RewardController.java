@@ -40,6 +40,15 @@ public class RewardController {
         return rewardService.getAccountSummary(u.getId());
     }
 
+    @GetMapping("/daily-status")
+    public Map<String, Object> dailyStatus(HttpServletRequest r) {
+        User u = auth.optional(r);
+        if (u == null) {
+            return Map.of("visitedToday", false, "claimedToday", false, "canClaim", false, "currentStreak", 0, "balance", 0);
+        }
+        return rewardService.getDailyStatus(u.getId());
+    }
+
     @PostMapping("/checkin")
     public Map<String, Object> checkin(HttpServletRequest r) {
         User u = auth.current(r);

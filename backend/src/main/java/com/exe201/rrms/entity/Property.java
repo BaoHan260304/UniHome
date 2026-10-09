@@ -7,7 +7,7 @@ public class Property {
  private String province; private String district; private String ward; private String street;
  private Double latitude; private Double longitude;
  private Long price; private Double area; private Long deposit; private Long electricityPrice; private Long waterPrice; private Long internetPrice; private Long parkingFee; private Long otherFees;
- private String furniture; private String propertyType; private String postType; private Integer totalRooms; private Integer availableRooms; private Integer totalFloors; private String floorText; private Integer maxOccupants;
+ private String furniture; private String propertyType; private String postType; private String posterRelationship = "OWNER"; private Integer totalRooms; private Integer availableRooms; private Integer totalFloors; private String floorText; private Integer maxOccupants;
  private String nearestSchool; private Double nearestSchoolDistanceKm;
  @Column(columnDefinition="TEXT") private String amenities; @Column(columnDefinition="TEXT") private String rules;
  private String contactPhone; private String contactZalo;

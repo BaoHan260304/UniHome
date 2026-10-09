@@ -7,7 +7,7 @@ export default function SocialCompletion() {
   const location = useLocation();
   const state = (location.state as any) || {};
 
-  const [role, setRole] = useState<'TENANT' | 'LANDLORD'>('TENANT');
+  const role = 'USER';
   const [email, setEmail] = useState<string>(state.email || '');
   const [fullName, setFullName] = useState<string>(state.fullName || '');
   const [phone, setPhone] = useState<string>('');
@@ -87,7 +87,7 @@ export default function SocialCompletion() {
           )}
           <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Hoàn tất thiết lập tài khoản</h2>
           <p className="mt-1.5 text-xs text-gray-500">
-            Đăng nhập qua {authProvider === 'FACEBOOK' ? 'Facebook' : 'Google'}. Vui lòng chọn vai trò và cung cấp số điện thoại liên hệ để kích hoạt.
+            Đăng nhập qua {authProvider === 'FACEBOOK' ? 'Facebook' : 'Google'}. Vui lòng xác nhận thông tin và cung cấp số điện thoại liên hệ để kích hoạt tài khoản UniHome.
           </p>
         </div>
 
@@ -98,34 +98,6 @@ export default function SocialCompletion() {
         )}
 
         <form onSubmit={submit} className="space-y-5">
-          {/* Role selector */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-2">Bạn tham gia UniHome với tư cách:</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setRole('TENANT')}
-                className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all border ${
-                  role === 'TENANT'
-                    ? 'bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm'
-                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                Sinh viên / Người thuê
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('LANDLORD')}
-                className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all border ${
-                  role === 'LANDLORD'
-                    ? 'bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm'
-                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                Chủ trọ
-              </button>
-            </div>
-          </div>
 
           {/* Full Name */}
           <div>

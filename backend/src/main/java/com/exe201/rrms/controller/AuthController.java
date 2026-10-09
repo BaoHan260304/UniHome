@@ -64,7 +64,7 @@ public class AuthController {
         u.setEmail(Objects.toString(body.get("email"), ""));
         u.setPhone(Objects.toString(body.get("phone"), ""));
         u.setPassword(Objects.toString(body.get("password"), ""));
-        u.setRole(Objects.toString(body.get("role"), "TENANT"));
+        u.setRole("USER");
 
         String confirmPassword = Objects.toString(body.get("confirmPassword"), "");
         Boolean agreeTerms = body.get("agreeTerms") != null && Boolean.parseBoolean(body.get("agreeTerms").toString());
@@ -293,7 +293,6 @@ public class AuthController {
         String email = Objects.toString(body.get("email"), "").trim().toLowerCase();
         String fullName = Objects.toString(body.get("fullName"), "").trim();
         String avatarUrl = Objects.toString(body.get("avatarUrl"), "");
-        String role = Objects.toString(body.get("role"), "TENANT").toUpperCase();
         String phone = Objects.toString(body.get("phone"), "").trim();
 
         Map<String, String> errors = new LinkedHashMap<>();
@@ -302,9 +301,6 @@ public class AuthController {
         }
         if (!ValidationUtil.isValidVnPhone(phone)) {
             errors.put("phone", "Số điện thoại Việt Nam không hợp lệ (10 số, ví dụ 0912345678)");
-        }
-        if (!Set.of("TENANT", "LANDLORD").contains(role)) {
-            role = "TENANT";
         }
         if (!errors.isEmpty()) {
             throw new ValidationException("Dữ liệu chưa hợp lệ", errors);
@@ -317,9 +313,15 @@ public class AuthController {
 
         User user = users.findByEmail(email).orElseGet(User::new);
         user.setEmail(email);
-        user.setFullName(fullName.isBlank() ? "Người dùng" : fullName);
+        user.setFullName(fullName.isBlank() ? "Người dùng UniHome" : fullName);
         user.setAvatarUrl(avatarUrl);
-        user.setRole(role);
+        if (user.getRole() == null || user.getRole().isBlank() || Set.of("TENANT", "LANDLORD", "SERVICE_PROVIDER").contains(user.getRole())) {
+            user.setRole("USER");
+        }
+        user.setTermsVersion("1.0");
+        user.setTermsAcceptedAt(LocalDateTime.now());
+        user.setPrivacyVersion("1.0");
+        user.setPrivacyAcceptedAt(LocalDateTime.now());
         user.setPhone(normPhone);
         user.setAuthProvider(authProvider);
         if ("GOOGLE".equals(authProvider)) {

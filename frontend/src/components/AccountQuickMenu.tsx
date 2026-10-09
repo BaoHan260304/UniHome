@@ -16,7 +16,6 @@ export default function AccountQuickMenu({ user, onLogout }: AccountQuickMenuPro
   const [checkinMessage, setCheckinMessage] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const isLandlord = user?.role === 'LANDLORD';
   const isAdmin = ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'VERIFIER', 'CONTENT_ADMIN', 'FINANCE_ADMIN'].includes(user?.role);
 
   const avatarSrc = user?.avatarUrl
@@ -104,11 +103,9 @@ export default function AccountQuickMenu({ user, onLogout }: AccountQuickMenuPro
                   <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
                     isAdmin
                       ? 'bg-purple-100 text-purple-700'
-                      : isLandlord
-                      ? 'bg-amber-100 text-amber-700'
                       : 'bg-indigo-100 text-indigo-700'
                   }`}>
-                    {isAdmin ? 'Quản trị viên' : isLandlord ? 'Chủ trọ' : 'Khách thuê / SV'}
+                    {isAdmin ? 'Quản trị viên' : 'Thành viên UniHome'}
                   </span>
                 </div>
                 <p className="text-[11px] text-gray-400 truncate mt-1">{user?.email || user?.phone}</p>
@@ -124,7 +121,7 @@ export default function AccountQuickMenu({ user, onLogout }: AccountQuickMenuPro
                 <div>
                   <span className="text-[11px] text-gray-500 font-medium">Điểm UniHome</span>
                   <div className="text-base font-extrabold text-indigo-600 flex items-center gap-1">
-                    <span>💎</span> {rewardData?.balance ?? 500}
+                    <span>💎</span> {rewardData?.balance ?? 0}
                   </div>
                 </div>
 
@@ -158,7 +155,7 @@ export default function AccountQuickMenu({ user, onLogout }: AccountQuickMenuPro
                 <p className="text-sm font-extrabold text-gray-900">{formatCurrency(walletBalance)}</p>
               </div>
               <Link
-                to={isLandlord ? '/manager' : '/tenant/wallet'}
+                to="/tenant/wallet"
                 onClick={() => setIsOpen(false)}
                 className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 transition-colors"
               >
@@ -182,48 +179,52 @@ export default function AccountQuickMenu({ user, onLogout }: AccountQuickMenuPro
           {/* Quick Links */}
           <div className="py-2">
             <Link
-              to={isLandlord ? '/manager/profile' : '/tenant/profile'}
+              to="/tenant/profile"
               onClick={() => setIsOpen(false)}
               className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
             >
               <span>👤</span> Trang cá nhân & Cài đặt
             </Link>
 
-            {isLandlord && (
-              <Link
-                to="/manager/posts"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
-              >
-                <span>📋</span> Quản lý tin đăng
-              </Link>
-            )}
+            <Link
+              to="/my-posts"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+            >
+              <span>📋</span> Quản lý tin đăng
+            </Link>
 
-            {!isLandlord && (
-              <>
-                <Link
-                  to="/tenant/favorites"
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
-                >
-                  <span>❤️</span> Danh sách phòng đã lưu
-                </Link>
-                <Link
-                  to="/tenant/interests"
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
-                >
-                  <span>👀</span> Phòng trọ đang quan tâm
-                </Link>
-                <Link
-                  to="/tenant/matching"
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
-                >
-                  <span>🤝</span> Hồ sơ tìm bạn cùng phòng
-                </Link>
-              </>
-            )}
+            <Link
+              to="/promotions"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+            >
+              <span>🚀</span> Gói VIP & Đẩy tin
+            </Link>
+
+            <Link
+              to="/tenant/favorites"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+            >
+              <span>❤️</span> Danh sách phòng đã lưu
+            </Link>
+
+            <Link
+              to="/tenant/interests"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+            >
+              <span>👀</span> Phòng trọ đang quan tâm
+            </Link>
+
+            <Link
+              to="/tenant/matching"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+            >
+              <span>🤝</span> Hồ sơ tìm bạn cùng phòng
+            </Link>
 
             <Link
               to="/rewards/my-vouchers"

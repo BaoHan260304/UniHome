@@ -78,10 +78,11 @@ public class AuthService {
 
         u.setFullName(u.getFullName().trim());
         u.setEmail(u.getEmail().trim().toLowerCase());
-        normalizeRole(u);
-        if (!Set.of("TENANT", "LANDLORD").contains(u.getRole())) {
-            u.setRole("TENANT");
-        }
+        u.setRole("USER");
+        u.setTermsVersion("1.0");
+        u.setTermsAcceptedAt(LocalDateTime.now());
+        u.setPrivacyVersion("1.0");
+        u.setPrivacyAcceptedAt(LocalDateTime.now());
         u.setStatus("PENDING_VERIFICATION");
         u.setEmailVerified(false);
         u.setPhoneVerified(false);
@@ -192,7 +193,16 @@ public class AuthService {
 
     public void requireRole(User u, String... roles) {
         Set<String> allowed = new HashSet<>(Arrays.asList(roles));
-        if (u == null || !allowed.contains(u.getRole())) {
+        if (u == null) {
+            throw new SecurityException("Bạn không có quyền thực hiện thao tác này");
+        }
+        String r = u.getRole();
+        if ("TENANT".equals(r) || "LANDLORD".equals(r) || "SERVICE_PROVIDER".equals(r) || "USER".equals(r)) {
+            if (allowed.contains("USER") || allowed.contains("TENANT") || allowed.contains("LANDLORD") || allowed.contains("SERVICE_PROVIDER")) {
+                return;
+            }
+        }
+        if (!allowed.contains(r)) {
             throw new SecurityException("Bạn không có quyền thực hiện thao tác này");
         }
     }
@@ -202,7 +212,11 @@ public class AuthService {
         m.put("id", u.getId());
         m.put("fullName", u.getFullName());
         m.put("email", u.getEmail());
-        m.put("role", u.getRole());
+        String effectiveRole = u.getRole();
+        if ("TENANT".equals(effectiveRole) || "LANDLORD".equals(effectiveRole) || "SERVICE_PROVIDER".equals(effectiveRole)) {
+            effectiveRole = "USER";
+        }
+        m.put("role", effectiveRole != null ? effectiveRole : "USER");
         m.put("status", u.getStatus());
         m.put("phone", u.getPhone());
         m.put("avatarUrl", u.getAvatarUrl());
@@ -223,14 +237,25 @@ public class AuthService {
         m.put("phoneVerifiedAt", u.getPhoneVerifiedAt());
         m.put("authProvider", u.getAuthProvider());
         m.put("createdAt", u.getCreatedAt());
+        m.put("termsVersion", u.getTermsVersion());
+        m.put("privacyVersion", u.getPrivacyVersion());
+        m.put("preferredLocationName", u.getPreferredLocationName());
+        m.put("preferredLat", u.getPreferredLat());
+        m.put("preferredLng", u.getPreferredLng());
         return m;
     }
 
     public void normalizeRole(User u) {
-        if (u.getRole() == null) u.setRole("TENANT");
-        if (u.getRole().equalsIgnoreCase("manager")) u.setRole("LANDLORD");
-        if (u.getRole().equalsIgnoreCase("tenant")) u.setRole("TENANT");
-        u.setRole(u.getRole().toUpperCase(Locale.ROOT));
+        if (u.getRole() == null || u.getRole().isBlank()) {
+            u.setRole("USER");
+            return;
+        }
+        String r = u.getRole().toUpperCase(Locale.ROOT);
+        if (r.equals("TENANT") || r.equals("LANDLORD") || r.equals("MANAGER") || r.equals("SERVICE_PROVIDER")) {
+            u.setRole("USER");
+        } else {
+            u.setRole(r);
+        }
     }
 
     private String extractToken(HttpServletRequest req) {

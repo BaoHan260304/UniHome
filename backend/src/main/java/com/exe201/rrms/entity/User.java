@@ -10,7 +10,7 @@ public class User {
  private String fullName;
  @Column(unique=true, nullable=false) private String email;
  private String password;
- private String role="TENANT";
+ private String role="USER";
  private String status="ACTIVE";
  private String phone;
  @Column(columnDefinition="LONGTEXT") private String avatarUrl;
@@ -47,5 +47,5 @@ public class User {
  private Integer postLimit=3;
  private String packageExpiryDate;
  private String currentPackage="Mặc định";
- @PrePersist void pre(){ if(createdAt==null) createdAt=LocalDateTime.now(); if(role!=null){ if(role.equalsIgnoreCase("manager")) role="LANDLORD"; if(role.equalsIgnoreCase("tenant")) role="TENANT"; } }
+ @PrePersist void pre(){ if(createdAt==null) createdAt=LocalDateTime.now(); if(role==null || role.equalsIgnoreCase("manager") || role.equalsIgnoreCase("tenant") || role.equalsIgnoreCase("landlord") || role.equalsIgnoreCase("service_provider")) role="USER"; }
 }

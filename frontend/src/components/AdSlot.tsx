@@ -20,10 +20,6 @@ export default function AdSlot({ placement, className = '' }: { placement: strin
         if (!mounted) return;
         const list = r.data || [];
         setAds(list);
-        if (list.length > 0) {
-          // Record impression
-          void api.post(`/content/ads/${list[0].id}/impression`).catch(() => {});
-        }
       })
       .catch(() => {});
 
@@ -31,6 +27,12 @@ export default function AdSlot({ placement, className = '' }: { placement: strin
       mounted = false;
     };
   }, [placement]);
+
+  useEffect(() => {
+    if (ads[currentIdx]?.id) {
+      void api.post(`/content/ads/${ads[currentIdx].id}/impression`).catch(() => {});
+    }
+  }, [currentIdx, ads]);
 
   if (!ads.length) return null;
 

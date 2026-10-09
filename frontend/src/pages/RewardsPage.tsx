@@ -11,6 +11,8 @@ export default function RewardsPage() {
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [checkinMsg, setCheckinMsg] = useState<string | null>(null);
 
+  const [dailyStatus, setDailyStatus] = useState<any>(null);
+
   // Redeem modal state
   const [selectedVoucher, setSelectedVoucher] = useState<any>(null);
   const [redeemLoading, setRedeemLoading] = useState(false);
@@ -20,14 +22,16 @@ export default function RewardsPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [accRes, tasksRes, vouchersRes] = await Promise.all([
+      const [accRes, tasksRes, vouchersRes, statusRes] = await Promise.all([
         api.get('/rewards/account').catch(() => ({ data: null })),
         api.get('/rewards/tasks').catch(() => ({ data: [] })),
         api.get(`/rewards/vouchers${category !== 'ALL' ? `?category=${category}` : ''}`).catch(() => ({ data: [] })),
+        api.get('/rewards/daily-status').catch(() => ({ data: null })),
       ]);
       setAccount(accRes.data);
       setTasks(tasksRes.data || []);
       setVouchers(vouchersRes.data || []);
+      setDailyStatus(statusRes.data);
     } finally {
       setLoading(false);
     }
@@ -77,11 +81,27 @@ export default function RewardsPage() {
     }
   };
 
-  const streakRewards = account?.streakRewards || [20, 25, 30, 35, 40, 45, 50];
+  const streakRewards = account?.streakRewards || [20, 20, 20, 20, 20, 20, 50];
   const currentStreak = account?.currentStreak || 0;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Evening Streak Warning or Daily Reminder */}
+      {dailyStatus?.streakWarning && (
+        <div className="bg-amber-500 text-amber-950 p-4 rounded-2xl font-bold text-xs flex items-center justify-between shadow-sm animate-pulse">
+          <span className="flex items-center gap-2">
+            <span>⚠️</span> {dailyStatus.reminderMessage || 'Bạn chưa điểm danh hôm nay! Điểm danh ngay để duy trì chuỗi nhận thưởng.'}
+          </span>
+          <button
+            type="button"
+            onClick={handleCheckin}
+            className="px-3 py-1 bg-amber-950 text-white rounded-xl text-xs hover:bg-black"
+          >
+            Điểm danh ngay
+          </button>
+        </div>
+      )}
+
       {/* 1. HERO REWARD BANNER & 7-DAY STREAK */}
       <div className="bg-linear-to-r from-indigo-700 via-indigo-600 to-purple-700 rounded-3xl p-6 sm:p-10 text-white shadow-xl relative overflow-hidden">
         <div className="absolute -right-10 -bottom-10 opacity-10 text-9xl select-none">💎</div>
@@ -102,10 +122,10 @@ export default function RewardsPage() {
           <div className="bg-white/10 backdrop-blur-md p-5 rounded-2xl border border-white/20 w-full sm:w-auto min-w-64 text-center sm:text-left">
             <span className="text-xs text-indigo-200 font-semibold block">Số dư hiện tại</span>
             <div className="text-3xl font-black mt-0.5 text-white flex items-center justify-center sm:justify-start gap-2">
-              <span>💎</span> {account?.balance ?? 500} <span className="text-sm font-bold text-indigo-200">Điểm</span>
+              <span>💎</span> {account?.balance ?? 0} <span className="text-sm font-bold text-indigo-200">Điểm</span>
             </div>
             <div className="mt-3 flex items-center justify-between text-xs text-indigo-100 border-t border-white/10 pt-2">
-              <span>Đã tích lũy: {account?.lifetimeEarned ?? 500}</span>
+              <span>Đã tích lũy: {account?.lifetimeEarned ?? 0}</span>
               <Link to="/rewards/my-vouchers" className="font-bold underline hover:text-white">
                 Voucher của tôi →
               </Link>

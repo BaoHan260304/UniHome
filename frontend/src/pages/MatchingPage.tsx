@@ -1,18 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, getUser, money } from '../lib/api';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-const LOCATION_PRESETS = [
-  { name: 'ĐH FPT Hà Nội (Khu CNC Hòa Lạc)', lat: 21.0133, lng: 105.5278, school: 'ĐH FPT' },
-  { name: 'ĐH Quốc Gia Hà Nội (Cơ sở Hòa Lạc)', lat: 21.0045, lng: 105.5098, school: 'ĐHQG Hà Nội' },
-  { name: 'Khu vực Tân Xã - Thạch Thất (Hòa Lạc)', lat: 21.0195, lng: 105.5342, school: 'Tân Xã - Hòa Lạc' },
-  { name: 'ĐH Bách Khoa Hà Nội (Hai Bà Trưng)', lat: 21.0056, lng: 105.8433, school: 'ĐH Bách Khoa' },
-  { name: 'ĐH Kinh Tế Quốc Dân (Hai Bà Trưng)', lat: 21.0003, lng: 105.8427, school: 'ĐH Kinh Tế Quốc Dân' },
-  { name: 'ĐH Quốc Gia Hà Nội (Xuân Thủy - Cầu Giấy)', lat: 21.0368, lng: 105.7828, school: 'ĐHQG Cầu Giấy' },
-  { name: 'ĐH Sư Phạm Hà Nội (Xuân Thủy - Cầu Giấy)', lat: 21.0372, lng: 105.7812, school: 'ĐH Sư Phạm' },
-  { name: 'ĐH Ngoại Thương (Chùa Láng - Đống Đa)', lat: 21.0227, lng: 105.8045, school: 'ĐH Ngoại Thương' },
-  { name: 'Học viện Bưu chính Viễn thông (Hà Đông)', lat: 20.9806, lng: 105.7877, school: 'PTIT Hà Đông' }
-];
-
+import LocationPicker from '../components/LocationPicker';
 export default function MatchingPage() {
   const nav = useNavigate();
   const location = useLocation();
@@ -40,25 +29,6 @@ export default function MatchingPage() {
     setErrorMsg('');
     setSuccessMsg('');
     setP((prev: any) => ({ ...prev, [k]: v }));
-  };
-
-  const handleUseCurrentLocation = () => {
-    setErrorMsg('');
-    if (!navigator.geolocation) {
-      setErrorMsg('Trình duyệt không hỗ trợ định vị GPS. Bạn có thể nhập vĩ độ/kinh độ thủ công.');
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        setP((prev: any) => ({
-          ...prev,
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude
-        }));
-        setSuccessMsg('Đã lấy tọa độ GPS hiện tại thành công.');
-      },
-      () => setErrorMsg('Không lấy được vị trí GPS. Vui lòng cấp quyền truy cập vị trí hoặc nhập thủ công.')
-    );
   };
 
   const validate = () => {
@@ -319,69 +289,23 @@ export default function MatchingPage() {
             <F label="MXH khác">
               <input className="inp" value={p.otherSocialUrl || ''} onChange={e => set('otherSocialUrl', e.target.value)} placeholder="Instagram / Telegram..." />
             </F>
-            <div className="md:col-span-3 space-y-3 p-4 bg-gray-50 rounded-2xl border">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                <span className="text-xs font-bold text-gray-800">
-                  📍 Vị trí tìm kiếm bạn cùng phòng (Hỗ trợ 2 chế độ: GPS hoặc Chọn trường/khu vực)
-                </span>
-                <button
-                  type="button"
-                  onClick={handleUseCurrentLocation}
-                  className="px-3 py-1.5 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
-                >
-                  📍 Lấy vị trí GPS hiện tại
-                </button>
-              </div>
-
-              {/* Quick Preset Selector for Desired School / Campus */}
-              <div>
-                <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-                  Hoặc chọn nhanh trường đại học / khu vực mong muốn tìm ở ghép:
-                </label>
-                <select
-                  className="inp text-xs bg-white"
-                  value=""
-                  onChange={e => {
-                    const preset = LOCATION_PRESETS.find(x => x.name === e.target.value);
-                    if (preset) {
-                      setP((prev: any) => ({
-                        ...prev,
-                        latitude: preset.lat,
-                        longitude: preset.lng,
-                        schoolName: prev.schoolName || preset.school
-                      }));
-                      setSuccessMsg(`Đã chọn vị trí: ${preset.name}`);
-                    }
-                  }}
-                >
-                  <option value="">-- Chọn trường / khu vực mong muốn --</option>
-                  {LOCATION_PRESETS.map(ps => (
-                    <option key={ps.name} value={ps.name}>{ps.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Lat / Lng inputs */}
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Vĩ độ (Latitude)</label>
-                  <input
-                    className="inp text-xs bg-white"
-                    value={p.latitude ?? ''}
-                    onChange={e => set('latitude', e.target.value)}
-                    placeholder="21.0133"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Kinh độ (Longitude)</label>
-                  <input
-                    className="inp text-xs bg-white"
-                    value={p.longitude ?? ''}
-                    onChange={e => set('longitude', e.target.value)}
-                    placeholder="105.5278"
-                  />
-                </div>
-              </div>
+            <div className="md:col-span-3">
+              <LocationPicker
+                latitude={p.latitude}
+                longitude={p.longitude}
+                address={p.schoolName}
+                preferredArea={p.schoolName}
+                label="Vị trí & Cụm trường Đại học mong muốn tìm bạn ở ghép"
+                onChange={(loc) => {
+                  setP((prev: any) => ({
+                    ...prev,
+                    latitude: loc.latitude,
+                    longitude: loc.longitude,
+                    schoolName: loc.preferredArea || prev.schoolName
+                  }));
+                  setSuccessMsg('Đã cập nhật vị trí và tọa độ tìm kiếm.');
+                }}
+              />
             </div>
           </div>
 

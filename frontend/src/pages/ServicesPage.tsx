@@ -32,7 +32,7 @@ export default function ServicesPage() {
   return <div className="space-y-8">
     <div className="flex justify-between items-end gap-4">
       <div><h1 className="text-4xl font-extrabold">Dịch vụ tiện ích</h1><p className="mt-2 text-lg text-gray-600">Chuyển trọ, vệ sinh, taxi, sửa chữa, Internet, nội thất, kho lưu trữ.</p></div>
-      {['SERVICE_PROVIDER', 'ADMIN', 'SUPER_ADMIN'].includes(user?.role) && <button onClick={() => setOpen(!open)} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold">+ Đăng dịch vụ</button>}
+      <button onClick={() => user ? setOpen(!open) : alert('Vui lòng đăng nhập để đăng dịch vụ.')} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold">+ Đăng dịch vụ</button>
     </div>
 
     <div className="flex flex-wrap gap-2">{cats.map(x => <button key={x} onClick={() => setCat(x)} className={`px-4 py-2 rounded-full text-sm font-medium ${cat === x ? 'bg-indigo-600 text-white' : 'bg-white border text-gray-600'}`}>{x}</button>)}</div>

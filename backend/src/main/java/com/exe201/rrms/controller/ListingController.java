@@ -83,6 +83,8 @@ public class ListingController {
                 m.put("verificationEvidenceJson", p.getVerificationEvidenceJson());
                 m.put("panoramaCount", p.getPanoramaCount());
                 m.put("videoCount", p.getVideoCount());
+                m.put("posterRelationship", p.getPosterRelationship() != null ? p.getPosterRelationship() : "OWNER");
+                m.put("postType", p.getPostType() != null ? p.getPostType() : "ROOM_FOR_RENT");
             }
             VerificationRecord v = verifs.findByListingIdOrderByCreatedAtDesc(l.getId()).stream()
                     .filter(x -> "VERIFIED".equals(x.getStatus())).findFirst().orElse(null);
@@ -95,7 +97,6 @@ public class ListingController {
     @PostMapping
     public Map<String, Object> create(HttpServletRequest r, @RequestBody Map<String, Object> b) {
         User u = auth.current(r);
-        auth.requireRole(u, "LANDLORD", "ADMIN", "SUPER_ADMIN");
 
         Property p = new Property();
         apply(p, b);
@@ -496,6 +497,7 @@ public class ListingController {
         p.setFurniture(str(b, "furniture", p.getFurniture()));
         p.setPropertyType(str(b, "propertyType", p.getPropertyType()));
         p.setPostType(str(b, "postType", p.getPostType()));
+        p.setPosterRelationship(str(b, "posterRelationship", p.getPosterRelationship() != null ? p.getPosterRelationship() : "OWNER"));
         p.setTotalRooms(integer(b, "totalRooms", p.getTotalRooms()));
         p.setAvailableRooms(integer(b, "availableRooms", p.getAvailableRooms()));
         p.setTotalFloors(integer(b, "totalFloors", p.getTotalFloors()));

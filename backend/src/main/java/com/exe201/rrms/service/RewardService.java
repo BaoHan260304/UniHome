@@ -66,21 +66,10 @@ public class RewardService {
         return accountRepo.findById(userId).orElseGet(() -> {
             RewardAccount acc = new RewardAccount();
             acc.setUserId(userId);
-            acc.setBalance(500L);
-            acc.setLifetimeEarned(500L);
+            acc.setBalance(0L);
+            acc.setLifetimeEarned(0L);
             acc.setLifetimeSpent(0L);
-            acc = accountRepo.save(acc);
-
-            RewardTransaction tx = new RewardTransaction();
-            tx.setUserId(userId);
-            tx.setType("EARN");
-            tx.setSource("ACCOUNT_CREATED");
-            tx.setPoints(500L);
-            tx.setBalanceAfter(500L);
-            tx.setDescription("Thưởng chào mừng thành viên mới UniHome");
-            txRepo.save(tx);
-
-            return acc;
+            return accountRepo.save(acc);
         });
     }
 
@@ -114,10 +103,41 @@ public class RewardService {
         res.put("streakDay", canCheckinToday ? (currentStreak % 7) + 1 : currentStreak);
         res.put("recentTransactions", recentTxs);
 
-        // Streak rewards preview
-        long[] streakRewards = {20, 25, 30, 35, 40, 45, 50};
+        // Streak rewards cycle: 20, 20, 20, 20, 20, 20, 50
+        long[] streakRewards = {20, 20, 20, 20, 20, 20, 50};
         res.put("streakRewards", streakRewards);
 
+        return res;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getDailyStatus(Long userId) {
+        RewardAccount account = getOrCreateAccount(userId);
+        LocalDate today = LocalDate.now();
+        Optional<DailyCheckin> todayCheckin = checkinRepo.findByUserIdAndCheckinDate(userId, today);
+        boolean claimedToday = todayCheckin.isPresent();
+
+        int currentStreak = 0;
+        if (claimedToday) {
+            currentStreak = todayCheckin.get().getStreakDay();
+        } else {
+            Optional<DailyCheckin> yesterdayCheckin = checkinRepo.findByUserIdAndCheckinDate(userId, today.minusDays(1));
+            if (yesterdayCheckin.isPresent()) {
+                currentStreak = yesterdayCheckin.get().getStreakDay();
+            }
+        }
+        int cycleDay = claimedToday ? currentStreak : (currentStreak % 7) + 1;
+        long[] streakRewards = {20, 20, 20, 20, 20, 20, 50};
+        long todayReward = streakRewards[cycleDay - 1];
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("visitedToday", true);
+        res.put("claimedToday", claimedToday);
+        res.put("canClaim", !claimedToday);
+        res.put("currentStreak", currentStreak);
+        res.put("cycleDay", cycleDay);
+        res.put("todayReward", todayReward);
+        res.put("balance", account.getBalance());
         return res;
     }
 
@@ -137,7 +157,7 @@ public class RewardService {
             streakDay = (prevStreak % 7) + 1;
         }
 
-        long[] streakRewards = {20, 25, 30, 35, 40, 45, 50};
+        long[] streakRewards = {20, 20, 20, 20, 20, 20, 50};
         long pointsAwarded = streakRewards[streakDay - 1];
 
         DailyCheckin checkin = new DailyCheckin();

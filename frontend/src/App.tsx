@@ -26,18 +26,14 @@ import RewardsPage from './pages/RewardsPage';
 import MyVouchersPage from './pages/MyVouchersPage';
 import VoucherVerifyPage from './pages/VoucherVerifyPage';
 import TermsPage from './pages/TermsPage';
+import MyPostsPage from './pages/MyPostsPage';
+import PromotionsPage from './pages/PromotionsPage';
 import TenantAccountLayout from './components/TenantAccountLayout';
 import AccountQuickMenu from './components/AccountQuickMenu';
 import NotificationDropdown from './components/NotificationDropdown';
 import ErrorBoundary from './components/ErrorBoundary';
-
-function ChatRoute() {
-  const user = getUser();
-  if (user?.role === 'TENANT') {
-    return <Navigate to="/tenant/chat" replace />;
-  }
-  return <ChatCenter />;
-}
+import PostComposerModal from './components/PostComposerModal';
+import SiteFooter from './components/SiteFooter';
 
 function Layout() {
   const location = useLocation();
@@ -45,6 +41,8 @@ function Layout() {
   const [currentUser, setCurrentUser] = useState(getUser());
   const isAuthPage = ['/login', '/register', '/forgot-password', '/verify-otp', '/social-complete'].includes(location.pathname);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [composerOpen, setComposerOpen] = useState(false);
 
   // Sync auth state reactively
   useEffect(() => {
@@ -60,6 +58,10 @@ function Layout() {
       void api.get('/notifications/mine')
         .then(r => setUnreadCount((r.data || []).filter((n: any) => n.status === 'UNREAD').length))
         .catch(() => setUnreadCount(0));
+
+      void api.get('/chat/unread-count')
+        .then(r => setUnreadChatCount(r.data?.unreadCount || 0))
+        .catch(() => setUnreadChatCount(0));
     }
   }, [location.pathname, currentUser?.id, isAuthPage]);
 
@@ -68,7 +70,7 @@ function Layout() {
   const logout = () => { clearAuth(); navigate('/'); };
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 flex flex-col justify-between">
       {!isAuthPage ? (
         <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -88,19 +90,33 @@ function Layout() {
                   </Link>
                 </div>
               </div>
-              <div className="flex items-center space-x-3 sm:space-x-4">
-                {role === 'LANDLORD' && (
-                  <Link to="/manager/posts" className="text-gray-600 hover:text-indigo-600 font-semibold text-sm">
-                    Quản lý Bài đăng
+              <div className="flex items-center space-x-2.5 sm:space-x-3.5">
+                {/* Global + Đăng tin button */}
+                <button
+                  type="button"
+                  onClick={() => setComposerOpen(true)}
+                  className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 sm:px-4 py-2 rounded-xl shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
+                >
+                  <span className="text-sm font-black">+</span> Đăng tin
+                </button>
+
+                {currentUser && (
+                  <Link to="/my-posts" className="text-gray-600 hover:text-indigo-600 font-semibold text-sm hidden md:inline-block">
+                    Tin đã đăng
                   </Link>
                 )}
                 {currentUser && (
-                  <Link to={role === 'TENANT' ? '/tenant/chat' : '/chat'} className="text-gray-600 hover:text-indigo-600 font-semibold text-sm">
+                  <Link to="/chat" className="text-gray-600 hover:text-indigo-600 font-semibold text-sm relative">
                     Chat
+                    {unreadChatCount > 0 && (
+                      <span className="ml-1 bg-red-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full inline-block leading-none">
+                        {unreadChatCount}
+                      </span>
+                    )}
                   </Link>
                 )}
-                {role === 'TENANT' && (
-                  <Link to="/tenant/matching" className="text-gray-600 hover:text-indigo-600 font-semibold text-sm">
+                {currentUser && (
+                  <Link to="/tenant/matching" className="text-gray-600 hover:text-indigo-600 font-semibold text-sm hidden lg:inline-block">
                     Matching
                   </Link>
                 )}
@@ -142,7 +158,10 @@ function Layout() {
         </div>
       )}
 
-      <main className={!isAuthPage ? 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8' : ''}>
+      {/* Global Post Composer Modal */}
+      <PostComposerModal isOpen={composerOpen} onClose={() => setComposerOpen(false)} />
+
+      <main className={!isAuthPage ? 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full' : ''}>
         <ErrorBoundary key={location.pathname}>
           <Routes>
             {/* Auth routes */}
@@ -168,14 +187,18 @@ function Layout() {
             <Route path="/voucher/verify/:token" element={<VoucherVerifyPage />} />
             <Route path="/terms" element={<TermsPage />} />
 
-            {/* Landlord manager routes */}
-            <Route path="/manager" element={<ManagerDashboard view="posts" />} />
-            <Route path="/manager/posts" element={<ManagerDashboard view="posts" />} />
-            <Route path="/manager/notifications" element={<ManagerDashboard view="notifications" />} />
-            <Route path="/manager/profile" element={<ManagerDashboard view="profile" />} />
+            {/* Unified posts & promotions */}
+            <Route path="/my-posts" element={<MyPostsPage />} />
+            <Route path="/promotions" element={<PromotionsPage />} />
 
-            {/* Shared Chat redirect / route */}
-            <Route path="/chat" element={<ChatRoute />} />
+            {/* Landlord manager routes (backward compatibility) */}
+            <Route path="/manager" element={<Navigate to="/my-posts" replace />} />
+            <Route path="/manager/posts" element={<MyPostsPage />} />
+            <Route path="/manager/notifications" element={<ManagerDashboard view="notifications" />} />
+            <Route path="/manager/profile" element={<TenantDashboard view="profile" />} />
+
+            {/* Unified Chat route */}
+            <Route path="/chat" element={<ChatCenter />} />
 
             {/* Tenant nested routes with persistent TenantAccountLayout */}
             <Route path="/tenant" element={<TenantAccountLayout />}>
@@ -208,6 +231,9 @@ function Layout() {
           </Routes>
         </ErrorBoundary>
       </main>
+
+      {/* Persistent Site Footer on non-auth pages */}
+      {!isAuthPage && <SiteFooter />}
     </div>
   );
 }

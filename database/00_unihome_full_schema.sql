@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS property (
   furniture VARCHAR(255) NULL,
   property_type VARCHAR(100) NULL,
   post_type VARCHAR(100) NULL,
+  poster_relationship VARCHAR(50) NOT NULL DEFAULT 'OWNER',
   total_rooms INT NULL,
   available_rooms INT NULL,
   total_floors INT NULL,
@@ -339,6 +340,9 @@ CREATE TABLE IF NOT EXISTS conversation (
   user2_id BIGINT NOT NULL,
   context_type VARCHAR(50) NULL,
   context_id BIGINT NULL,
+  context_title VARCHAR(255) NULL,
+  context_image LONGTEXT NULL,
+  context_price VARCHAR(100) NULL,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -356,6 +360,8 @@ CREATE TABLE IF NOT EXISTS message (
   type VARCHAR(50) NOT NULL DEFAULT 'TEXT',
   sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   read_at DATETIME NULL,
+  is_recalled BIT(1) NOT NULL DEFAULT b'0',
+  recalled_at DATETIME NULL,
   PRIMARY KEY (id),
   KEY idx_message_conv (conversation_id, sent_at),
   KEY idx_message_sender (sender_id),
@@ -407,6 +413,7 @@ CREATE TABLE IF NOT EXISTS package_plan (
   code VARCHAR(50) NOT NULL,
   name VARCHAR(255) NOT NULL,
   product_type VARCHAR(50) NOT NULL DEFAULT 'LISTING',
+  applies_to VARCHAR(255) NOT NULL DEFAULT 'ROOM,SECOND_HAND,SERVICE',
   price BIGINT NOT NULL DEFAULT 0,
   duration_days INT NOT NULL DEFAULT 15,
   priority INT NOT NULL DEFAULT 0,
@@ -851,6 +858,24 @@ CREATE TABLE IF NOT EXISTS voucher_redemption (
   KEY idx_redemption_code (voucher_code),
   CONSTRAINT fk_vred_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_vred_voucher FOREIGN KEY (voucher_id) REFERENCES voucher(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS post_promotion (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  target_type VARCHAR(50) NOT NULL,
+  target_id BIGINT NOT NULL,
+  owner_user_id BIGINT NOT NULL,
+  plan_id BIGINT NOT NULL,
+  priority INT NOT NULL DEFAULT 0,
+  start_at DATETIME NOT NULL,
+  end_at DATETIME NOT NULL,
+  boost_until DATETIME NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_promo_target (target_type, target_id),
+  KEY idx_promo_owner (owner_user_id),
+  KEY idx_promo_status (status, end_at)
 ) ENGINE=InnoDB;
 
 SET FOREIGN_KEY_CHECKS = 1;

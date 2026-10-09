@@ -23,13 +23,15 @@ public class ChatController {
     private final UserBlockRepository blocks;
     private final ConversationParticipantSettingRepository participantSettings;
     private final ReportRepository reports;
+    private final com.exe201.rrms.service.NotificationService noti;
 
     public ChatController(AuthService auth, ConversationRepository conversations, MessageRepository messages,
                           UserRepository users, ListingRepository listings, PropertyRepository props,
                           SecondHandListingRepository secondHand, ServiceListingRepository services,
                           UserBlockRepository blocks,
                           ConversationParticipantSettingRepository participantSettings,
-                          ReportRepository reports) {
+                          ReportRepository reports,
+                          com.exe201.rrms.service.NotificationService noti) {
         this.auth = auth;
         this.conversations = conversations;
         this.messages = messages;
@@ -41,6 +43,7 @@ public class ChatController {
         this.blocks = blocks;
         this.participantSettings = participantSettings;
         this.reports = reports;
+        this.noti = noti;
     }
 
     @GetMapping("/conversations")
@@ -100,17 +103,54 @@ public class ChatController {
         return result;
     }
 
+    @GetMapping("/unread-count")
+    public Map<String, Object> getUnreadCount(HttpServletRequest request) {
+        Long me = auth.current(request).getId();
+        List<Conversation> list = conversations.findByUser1IdOrUser2IdOrderByUpdatedAtDesc(me, me);
+        long totalUnread = 0;
+        for (Conversation c : list) {
+            Long otherId = c.getUser1Id().equals(me) ? c.getUser2Id() : c.getUser1Id();
+            if (blocks.existsByBlockerIdAndBlockedId(me, otherId) || blocks.existsByBlockerIdAndBlockedId(otherId, me)) {
+                continue;
+            }
+            var setting = participantSettings.findByConversationIdAndUserId(c.getId(), me).orElse(null);
+            if (setting != null && Boolean.TRUE.equals(setting.getIsHidden())) {
+                continue;
+            }
+            totalUnread += messages.countByConversationIdAndSenderIdNotAndReadAtIsNull(c.getId(), me);
+        }
+        return Map.of("unreadCount", totalUnread);
+    }
+
     @PostMapping("/conversations")
     public Map<String, Object> openConversation(HttpServletRequest request, @RequestBody Map<String, Object> body) {
         Long me = auth.current(request).getId();
-        Object otherRaw = body.get("otherUserId");
-        if (otherRaw == null) throw new IllegalArgumentException("Thiếu otherUserId");
-        Long other = Long.valueOf(otherRaw.toString());
-        if (me.equals(other)) throw new IllegalArgumentException("Không thể tạo hội thoại với chính mình");
-
         String contextType = body.get("contextType") == null ? "GENERAL" : body.get("contextType").toString().trim().toUpperCase();
         Object contextRaw = body.get("contextId");
         Long contextId = contextRaw == null || contextRaw.toString().isBlank() ? 0L : Long.valueOf(contextRaw.toString());
+
+        Long other = null;
+        Object otherRaw = body.get("otherUserId");
+        if (otherRaw != null && !otherRaw.toString().isBlank()) {
+            other = Long.valueOf(otherRaw.toString());
+        } else {
+            // Auto-resolve recipient based on context
+            if ("ROOM".equalsIgnoreCase(contextType) || "ROOM_MATCH".equalsIgnoreCase(contextType)) {
+                listings.findById(contextId).ifPresent(l -> props.findById(l.getPropertyId()).ifPresent(p -> {}));
+                var l = listings.findById(contextId).orElse(null);
+                if (l != null) other = l.getLandlordId();
+            } else if ("SECOND_HAND".equalsIgnoreCase(contextType)) {
+                var sh = secondHand.findById(contextId).orElse(null);
+                if (sh != null) other = sh.getSellerId();
+            } else if ("SERVICE".equalsIgnoreCase(contextType)) {
+                var s = services.findById(contextId).orElse(null);
+                if (s != null) other = s.getProviderId();
+            }
+        }
+
+        if (other == null) throw new IllegalArgumentException("Thiếu otherUserId hoặc không xác định được người nhận");
+        if (me.equals(other)) throw new IllegalArgumentException("Bạn là chủ bài đăng này, không thể nhắn tin cho chính mình.");
+
         Long user1 = Math.min(me, other);
         Long user2 = Math.max(me, other);
 
@@ -139,7 +179,10 @@ public class ChatController {
     }
 
     @GetMapping("/{conversationId}/messages")
-    public List<Message> getMessages(@PathVariable Long conversationId, HttpServletRequest request) {
+    public List<Message> getMessages(@PathVariable Long conversationId,
+                                    @RequestParam(required = false) Long beforeId,
+                                    @RequestParam(defaultValue = "50") int size,
+                                    HttpServletRequest request) {
         User user = auth.current(request);
         Conversation c = conversations.findById(conversationId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hội thoại"));
         checkConversationPermission(user, c);
@@ -154,7 +197,14 @@ public class ChatController {
             messages.saveAll(unread);
         }
 
-        return messages.findByConversationIdOrderBySentAtAsc(conversationId);
+        List<Message> all = messages.findByConversationIdOrderBySentAtAsc(conversationId);
+        if (beforeId != null) {
+            all = all.stream().filter(m -> m.getId() < beforeId).toList();
+        }
+        if (all.size() > size) {
+            all = all.subList(all.size() - size, all.size());
+        }
+        return all;
     }
 
     @PostMapping("/{conversationId}/messages")
@@ -179,7 +229,31 @@ public class ChatController {
 
         c.setUpdatedAt(LocalDateTime.now());
         conversations.save(c);
+
+        // Send in-app notification if not muted
+        try {
+            var otherSetting = participantSettings.findByConversationIdAndUserId(conversationId, otherId).orElse(null);
+            if (otherSetting == null || !Boolean.TRUE.equals(otherSetting.getIsMuted())) {
+                String preview = message.getContent().length() > 60 ? message.getContent().substring(0, 57) + "..." : message.getContent();
+                noti.send(otherId, "CHAT_MESSAGE", user.getFullName() + ": " + preview, "CONVERSATION", conversationId);
+            }
+        } catch (Exception ignored) {}
+
         return saved;
+    }
+
+    @PostMapping("/messages/{id}/recall")
+    public Map<String, Object> recallMessage(@PathVariable Long id, HttpServletRequest request) {
+        User user = auth.current(request);
+        Message msg = messages.findById(id).orElseThrow(() -> new IllegalArgumentException("Tin nhắn không tồn tại"));
+        if (!msg.getSenderId().equals(user.getId())) {
+            throw new SecurityException("Chỉ người gửi mới có thể thu hồi tin nhắn");
+        }
+        msg.setIsRecalled(true);
+        msg.setRecalledAt(LocalDateTime.now());
+        msg.setContent("Tin nhắn đã được thu hồi.");
+        messages.save(msg);
+        return Map.of("success", true, "messageId", id, "isRecalled", true);
     }
 
     @PostMapping("/{conversationId}/read")
