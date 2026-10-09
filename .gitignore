@@ -1,0 +1,31 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+frontend/.env
+frontend/.env.local
+backend/.env
+backend/.env.local
+application-local.properties
+backend/src/main/resources/application-local.properties
+
+# Uploads directory
+uploads/
+backend/uploads/
+
+# Build artifacts
+target/
+backend/target/
+frontend/dist/
+frontend/node_modules/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# OS files
+.DS_Store
+Thumbs.db

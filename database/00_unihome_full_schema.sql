@@ -39,6 +39,12 @@ CREATE TABLE IF NOT EXISTS users (
   matching_bio TEXT NULL,
   preferred_gender VARCHAR(50) NULL,
   google_sub VARCHAR(255) NULL,
+  facebook_sub VARCHAR(255) NULL,
+  auth_provider VARCHAR(50) NOT NULL DEFAULT 'LOCAL',
+  email_verified BIT(1) NOT NULL DEFAULT b'0',
+  email_verified_at DATETIME NULL,
+  phone_verified BIT(1) NOT NULL DEFAULT b'0',
+  phone_verified_at DATETIME NULL,
   created_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
   last_login_at DATETIME NULL,
   -- legacy columns retained only so the original project data can be imported
@@ -48,8 +54,24 @@ CREATE TABLE IF NOT EXISTS users (
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_email (email),
   UNIQUE KEY uq_users_google_sub (google_sub),
+  UNIQUE KEY uq_users_facebook_sub (facebook_sub),
   KEY idx_users_role_status (role, status),
   KEY idx_users_school (school_name)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS verification_code (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  channel VARCHAR(20) NOT NULL,
+  purpose VARCHAR(50) NOT NULL,
+  code_hash VARCHAR(255) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  attempts INT NOT NULL DEFAULT 0,
+  used_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_verify_code_lookup (user_id, channel, purpose, expires_at),
+  CONSTRAINT fk_verify_code_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS auth_session (
@@ -563,17 +585,27 @@ CREATE TABLE IF NOT EXISTS answer (
 -- ---------------------- ADVERTISEMENT ----------------------------
 CREATE TABLE IF NOT EXISTS advertisement (
   id BIGINT NOT NULL AUTO_INCREMENT,
+  campaign_name VARCHAR(255) NULL,
+  advertiser_name VARCHAR(255) NULL,
   title VARCHAR(255) NOT NULL,
+  description TEXT NULL,
   banner_image LONGTEXT NOT NULL,
   destination_url VARCHAR(1000) NOT NULL,
+  target_type VARCHAR(50) NOT NULL DEFAULT 'EXTERNAL',
   placement VARCHAR(100) NOT NULL,
+  priority INT NOT NULL DEFAULT 0,
   status VARCHAR(50) NOT NULL DEFAULT 'SCHEDULED',
   start_at DATETIME NULL,
   end_at DATETIME NULL,
+  impressions BIGINT NOT NULL DEFAULT 0,
   click_count BIGINT NOT NULL DEFAULT 0,
+  created_by BIGINT NULL,
+  note TEXT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  KEY idx_ad_active (status, placement, start_at, end_at)
+  KEY idx_ad_active (status, placement, start_at, end_at),
+  KEY idx_ad_priority (placement, priority DESC)
 ) ENGINE=InnoDB;
 
 -- --------------------- NOTIFICATION / AUDIT ----------------------

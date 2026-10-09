@@ -27,6 +27,12 @@ public class User {
  @Column(columnDefinition="TEXT") private String matchingBio;
  private String preferredGender;
  private String googleSub;
+ private String facebookSub;
+ private String authProvider="LOCAL";
+ private Boolean emailVerified=false;
+ private LocalDateTime emailVerifiedAt;
+ private Boolean phoneVerified=false;
+ private LocalDateTime phoneVerifiedAt;
  private LocalDateTime createdAt;
  private LocalDateTime lastLoginAt;
  // Legacy fields kept only for backward compatibility with the original DB.

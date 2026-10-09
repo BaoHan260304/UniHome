@@ -16,6 +16,7 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
+      window.dispatchEvent(new Event('authChange'));
     }
     return Promise.reject(err);
   }
@@ -29,11 +30,24 @@ export function getUser() {
 export function saveAuth(data: any) {
   if (data?.token) localStorage.setItem('authToken', data.token);
   if (data?.user) localStorage.setItem('user', JSON.stringify(data.user));
+  window.dispatchEvent(new Event('authChange'));
+}
+
+export function updateUser(userData: any) {
+  if (userData) {
+    localStorage.setItem('user', JSON.stringify(userData));
+    window.dispatchEvent(new Event('authChange'));
+  }
 }
 
 export function clearAuth() {
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    void api.post('/auth/logout').catch(() => {});
+  }
   localStorage.removeItem('authToken');
   localStorage.removeItem('user');
+  window.dispatchEvent(new Event('authChange'));
 }
 
 export function money(value?: number | null) {
@@ -47,4 +61,10 @@ export function mediaList(value?: string | null): string[] {
     if (value.startsWith('[')) return JSON.parse(value);
     return [value];
   } catch { return [value]; }
+}
+
+export function resolveMediaUrl(url?: string | null): string {
+  if (!url) return '';
+  if (url.startsWith('/uploads/')) return `${API_URL}${url}`;
+  return url;
 }
