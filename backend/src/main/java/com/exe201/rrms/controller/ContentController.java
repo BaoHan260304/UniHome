@@ -42,8 +42,60 @@ public class ContentController {
     }
 
     @GetMapping("/services")
-    public List<ServiceListing> services() {
-        return services.findByStatusOrderByFeaturedDescCreatedAtDesc("ACTIVE");
+    public Object services(@RequestParam(required = false) Map<String, String> q) {
+        String category = q != null ? q.get("category") : null;
+        String search = q != null ? q.get("search") : null;
+        String province = q != null ? q.get("province") : null;
+        String paged = q != null ? q.get("paged") : null;
+        int page = 0;
+        int size = 9;
+        if (q != null && q.get("page") != null) {
+            try { page = Math.max(0, Integer.parseInt(q.get("page"))); } catch (Exception ignored) {}
+        }
+        if (q != null && q.get("size") != null) {
+            try { size = Math.max(1, Integer.parseInt(q.get("size"))); } catch (Exception ignored) {}
+        }
+
+        List<ServiceListing> raw = services.findByStatusOrderByFeaturedDescCreatedAtDesc("ACTIVE");
+        List<ServiceListing> filtered = raw.stream()
+                .filter(s -> {
+                    if (category != null && !category.isBlank() && !"Tất cả".equalsIgnoreCase(category) && !"ALL".equalsIgnoreCase(category)) {
+                        if (!category.equalsIgnoreCase(s.getCategory())) return false;
+                    }
+                    if (search != null && !search.isBlank()) {
+                        String kw = search.toLowerCase().trim();
+                        boolean match = (s.getTitle() != null && s.getTitle().toLowerCase().contains(kw))
+                                || (s.getDescription() != null && s.getDescription().toLowerCase().contains(kw));
+                        if (!match) return false;
+                    }
+                    if (province != null && !province.isBlank()) {
+                        if (s.getProvince() != null && !s.getProvince().toLowerCase().contains(province.toLowerCase().trim())) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .toList();
+
+        if ("false".equalsIgnoreCase(paged)) {
+            return filtered;
+        }
+
+        int totalElements = filtered.size();
+        int totalPages = size > 0 ? (int) Math.ceil((double) totalElements / size) : 1;
+        int start = Math.min(page * size, totalElements);
+        int end = Math.min(start + size, totalElements);
+        List<ServiceListing> content = filtered.subList(start, end);
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("content", content);
+        res.put("page", page);
+        res.put("size", size);
+        res.put("totalElements", totalElements);
+        res.put("totalPages", totalPages);
+        res.put("first", page == 0);
+        res.put("last", page >= totalPages - 1);
+        return res;
     }
 
     @GetMapping("/services/{id}")
@@ -166,8 +218,79 @@ public class ContentController {
     }
 
     @GetMapping("/secondhand")
-    public List<SecondHandListing> second() {
-        return second.findByStatusOrderByCreatedAtDesc("ACTIVE");
+    public Object second(@RequestParam(required = false) Map<String, String> q) {
+        String category = q != null ? q.get("category") : null;
+        String search = q != null ? q.get("search") : null;
+        String province = q != null ? q.get("province") : null;
+        String sort = q != null ? q.get("sort") : null;
+        String paged = q != null ? q.get("paged") : null;
+        Long minPrice = null;
+        Long maxPrice = null;
+        if (q != null && q.get("minPrice") != null) {
+            try { minPrice = Long.parseLong(q.get("minPrice")); } catch (Exception ignored) {}
+        }
+        if (q != null && q.get("maxPrice") != null) {
+            try { maxPrice = Long.parseLong(q.get("maxPrice")); } catch (Exception ignored) {}
+        }
+        int page = 0;
+        int size = 12;
+        if (q != null && q.get("page") != null) {
+            try { page = Math.max(0, Integer.parseInt(q.get("page"))); } catch (Exception ignored) {}
+        }
+        if (q != null && q.get("size") != null) {
+            try { size = Math.max(1, Integer.parseInt(q.get("size"))); } catch (Exception ignored) {}
+        }
+
+        List<SecondHandListing> raw = second.findByStatusOrderByCreatedAtDesc("ACTIVE");
+        final Long fMin = minPrice;
+        final Long fMax = maxPrice;
+        List<SecondHandListing> filtered = new ArrayList<>(raw.stream()
+                .filter(s -> {
+                    if (category != null && !category.isBlank() && !"Tất cả".equalsIgnoreCase(category) && !"ALL".equalsIgnoreCase(category)) {
+                        if (!category.equalsIgnoreCase(s.getCategory())) return false;
+                    }
+                    if (search != null && !search.isBlank()) {
+                        String kw = search.toLowerCase().trim();
+                        boolean match = (s.getTitle() != null && s.getTitle().toLowerCase().contains(kw))
+                                || (s.getDescription() != null && s.getDescription().toLowerCase().contains(kw));
+                        if (!match) return false;
+                    }
+                    if (province != null && !province.isBlank()) {
+                        if (s.getProvince() != null && !s.getProvince().toLowerCase().contains(province.toLowerCase().trim())) {
+                            return false;
+                        }
+                    }
+                    if (fMin != null && s.getPrice() != null && s.getPrice() < fMin) return false;
+                    if (fMax != null && s.getPrice() != null && s.getPrice() > fMax) return false;
+                    return true;
+                })
+                .toList());
+
+        if ("PRICE_ASC".equalsIgnoreCase(sort)) {
+            filtered.sort(Comparator.comparingLong(s -> s.getPrice() != null ? s.getPrice() : 0L));
+        } else if ("PRICE_DESC".equalsIgnoreCase(sort)) {
+            filtered.sort(Comparator.comparingLong((SecondHandListing s) -> s.getPrice() != null ? s.getPrice() : 0L).reversed());
+        }
+
+        if ("false".equalsIgnoreCase(paged)) {
+            return filtered;
+        }
+
+        int totalElements = filtered.size();
+        int totalPages = size > 0 ? (int) Math.ceil((double) totalElements / size) : 1;
+        int start = Math.min(page * size, totalElements);
+        int end = Math.min(start + size, totalElements);
+        List<SecondHandListing> content = filtered.subList(start, end);
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("content", content);
+        res.put("page", page);
+        res.put("size", size);
+        res.put("totalElements", totalElements);
+        res.put("totalPages", totalPages);
+        res.put("first", page == 0);
+        res.put("last", page >= totalPages - 1);
+        return res;
     }
 
     @GetMapping("/secondhand/{id}")

@@ -160,19 +160,57 @@ public class MatchingService {
             aiExplanation = defaultExplanation(pct, strengths, conflicts);
         }
 
+        String fb = (b.getFacebookUrl() != null && !b.getFacebookUrl().isBlank()) ? b.getFacebookUrl().trim() : (u != null ? u.getFacebookUrl() : null);
+        String zl = (b.getZaloUrl() != null && !b.getZaloUrl().isBlank()) ? b.getZaloUrl().trim() : (u != null ? u.getZaloUrl() : null);
+        String oth = (b.getOtherSocialUrl() != null && !b.getOtherSocialUrl().isBlank()) ? b.getOtherSocialUrl().trim() : (u != null ? u.getOtherSocialUrl() : null);
+
+        // Normalize Zalo if it's pure digits/phone
+        if (zl != null && !zl.isBlank()) {
+            String cleanZl = zl.trim();
+            if (!cleanZl.startsWith("http://") && !cleanZl.startsWith("https://")) {
+                if (cleanZl.matches("^(\\+?84|0)[0-9]{8,11}$")) {
+                    cleanZl = "https://zalo.me/" + (cleanZl.startsWith("+") ? cleanZl.substring(1) : cleanZl);
+                } else if (cleanZl.contains("zalo.me")) {
+                    cleanZl = "https://" + cleanZl;
+                }
+            }
+            zl = cleanZl;
+        }
+
+        // Normalize Facebook
+        if (fb != null && !fb.isBlank()) {
+            String cleanFb = fb.trim();
+            if (!cleanFb.startsWith("http://") && !cleanFb.startsWith("https://")) {
+                cleanFb = "https://" + cleanFb;
+            }
+            fb = cleanFb;
+        }
+
+        // Normalize Other Social
+        if (oth != null && !oth.isBlank()) {
+            String cleanOth = oth.trim();
+            if (!cleanOth.startsWith("http://") && !cleanOth.startsWith("https://") && !cleanOth.startsWith("mailto:") && !cleanOth.startsWith("tel:")) {
+                cleanOth = "https://" + cleanOth;
+            }
+            oth = cleanOth;
+        }
+
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("userId", b.getUserId());
-        r.put("fullName", u == null ? "Người dùng" : u.getFullName());
+        r.put("fullName", u == null ? "Người dùng" : (u.getFullName() != null && !u.getFullName().isBlank() ? u.getFullName() : "Người dùng #" + b.getUserId()));
         r.put("avatarUrl", u == null ? null : u.getAvatarUrl());
         r.put("gender", b.getGender());
-        r.put("schoolName", b.getSchoolName() != null ? b.getSchoolName() : (u != null ? u.getSchoolName() : ""));
+        r.put("schoolName", b.getSchoolName() != null && !b.getSchoolName().isBlank() ? b.getSchoolName() : (u != null && u.getSchoolName() != null ? u.getSchoolName() : ""));
         r.put("score", pct);
+        r.put("compatibilityScore", pct);
         r.put("strengths", strengths);
         r.put("conflicts", conflicts);
         r.put("reason", aiExplanation);
-        r.put("facebookUrl", b.getFacebookUrl());
-        r.put("zaloUrl", b.getZaloUrl());
-        r.put("otherSocialUrl", b.getOtherSocialUrl());
+        r.put("compatibilityExplanation", aiExplanation);
+        r.put("facebookUrl", fb);
+        r.put("zaloUrl", zl);
+        r.put("otherSocialUrl", oth);
+        r.put("matchingEnabled", Boolean.TRUE.equals(b.getEnabled()));
         return r;
     }
 

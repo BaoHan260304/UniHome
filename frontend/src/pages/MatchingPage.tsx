@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, getUser, money } from '../lib/api';
+import { api, getUser, money, resolveMediaUrl } from '../lib/api';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import LocationPicker from '../components/LocationPicker';
 export default function MatchingPage() {
@@ -114,8 +114,6 @@ export default function MatchingPage() {
       contextId: listingId ? Number(listingId) : undefined,
     }).then(res => nav(`/chat?conversationId=${res.data?.id || res.data?.conversationId || ''}`));
   };
-
-  const social = (m: any) => m.facebookUrl || m.zaloUrl || m.otherSocialUrl;
 
   return (
     <div className="space-y-8">
@@ -341,44 +339,90 @@ export default function MatchingPage() {
           </button>
           <div className="space-y-4">
             {results.map((m: any) => (
-              <div key={m.userId} className="bg-white rounded-2xl border p-6 flex flex-col md:flex-row gap-5 items-start">
-                <button onClick={() => nav(`/users/${m.userId}`)}>
-                  <img src={m.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.fullName)}`} className="w-20 h-20 rounded-full object-cover" />
+              <div key={m.userId} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col md:flex-row gap-5 items-start hover:shadow-md transition-shadow">
+                <button onClick={() => nav(`/users/${m.userId}`)} className="shrink-0 group">
+                  <img
+                    src={m.avatarUrl ? resolveMediaUrl(m.avatarUrl) : `https://ui-avatars.com/api/?name=${encodeURIComponent(m.fullName || 'User')}&background=random`}
+                    alt={m.fullName}
+                    className="w-20 h-20 rounded-2xl object-cover border border-gray-100 group-hover:ring-2 ring-indigo-500 transition-all shadow-sm"
+                  />
                 </button>
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => nav(`/users/${m.userId}`)} className="text-xl font-bold hover:text-indigo-600">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button onClick={() => nav(`/users/${m.userId}`)} className="text-xl font-bold hover:text-indigo-600 transition-colors text-gray-900 truncate">
                       {m.fullName}
                     </button>
-                    <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm font-bold">
-                      {m.score}% phù hợp
+                    <span className="px-3 py-0.5 bg-purple-50 text-purple-700 border border-purple-100 rounded-full text-xs font-extrabold flex items-center gap-1">
+                      <span>⚡</span> {m.compatibilityScore ?? m.score}% phù hợp
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {m.schoolName || ''} {m.distanceKm != null ? `• ${m.distanceKm} km` : ''}
+                  <p className="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-2">
+                    {m.schoolName && <span>🎓 {m.schoolName}</span>}
+                    {m.distanceKm != null && <span>📍 Cách {m.distanceKm} km</span>}
                   </p>
-                  <div className="mt-3 text-sm text-gray-700">{m.reason}</div>
+                  <div className="mt-3 text-sm text-gray-700 bg-gray-50/80 p-3 rounded-xl border border-gray-100 leading-relaxed">
+                    {m.compatibilityExplanation ?? m.reason}
+                  </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(m.strengths || []).map((x: string) => (
-                      <span key={x} className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs">✓ {x}</span>
+                      <span key={x} className="bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1 rounded-full text-xs font-medium">✓ {x}</span>
                     ))}
                     {(m.conflicts || []).map((x: string) => (
-                      <span key={x} className="bg-orange-50 text-orange-700 px-3 py-1 rounded-full text-xs">⚠ {x}</span>
+                      <span key={x} className="bg-amber-50 text-amber-700 border border-amber-100 px-3 py-1 rounded-full text-xs font-medium">⚠ {x}</span>
                     ))}
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-3 text-xs">
-                    {m.facebookUrl && <a target="_blank" rel="noreferrer" href={m.facebookUrl} className="text-indigo-600 hover:underline">Facebook</a>}
-                    {m.zaloUrl && <a target="_blank" rel="noreferrer" href={m.zaloUrl} className="text-indigo-600 hover:underline">Zalo</a>}
-                    {m.otherSocialUrl && <a target="_blank" rel="noreferrer" href={m.otherSocialUrl} className="text-indigo-600 hover:underline">MXH khác</a>}
-                    {!social(m) && <span className="text-gray-500">Không public MXH - dùng UniHome Chat</span>}
+
+                  {/* Social Buttons */}
+                  <div className="mt-4 flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
+                    <span className="text-xs font-semibold text-gray-400 mr-1">Liên hệ ngoài:</span>
+                    {m.facebookUrl && (
+                      <a
+                        href={m.facebookUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors border border-blue-200"
+                        title="Mở Facebook người này"
+                      >
+                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                        Facebook
+                      </a>
+                    )}
+                    {m.zaloUrl && (
+                      <a
+                        href={m.zaloUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition-colors border border-cyan-200"
+                        title="Nhắn Zalo"
+                      >
+                        <span className="font-extrabold text-[10px] px-1 py-0.2 bg-cyan-600 text-white rounded">Z</span>
+                        Zalo
+                      </a>
+                    )}
+                    {m.otherSocialUrl && (
+                      <a
+                        href={m.otherSocialUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors border border-purple-200"
+                        title="Mạng xã hội khác"
+                      >
+                        <span>🔗</span>
+                        MXH khác
+                      </a>
+                    )}
+                    {!m.facebookUrl && !m.zaloUrl && !m.otherSocialUrl && (
+                      <span className="text-xs text-gray-400 italic">Chưa công khai MXH - Bạn có thể chat qua UniHome</span>
+                    )}
                   </div>
                 </div>
-                <div className="flex md:flex-col gap-2">
-                  <button onClick={() => openChat(m)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold transition-colors">
-                    Chat
+
+                <div className="flex md:flex-col gap-2 shrink-0 w-full md:w-36">
+                  <button onClick={() => openChat(m)} className="flex-1 inline-flex justify-center items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
+                    <span>💬</span> Chat UniHome
                   </button>
-                  <button onClick={() => nav(`/users/${m.userId}`)} className="border hover:bg-gray-50 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">
-                    Hồ sơ
+                  <button onClick={() => nav(`/users/${m.userId}`)} className="flex-1 inline-flex justify-center items-center gap-1.5 border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+                    <span>👤</span> Xem Hồ sơ
                   </button>
                 </div>
               </div>

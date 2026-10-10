@@ -245,6 +245,11 @@ export default function PropertyDetail() {
                       ? '✓ Xác minh từ xa'
                       : 'Đã kiểm duyệt nội dung'}
                   </span>
+                  {(landlord?.status === 'BANNED' || landlord?.status === 'SUSPENDED' || prop.landlordStatus === 'BANNED' || prop.landlordStatus === 'SUSPENDED') && (
+                    <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-extrabold rounded-full border border-red-300">
+                      ⚠️ CHỦ TRỌ BỊ KHÓA
+                    </span>
+                  )}
                 </div>
                 <h1 className="text-3xl font-extrabold text-gray-900">{prop.title}</h1>
                 <p className="text-gray-500 mt-2">
@@ -517,6 +522,11 @@ export default function PropertyDetail() {
             />
             <h3 className="font-bold text-gray-900 mt-3 text-sm">{landlord?.fullName || 'Chủ trọ UniHome'}</h3>
             <p className="text-xs text-gray-500 mt-0.5">{landlord?.followers || 0} người theo dõi</p>
+            {(landlord?.status === 'BANNED' || landlord?.status === 'SUSPENDED' || prop.landlordStatus === 'BANNED' || prop.landlordStatus === 'SUSPENDED') && (
+              <div className="mt-2.5 p-2 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold text-center">
+                ⚠️ Tài khoản chủ trọ đã bị tạm ngưng/khóa
+              </div>
+            )}
             <button
               onClick={() => nav(`/users/${prop.landlordId}`)}
               className="mt-4 w-full border border-gray-200 rounded-xl py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
