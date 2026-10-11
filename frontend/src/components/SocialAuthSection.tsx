@@ -180,15 +180,19 @@ export default function SocialAuthSection({ from = '/', onError }: Props) {
       return;
     }
 
-    (window as any).fbAsyncInit = function () {
-      window.FB.init({
-        appId: fbAppId,
-        cookie: true,
-        xfbml: true,
-        version: 'v18.0'
-      });
-      if (mounted) initializeFb();
-    };
+   const facebookApiVersion =
+  import.meta.env.VITE_FACEBOOK_API_VERSION || 'v26.0';
+
+(window as any).fbAsyncInit = function () {
+  window.FB.init({
+    appId: fbAppId,
+    cookie: true,
+    xfbml: true,
+    version: facebookApiVersion,
+  });
+
+  if (mounted) initializeFb();
+};
 
     const s = document.createElement('script');
     s.src = 'https://connect.facebook.net/vi_VN/sdk.js';
