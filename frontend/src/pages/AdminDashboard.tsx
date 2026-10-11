@@ -702,8 +702,14 @@ export default function AdminDashboard() {
 
   // Service & Secondhand management
   const changeServiceStatus = async (id: number, status: string) => {
+    let reason = '';
+    if (status === 'REJECTED' || status === 'NEED_REVISION') {
+      const input = window.prompt('Nhập lý do kiểm duyệt gửi tới đối tác:');
+      if (!input || !input.trim()) return showToast('Vui lòng nhập lý do kiểm duyệt', 'error');
+      reason = input.trim();
+    }
     try {
-      await api.post(`/admin/services/${id}/moderate`, { status });
+      await api.post(`/admin/services/${id}/moderate`, { status, reason });
       showToast(`Đã chuyển trạng thái dịch vụ sang ${status}`);
       load();
     } catch (err: any) {
@@ -711,13 +717,41 @@ export default function AdminDashboard() {
     }
   };
 
-  const changeSecondhandStatus = async (id: number, status: string) => {
+  const deleteService = async (id: number) => {
+    if (!window.confirm(`Xác nhận xóa dịch vụ #${id}?`)) return;
     try {
-      await api.post(`/admin/secondhand/${id}/status`, { status });
+      await api.delete(`/admin/services/${id}`);
+      showToast('Đã xóa dịch vụ thành công');
+      load();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Lỗi xóa dịch vụ', 'error');
+    }
+  };
+
+  const changeSecondhandStatus = async (id: number, status: string) => {
+    let reason = '';
+    if (status === 'REJECTED' || status === 'NEED_REVISION') {
+      const input = window.prompt('Nhập lý do kiểm duyệt gửi tới người bán:');
+      if (!input || !input.trim()) return showToast('Vui lòng nhập lý do kiểm duyệt', 'error');
+      reason = input.trim();
+    }
+    try {
+      await api.post(`/admin/secondhand/${id}/moderate`, { status, reason });
       showToast(`Đã chuyển trạng thái tin đồ cũ sang ${status}`);
       load();
     } catch (err: any) {
       showToast(err.response?.data?.message || 'Lỗi cập nhật đồ cũ', 'error');
+    }
+  };
+
+  const deleteSecondhand = async (id: number) => {
+    if (!window.confirm(`Xác nhận xóa tin đồ cũ #${id}?`)) return;
+    try {
+      await api.delete(`/admin/secondhand/${id}`);
+      showToast('Đã xóa tin đồ cũ thành công');
+      load();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Lỗi xóa tin đồ cũ', 'error');
     }
   };
 
@@ -830,13 +864,40 @@ export default function AdminDashboard() {
   const savePartner = async () => {
     if (!partnerForm.name.trim()) return showToast('Vui lòng nhập tên đối tác', 'error');
     try {
-      await api.post('/rewards/admin/partners', partnerForm);
+      if (partnerForm.id) {
+        await api.put(`/rewards/admin/partners/${partnerForm.id}`, partnerForm);
+        showToast('Đã cập nhật đối tác thành công!');
+      } else {
+        await api.post('/rewards/admin/partners', partnerForm);
+        showToast('Đã thêm đối tác thành công!');
+      }
       setShowPartnerModal(false);
       setPartnerForm({ name: '', category: 'F&B', logoUrl: '', phone: '', website: '', status: 'ACTIVE' });
-      showToast('Đã thêm đối tác thành công!');
       load();
     } catch (e: any) {
-      showToast(e.response?.data?.message || 'Không thể tạo đối tác', 'error');
+      showToast(e.response?.data?.message || 'Không thể lưu đối tác', 'error');
+    }
+  };
+
+  const togglePartnerStatus = async (p: any) => {
+    try {
+      const nextStatus = p.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+      await api.put(`/rewards/admin/partners/${p.id}`, { ...p, status: nextStatus });
+      showToast(`Đã chuyển đối tác sang ${nextStatus}`);
+      load();
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Lỗi cập nhật đối tác', 'error');
+    }
+  };
+
+  const deletePartner = async (id: number) => {
+    if (!window.confirm(`Xác nhận xóa đối tác #${id}?`)) return;
+    try {
+      await api.delete(`/rewards/admin/partners/${id}`);
+      showToast('Đã xóa đối tác thành công');
+      load();
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Lỗi xóa đối tác', 'error');
     }
   };
 
@@ -844,12 +905,39 @@ export default function AdminDashboard() {
     if (!voucherForm.title.trim()) return showToast('Vui lòng nhập tiêu đề voucher', 'error');
     if (!voucherForm.partnerId) return showToast('Vui lòng chọn đối tác liên kết', 'error');
     try {
-      await api.post('/rewards/admin/vouchers', voucherForm);
+      if (voucherForm.id) {
+        await api.put(`/rewards/admin/vouchers/${voucherForm.id}`, voucherForm);
+        showToast('Đã cập nhật voucher thành công!');
+      } else {
+        await api.post('/rewards/admin/vouchers', voucherForm);
+        showToast('Đã tạo voucher thành công!');
+      }
       setShowVoucherModal(false);
-      showToast('Đã tạo voucher thành công!');
       load();
     } catch (e: any) {
-      showToast(e.response?.data?.message || 'Không thể tạo voucher', 'error');
+      showToast(e.response?.data?.message || 'Không thể lưu voucher', 'error');
+    }
+  };
+
+  const toggleVoucherStatus = async (v: any) => {
+    try {
+      const nextStatus = v.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+      await api.put(`/rewards/admin/vouchers/${v.id}`, { ...v, status: nextStatus });
+      showToast(`Đã chuyển voucher sang ${nextStatus}`);
+      load();
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Lỗi cập nhật voucher', 'error');
+    }
+  };
+
+  const deleteVoucher = async (id: number) => {
+    if (!window.confirm(`Xác nhận xóa voucher #${id}?`)) return;
+    try {
+      await api.delete(`/rewards/admin/vouchers/${id}`);
+      showToast('Đã xóa voucher thành công');
+      load();
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Lỗi xóa voucher', 'error');
     }
   };
 
@@ -1766,9 +1854,38 @@ export default function AdminDashboard() {
                         <div className="text-xs text-gray-500">{p.category} • {p.phone || 'Chưa có SĐT'}</div>
                       </div>
                     </div>
-                    <span className="text-xs font-bold px-2 py-0.5 bg-green-50 text-green-700 rounded-md">
-                      {p.status || 'ACTIVE'}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                        p.status === 'ACTIVE' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {p.status || 'ACTIVE'}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setPartnerForm({ ...p });
+                          setShowPartnerModal(true);
+                        }}
+                        className="p-1 text-indigo-600 hover:bg-indigo-50 rounded text-xs"
+                        title="Chỉnh sửa"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => togglePartnerStatus(p)}
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded transition-colors ${
+                          p.status === 'ACTIVE' ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-green-50 text-green-700 hover:bg-green-100'
+                        }`}
+                      >
+                        {p.status === 'ACTIVE' ? 'Tạm ngưng' : 'Kích hoạt'}
+                      </button>
+                      <button
+                        onClick={() => deletePartner(p.id)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded text-xs"
+                        title="Xóa"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {!(data.partners || []).length && (
@@ -1794,22 +1911,54 @@ export default function AdminDashboard() {
                         <span className="text-[10px] font-bold px-1.5 py-0.2 bg-gray-100 text-gray-600 rounded">
                           {v.codeMode === 'UNIQUE_POOL' ? 'Mã độc nhất (Pool)' : 'Mã chung'}
                         </span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                          v.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {v.status || 'ACTIVE'}
+                        </span>
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
                         Đối tác: <b>{v.partnerName}</b> • Còn lại: <b className="text-emerald-700">{v.remainingStock}</b>/{v.totalStock}
                       </div>
                     </div>
-                    {v.codeMode === 'UNIQUE_POOL' && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {v.codeMode === 'UNIQUE_POOL' && (
+                        <button
+                          onClick={() => {
+                            setImportVoucherId(v.id);
+                            setImportCodesText('');
+                          }}
+                          className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded-lg"
+                        >
+                          + Nạp pool
+                        </button>
+                      )}
                       <button
                         onClick={() => {
-                          setImportVoucherId(v.id);
-                          setImportCodesText('');
+                          setVoucherForm({ ...v });
+                          setShowVoucherModal(true);
                         }}
-                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg shrink-0"
+                        className="p-1 text-indigo-600 hover:bg-indigo-50 rounded text-xs"
+                        title="Chỉnh sửa"
                       >
-                        + Nạp mã pool
+                        ✏️
                       </button>
-                    )}
+                      <button
+                        onClick={() => toggleVoucherStatus(v)}
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded transition-colors ${
+                          v.status === 'ACTIVE' ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-green-50 text-green-700 hover:bg-green-100'
+                        }`}
+                      >
+                        {v.status === 'ACTIVE' ? 'Tạm ngưng' : 'Kích hoạt'}
+                      </button>
+                      <button
+                        onClick={() => deleteVoucher(v.id)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded text-xs"
+                        title="Xóa"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {!(data.vouchers || []).length && (
@@ -2616,21 +2765,43 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="p-4 text-right">
-                        {s.status === 'ACTIVE' ? (
+                        <div className="flex justify-end items-center gap-1.5 flex-wrap">
+                          {s.status !== 'ACTIVE' && (
+                            <button
+                              onClick={() => changeServiceStatus(s.id, 'ACTIVE')}
+                              className="px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-bold text-xs"
+                            >
+                              Duyệt
+                            </button>
+                          )}
                           <button
-                            onClick={() => changeServiceStatus(s.id, 'SUSPENDED')}
-                            className="px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg font-bold"
+                            onClick={() => changeServiceStatus(s.id, 'NEED_REVISION')}
+                            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg font-bold text-xs"
                           >
-                            Tạm ngưng
+                            Cần sửa
                           </button>
-                        ) : (
+                          {s.status === 'ACTIVE' && (
+                            <button
+                              onClick={() => changeServiceStatus(s.id, 'SUSPENDED')}
+                              className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold text-xs"
+                            >
+                              Tạm ngưng
+                            </button>
+                          )}
                           <button
-                            onClick={() => changeServiceStatus(s.id, 'ACTIVE')}
-                            className="px-3 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-bold"
+                            onClick={() => changeServiceStatus(s.id, 'REJECTED')}
+                            className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-bold text-xs"
                           >
-                            Kích hoạt
+                            Từ chối
                           </button>
-                        )}
+                          <button
+                            onClick={() => deleteService(s.id)}
+                            className="p-1 text-red-600 hover:bg-red-50 rounded text-xs"
+                            title="Xóa dịch vụ"
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -2759,22 +2930,42 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="p-4 text-right">
-                        <div className="flex justify-end gap-1.5">
-                          {sh.status === 'ACTIVE' ? (
-                            <button
-                              onClick={() => changeSecondhandStatus(sh.id, 'HIDDEN')}
-                              className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg font-bold"
-                            >
-                              Ẩn tin
-                            </button>
-                          ) : (
+                        <div className="flex justify-end items-center gap-1.5 flex-wrap">
+                          {sh.status !== 'ACTIVE' && (
                             <button
                               onClick={() => changeSecondhandStatus(sh.id, 'ACTIVE')}
-                              className="px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-bold"
+                              className="px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-bold text-xs"
                             >
                               Hiển thị
                             </button>
                           )}
+                          <button
+                            onClick={() => changeSecondhandStatus(sh.id, 'NEED_REVISION')}
+                            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg font-bold text-xs"
+                          >
+                            Cần sửa
+                          </button>
+                          {sh.status === 'ACTIVE' && (
+                            <button
+                              onClick={() => changeSecondhandStatus(sh.id, 'HIDDEN')}
+                              className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold text-xs"
+                            >
+                              Ẩn tin
+                            </button>
+                          )}
+                          <button
+                            onClick={() => changeSecondhandStatus(sh.id, 'REJECTED')}
+                            className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-bold text-xs"
+                          >
+                            Từ chối
+                          </button>
+                          <button
+                            onClick={() => deleteSecondhand(sh.id)}
+                            className="p-1 text-red-600 hover:bg-red-50 rounded text-xs"
+                            title="Xóa tin đồ cũ"
+                          >
+                            🗑️
+                          </button>
                         </div>
                       </td>
                     </tr>

@@ -22,6 +22,7 @@ public class PaymentService {
     private final SecondHandListingRepository secondHands;
     private final ServiceListingRepository services;
     private final NotificationService noti;
+    private final UserRepository users;
 
     @Value("${unihome.bank.bin:970436}")
     private String bankBin;
@@ -39,7 +40,8 @@ public class PaymentService {
                           PostPromotionRepository promotions,
                           SecondHandListingRepository secondHands,
                           ServiceListingRepository services,
-                          NotificationService noti) {
+                          NotificationService noti,
+                          UserRepository users) {
         this.payments = payments;
         this.txs = txs;
         this.plans = plans;
@@ -48,6 +50,7 @@ public class PaymentService {
         this.secondHands = secondHands;
         this.services = services;
         this.noti = noti;
+        this.users = users;
     }
 
     public long balance(Long userId) {
@@ -133,6 +136,23 @@ public class PaymentService {
     public void activatePromotion(Long uid, String targetType, Long targetId, Long planId) {
         PackagePlan plan = plans.findById(planId).orElseThrow();
         int days = Math.max(1, plan.getDurationDays());
+
+        if ("ACCOUNT_MEMBERSHIP".equalsIgnoreCase(plan.getProductType()) || "ACCOUNT".equalsIgnoreCase(targetType) || "USER".equalsIgnoreCase(targetType)) {
+            User u = users.findById(uid).orElseThrow();
+            u.setVipTier(plan.getCode() != null ? plan.getCode() : "VIP_GOLD");
+            LocalDateTime currentUntil = u.getVipUntil() != null && u.getVipUntil().isAfter(LocalDateTime.now()) ? u.getVipUntil() : LocalDateTime.now();
+            u.setVipUntil(currentUntil.plusDays(days));
+            if ("ACCOUNT_VIP_NEON".equalsIgnoreCase(plan.getCode())) {
+                u.setCosmeticStyle("NEON_VIOLET");
+                u.setProfileBadge("💎 VIP Neon");
+            } else {
+                u.setCosmeticStyle("SUNSET_GOLD");
+                u.setProfileBadge("★ VIP Gold");
+            }
+            users.save(u);
+            noti.send(uid, "ACCOUNT_VIP_ACTIVE", "Tài khoản của bạn đã được nâng cấp " + plan.getName() + " thời hạn " + days + " ngày!", "USER", uid);
+            return;
+        }
 
         if ("ROOM".equalsIgnoreCase(targetType) || "ROOMMATE".equalsIgnoreCase(targetType) || "ROOM_TRANSFER".equalsIgnoreCase(targetType) || "LISTING".equalsIgnoreCase(targetType)) {
             Listing li = listings.findById(targetId).orElseThrow();

@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api, getUser, resolveMediaUrl, money } from '../lib/api';
+import { api, getUser, resolveMediaUrl, money, getVipCosmeticStyle } from '../lib/api';
 
 export default function PublicProfile() {
   const { id } = useParams();
   const [p, setP] = useState<any>();
   const [loading, setLoading] = useState(true);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
   const nav = useNavigate();
   const me = getUser();
 
   useEffect(() => {
     setLoading(true);
     api.get(`/users/${id}/public`)
-      .then(r => setP(r.data))
+      .then(r => {
+        setP(r.data);
+        setIsFollowing(Boolean(r.data?.isFollowing));
+      })
       .catch(() => setP(null))
       .finally(() => setLoading(false));
   }, [id]);
@@ -37,15 +42,23 @@ export default function PublicProfile() {
     );
   }
 
-  const follow = () => {
+  const follow = async () => {
     if (!me) return nav('/login');
-    api.post(`/users/${id}/follow`).then(r => {
-      alert(r.data.following ? 'Đã theo dõi' : 'Đã bỏ theo dõi');
+    if (followLoading) return;
+    setFollowLoading(true);
+    try {
+      const r = await api.post(`/users/${id}/follow`);
+      const nextFollowing = Boolean(r.data.following);
+      setIsFollowing(nextFollowing);
       setP((prev: any) => ({
         ...prev,
-        followers: (prev.followers || 0) + (r.data.following ? 1 : -1)
+        followers: typeof r.data.followers === 'number' ? r.data.followers : ((prev?.followers || 0) + (nextFollowing ? 1 : -1))
       }));
-    });
+    } catch (e: any) {
+      console.error(e);
+    } finally {
+      setFollowLoading(false);
+    }
   };
 
   const chat = () => {
@@ -58,22 +71,42 @@ export default function PublicProfile() {
     ? resolveMediaUrl(p.avatarUrl)
     : `https://ui-avatars.com/api/?name=${encodeURIComponent(p.fullName || 'UniHome')}&background=random`;
 
+  const vipCosmetics = getVipCosmeticStyle(p.cosmeticStyle);
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm">
+      <div className={`bg-white border rounded-3xl p-8 shadow-sm transition-all ${vipCosmetics.glowClass}`}>
         <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-          <img
-            src={avatar}
-            alt={p.fullName}
-            className="w-28 h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-indigo-50 shadow-sm"
-          />
+          <div className="relative">
+            <img
+              src={avatar}
+              alt={p.fullName}
+              className={`w-28 h-28 md:w-32 md:h-32 rounded-full object-cover border-4 ${vipCosmetics.glowClass} shadow-sm`}
+            />
+            {p.profileBadge && (
+              <span className={`absolute -bottom-2 -right-1 text-[11px] px-2.5 py-0.5 rounded-full ${vipCosmetics.badgeClass} ring-2 ring-white shadow-xs`}>
+                {p.profileBadge}
+              </span>
+            )}
+          </div>
+
           <div className="flex-1 text-center md:text-left">
-            <h1 className="text-3xl font-extrabold text-gray-900">{p.fullName}</h1>
-            <div className="flex flex-wrap gap-2 items-center justify-center md:justify-start mt-1">
+            <div className="flex flex-col md:flex-row md:items-center gap-2">
+              <h1 className={`text-3xl font-extrabold tracking-tight ${vipCosmetics.textClass}`}>
+                {p.fullName}
+              </h1>
+              {p.vipTier && p.vipTier !== 'NONE' && (
+                <span className={`inline-block self-center md:self-auto text-xs px-2.5 py-0.5 rounded-full ${vipCosmetics.badgeClass}`}>
+                  ★ {p.vipTier}
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2 items-center justify-center md:justify-start mt-1.5">
               <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-indigo-50 text-indigo-700">
                 {p.role === 'LANDLORD' ? 'Chủ trọ' : p.role === 'TENANT' ? 'Người thuê' : p.role}
               </span>
-              {p.schoolName && <span className="text-xs text-gray-500">🎓 {p.schoolName}</span>}
+              {p.schoolName && <span className="text-xs text-gray-500 font-semibold">🎓 {p.schoolName}</span>}
             </div>
 
             <p className="text-sm text-gray-700 mt-3 leading-relaxed whitespace-pre-wrap">
@@ -81,17 +114,28 @@ export default function PublicProfile() {
             </p>
 
             <div className="flex flex-wrap gap-4 mt-4 text-xs text-gray-500 justify-center md:justify-start">
-              <span><b>{p.followers || 0}</b> người theo dõi</span>
-              <span><b>{p.following || 0}</b> đang theo dõi</span>
+              <span><b className="text-gray-900 font-bold">{p.followers || 0}</b> người theo dõi</span>
+              <span><b className="text-gray-900 font-bold">{p.following || 0}</b> đang theo dõi</span>
             </div>
 
             <div className="flex flex-wrap gap-3 mt-5 justify-center md:justify-start items-center">
               {me?.id !== p.id && (
                 <>
-                  <button onClick={follow} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl text-xs font-bold transition-colors shadow-sm">
-                    Theo dõi
+                  <button
+                    onClick={follow}
+                    disabled={followLoading}
+                    className={`px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${
+                      isFollowing
+                        ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                    }`}
+                  >
+                    {isFollowing ? '✓ Đang theo dõi' : '+ Theo dõi'}
                   </button>
-                  <button onClick={chat} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 px-5 py-2 rounded-xl text-xs font-bold transition-colors">
+                  <button
+                    onClick={chat}
+                    className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 px-5 py-2 rounded-xl text-xs font-bold transition-colors"
+                  >
                     💬 Nhắn tin
                   </button>
                 </>
@@ -116,27 +160,34 @@ export default function PublicProfile() {
         </div>
       </div>
 
-      {/* Public listings if landlord */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Tin đăng công khai ({p.listings?.length || 0})</h2>
+      {/* Public listings (Render for anyone with active listings) */}
+      <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
+        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center justify-between">
+          <span>Tin đăng công khai</span>
+          <span className="text-xs font-bold bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full">
+            {p.listings?.length || 0} bài đăng
+          </span>
+        </h2>
         <div className="space-y-3">
           {(p.listings || []).map((l: any) => (
             <button
               key={l.id}
               onClick={() => nav(`/property/${l.id}`)}
-              className="w-full text-left p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors flex justify-between items-center gap-4"
+              className="w-full text-left p-4 border border-gray-100 rounded-2xl hover:bg-gray-50 transition-colors flex justify-between items-center gap-4 group"
             >
               <div>
-                <b className="text-gray-900 text-sm font-bold">{l.title}</b>
+                <b className="text-gray-900 text-sm font-bold group-hover:text-indigo-600 transition-colors">{l.title}</b>
                 <div className="text-xs text-gray-500 mt-1">
-                  {l.propertyType || 'Phòng trọ'} • {l.packageTier !== 'FREE' ? `★ ${l.packageTier}` : 'Tin tiêu chuẩn'}
+                  {l.propertyType || 'Phòng trọ'} • {l.packageTier && l.packageTier !== 'FREE' ? `★ ${l.packageTier}` : 'Tin tiêu chuẩn'} • {l.address || 'Khu vực lân cận'}
                 </div>
               </div>
-              {l.price && <span className="text-indigo-600 font-extrabold text-sm">{money(l.price)}</span>}
+              {l.price && <span className="text-indigo-600 font-extrabold text-sm shrink-0 font-mono">{money(l.price)}</span>}
             </button>
           ))}
           {!(p.listings || []).length && (
-            <div className="text-gray-400 text-sm py-4 text-center">Người dùng chưa có tin đăng công khai nào.</div>
+            <div className="text-gray-400 text-sm py-8 text-center bg-gray-50 rounded-2xl">
+              Người dùng chưa có tin đăng công khai nào.
+            </div>
           )}
         </div>
       </div>

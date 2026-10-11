@@ -127,7 +127,7 @@ function Layout() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 flex flex-col justify-between">
       {/* Welcome Banner Toast */}
-      {welcomeBanner.show && currentUser && !isAdminPage && (
+      {welcomeBanner.show && currentUser && !isAdminPage && !isAdmin && (
         <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 text-white px-4 py-2.5 text-xs font-semibold flex items-center justify-between border-b border-indigo-700/50 shadow-md">
           <div className="flex items-center gap-2 max-w-4xl mx-auto flex-1 justify-center">
             <span>👋</span>
@@ -167,38 +167,36 @@ function Layout() {
                   </Link>
                   <Link className="hover:text-indigo-600 transition-colors" to="/blog">Blog</Link>
                   <Link className="hover:text-indigo-600 transition-colors" to="/qa">Hỏi đáp</Link>
-                  <Link className="hover:text-indigo-600 transition-colors flex items-center gap-1 text-indigo-700 font-bold bg-indigo-50 px-2.5 py-1 rounded-xl border border-indigo-100" to="/rewards">
-                    <span>💎</span> Ưu đãi
-                  </Link>
+                  {!isAdmin && (
+                    <Link className="hover:text-indigo-600 transition-colors flex items-center gap-1 text-indigo-700 font-bold bg-indigo-50 px-2.5 py-1 rounded-xl border border-indigo-100" to="/rewards">
+                      <span>💎</span> Ưu đãi
+                    </Link>
+                  )}
                 </div>
               </div>
               <div className="flex items-center space-x-2.5 sm:space-x-3.5">
-                {/* Global + Đăng tin button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isAdmin) {
-                      alert('Chức năng dành cho người dùng thương mại.');
-                      return;
-                    }
-                    setComposerOpen(true);
-                  }}
-                  className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 sm:px-4 py-2 rounded-xl shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
-                >
-                  <span className="text-sm font-black">+</span> Đăng tin
-                </button>
+                {/* Global + Đăng tin button (Only for non-admin) */}
+                {!isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setComposerOpen(true)}
+                    className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 sm:px-4 py-2 rounded-xl shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
+                  >
+                    <span className="text-sm font-black">+</span> Đăng tin
+                  </button>
+                )}
 
-                {currentUser && (
+                {currentUser && !isAdmin && (
                   <Link to="/saved" className="text-gray-600 hover:text-indigo-600 font-semibold text-sm hidden md:inline-block">
                     Đã lưu
                   </Link>
                 )}
-                {currentUser && (
+                {currentUser && !isAdmin && (
                   <Link to="/my-posts" className="text-gray-600 hover:text-indigo-600 font-semibold text-sm hidden md:inline-block">
                     Tin đã đăng
                   </Link>
                 )}
-                {currentUser && (
+                {currentUser && !isAdmin && (
                   <Link to="/chat" className="text-gray-600 hover:text-indigo-600 font-semibold text-sm relative">
                     Chat
                     {unreadChatCount > 0 && (
@@ -208,7 +206,7 @@ function Layout() {
                     )}
                   </Link>
                 )}
-                {currentUser && (
+                {currentUser && !isAdmin && (
                   <Link to="/tenant/matching" className="text-gray-600 hover:text-indigo-600 font-semibold text-sm hidden lg:inline-block">
                     Matching
                   </Link>

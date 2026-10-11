@@ -50,11 +50,16 @@ public class UserController {
         m.put("followers", follows.countByFollowingId(id));
         m.put("following", follows.countByFollowerId(id));
         m.put("isFollowing", me != null && follows.findByFollowerIdAndFollowingId(me.getId(), id).isPresent());
+        m.put("vipTier", u.getVipTier() != null ? u.getVipTier() : "NONE");
+        m.put("cosmeticStyle", u.getCosmeticStyle() != null ? u.getCosmeticStyle() : "DEFAULT");
+        m.put("profileBadge", u.getProfileBadge());
+        m.put("profileFrame", u.getProfileFrame());
+
+        m.put("listings", listings.findByLandlordIdOrderByUpdatedAtDesc(id).stream()
+                .filter(x -> "ACTIVE".equals(x.getStatus()))
+                .toList());
 
         if ("LANDLORD".equalsIgnoreCase(u.getRole())) {
-            m.put("listings", listings.findByLandlordIdOrderByUpdatedAtDesc(id).stream()
-                    .filter(x -> "ACTIVE".equals(x.getStatus()))
-                    .toList());
             m.put("facebookUrl", u.getFacebookUrl());
             m.put("zaloUrl", u.getZaloUrl());
             m.put("otherSocialUrl", u.getOtherSocialUrl());

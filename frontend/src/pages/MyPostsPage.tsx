@@ -129,6 +129,23 @@ export default function MyPostsPage() {
     }
   };
 
+  const handleSubmitDraft = async (p: any) => {
+    try {
+      const postId = Number(p.targetId ?? p.id);
+      if (p.category === 'ROOM' || p.category === 'ROOMMATE') {
+        await api.post(`/listings/${postId}/submit`);
+      } else if (p.category === 'SECOND_HAND') {
+        await api.put(`/content/secondhand/${postId}/status`, { status: 'PENDING_REVIEW' });
+      } else if (p.category === 'SERVICE') {
+        await api.put(`/content/services/${postId}/status`, { status: 'PENDING_REVIEW' });
+      }
+      setActionMsg({ type: 'success', text: 'Đã gửi bài đăng để ban quản trị phê duyệt!' });
+      loadPosts();
+    } catch (e: any) {
+      setActionMsg({ type: 'error', text: e.response?.data?.message || 'Không thể gửi duyệt bài đăng.' });
+    }
+  };
+
   const handleDelete = async (p: any) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa bài đăng "${p.title}"?`)) return;
     try {
@@ -362,40 +379,69 @@ export default function MyPostsPage() {
                   {/* Action buttons row */}
                   <div className="pt-4 mt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <a
-                        href={getDetailLink(p)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
-                      >
-                        Xem tin
-                      </a>
+                      {p.status === 'DRAFT' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => nav(`/post/edit/${p.targetId ?? p.id}?category=${p.category}`)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-xs"
+                          >
+                            ✏️ Chỉnh sửa bản nháp
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSubmitDraft(p)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                          >
+                            🚀 Gửi duyệt tin
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <a
+                            href={getDetailLink(p)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                          >
+                            Xem tin
+                          </a>
 
-                      <button
-                        type="button"
-                        onClick={() => nav(`/promotions?postId=${p.id}&category=${p.category}`)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors flex items-center gap-1"
-                      >
-                        <span>🚀</span> Đẩy tin / VIP
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() => nav(`/post/edit/${p.targetId ?? p.id}?category=${p.category}`)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                          >
+                            Sửa
+                          </button>
 
-                      {p.status !== 'SOLD' && p.status !== 'FULL' && (
-                        <button
-                          type="button"
-                          onClick={() => handleMarkSold(p)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors"
-                        >
-                          {(p.category === 'ROOM' || p.category === 'ROOMMATE') ? 'Hết phòng' : p.category === 'SECOND_HAND' ? 'Đã bán' : 'Tạm dừng'}
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => nav(`/promotions?postId=${p.id}&category=${p.category}`)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors flex items-center gap-1"
+                          >
+                            <span>🚀</span> Đẩy tin / VIP
+                          </button>
+
+                          {p.status !== 'SOLD' && p.status !== 'FULL' && (
+                            <button
+                              type="button"
+                              onClick={() => handleMarkSold(p)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors"
+                            >
+                              {(p.category === 'ROOM' || p.category === 'ROOMMATE') ? 'Hết phòng' : p.category === 'SECOND_HAND' ? 'Đã bán' : 'Tạm dừng'}
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleHide(p)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                          >
+                            {p.status === 'HIDDEN' ? 'Mở lại' : 'Ẩn tin'}
+                          </button>
+                        </>
                       )}
-
-                      <button
-                        type="button"
-                        onClick={() => handleToggleHide(p)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
-                      >
-                        {p.status === 'HIDDEN' ? 'Mở lại' : 'Ẩn tin'}
-                      </button>
                     </div>
 
                     <button

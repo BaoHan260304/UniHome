@@ -66,12 +66,13 @@ export default function PromotionsPage() {
       setMsg({ type: 'error', text: 'Vui lòng chọn gói dịch vụ bạn muốn đăng ký.' });
       return;
     }
-    if (!selectedPost) {
+    const isAccountMembership = selectedPlan.productType === 'ACCOUNT_MEMBERSHIP' || selectedPlan.code?.startsWith('ACCOUNT_');
+    if (!isAccountMembership && !selectedPost) {
       setMsg({ type: 'error', text: 'Vui lòng chọn bài đăng bạn muốn áp dụng gói này.' });
       return;
     }
     if (wallet.balance < selectedPlan.price) {
-      setMsg({ type: 'error', text: 'Số dư ví không đủ. Vui lòng nạp tiền vào ví hoặc thanh toán qua QR bên dưới.' });
+      setMsg({ type: 'error', text: `Số dư ví (${money(wallet.balance)}) không đủ để thanh toán ${money(selectedPlan.price)}. Vui lòng nạp tiền vào ví hoặc quét mã VietQR.` });
       return;
     }
 
@@ -80,10 +81,10 @@ export default function PromotionsPage() {
     try {
       await api.post('/payments/buy-promotion', {
         packageId: selectedPlan.id,
-        category: selectedPost.category,
-        targetId: selectedPost.id
+        category: isAccountMembership ? 'ACCOUNT' : (selectedPost?.category || 'ROOM'),
+        targetId: isAccountMembership ? 0 : (selectedPost?.id || 0)
       });
-      setMsg({ type: 'success', text: `Đã kích hoạt gói "${selectedPlan.name}" cho bài đăng thành công!` });
+      setMsg({ type: 'success', text: isAccountMembership ? `Chúc mừng bạn! Gói "${selectedPlan.name}" đã được kích hoạt cho tài khoản.` : `Đã kích hoạt gói "${selectedPlan.name}" cho bài đăng thành công!` });
       loadData();
     } catch (e: any) {
       setMsg({ type: 'error', text: e.response?.data?.message || 'Không thể thanh toán gói qua ví.' });
@@ -98,7 +99,8 @@ export default function PromotionsPage() {
       setMsg({ type: 'error', text: 'Vui lòng chọn gói dịch vụ.' });
       return;
     }
-    if (!selectedPost) {
+    const isAccountMembership = selectedPlan.productType === 'ACCOUNT_MEMBERSHIP' || selectedPlan.code?.startsWith('ACCOUNT_');
+    if (!isAccountMembership && !selectedPost) {
       setMsg({ type: 'error', text: 'Vui lòng chọn bài đăng bạn muốn áp dụng gói này.' });
       return;
     }
@@ -110,8 +112,8 @@ export default function PromotionsPage() {
         amount: selectedPlan.price,
         paymentMethod: 'VIETQR',
         planId: selectedPlan.id,
-        targetType: selectedPost.category,
-        targetId: selectedPost.id
+        targetType: isAccountMembership ? 'ACCOUNT' : (selectedPost?.category || 'ROOM'),
+        targetId: isAccountMembership ? 0 : (selectedPost?.id || 0)
       });
       setPendingPayment(res.data);
       setQrModalOpen(true);
@@ -326,34 +328,64 @@ export default function PromotionsPage() {
               </div>
             )}
 
-            {/* Payment buttons */}
-            <div className="space-y-2.5 pt-2">
-              <button
-                type="button"
-                disabled={submitting || !selectedPlan || !selectedPost || wallet.balance < (selectedPlan?.price || 0)}
-                onClick={handleBuyWithWallet}
-                className={`w-full py-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 ${
-                  submitting || !selectedPlan || !selectedPost || wallet.balance < (selectedPlan?.price || 0)
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-indigo-600 text-white shadow-xs hover:bg-indigo-700 active:scale-98'
-                }`}
-              >
-                <span>💳</span> Thanh toán bằng Ví ({money(wallet.balance || 0)})
-              </button>
+            {/* Helper notice if disabled */}
+            {selectedPlan && (() => {
+              const isAccountVip = selectedPlan.productType === 'ACCOUNT_MEMBERSHIP' || selectedPlan.code?.startsWith('ACCOUNT_');
+              if (!isAccountVip && !selectedPost) {
+                return (
+                  <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800 flex items-center gap-1.5">
+                    <span>⚠️</span> Vui lòng chọn bài đăng bạn muốn áp dụng gói ở menu trên.
+                  </div>
+                );
+              }
+              if (wallet.balance < selectedPlan.price) {
+                return (
+                  <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-[11px] text-blue-800 flex items-center gap-1.5">
+                    <span>ℹ️</span> Số dư ví hiện có {money(wallet.balance)}. Để thanh toán gói này ({money(selectedPlan.price)}), bạn có thể quét mã VietQR trực tiếp bên dưới!
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
-              <button
-                type="button"
-                disabled={submitting || !selectedPlan || !selectedPost}
-                onClick={handleBuyWithQr}
-                className={`w-full py-3 rounded-xl font-bold text-xs transition-all border flex items-center justify-center gap-1.5 ${
-                  submitting || !selectedPlan || !selectedPost
-                    ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
-                    : 'bg-white border-indigo-600 text-indigo-700 hover:bg-indigo-50 active:scale-98'
-                }`}
-              >
-                <span>📱</span> Quét mã VietQR / Ngân hàng tức thì
-              </button>
-            </div>
+            {/* Payment buttons */}
+            {(() => {
+              const isAccountVip = selectedPlan?.productType === 'ACCOUNT_MEMBERSHIP' || selectedPlan?.code?.startsWith('ACCOUNT_');
+              const postReady = isAccountVip || Boolean(selectedPost);
+              const walletEnough = wallet.balance >= (selectedPlan?.price || 0);
+              const walletDisabled = submitting || !selectedPlan || !postReady || !walletEnough;
+              const qrDisabled = submitting || !selectedPlan || !postReady;
+
+              return (
+                <div className="space-y-2.5 pt-2">
+                  <button
+                    type="button"
+                    disabled={walletDisabled}
+                    onClick={handleBuyWithWallet}
+                    className={`w-full py-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 ${
+                      walletDisabled
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                        : 'bg-indigo-600 text-white shadow-xs hover:bg-indigo-700 active:scale-98'
+                    }`}
+                  >
+                    <span>💳</span> Thanh toán bằng Ví ({money(wallet.balance || 0)})
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={qrDisabled}
+                    onClick={handleBuyWithQr}
+                    className={`w-full py-3 rounded-xl font-bold text-xs transition-all border flex items-center justify-center gap-1.5 ${
+                      qrDisabled
+                        ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+                        : 'bg-white border-indigo-600 text-indigo-700 hover:bg-indigo-50 active:scale-98 shadow-xs'
+                    }`}
+                  >
+                    <span>📱</span> Quét mã VietQR / Ngân hàng tức thì
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>

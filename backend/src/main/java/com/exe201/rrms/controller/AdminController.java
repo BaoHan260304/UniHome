@@ -565,9 +565,28 @@ public class AdminController {
     public ServiceListing serviceModerate(@PathVariable Long id, HttpServletRequest r, @RequestBody Map<String, String> b) {
         User a = admin(r, "ADMIN", "SUPER_ADMIN", "MODERATOR");
         ServiceListing s = services.findById(id).orElseThrow();
-        s.setStatus(b.getOrDefault("status", "ACTIVE"));
+        String action = b.getOrDefault("action", b.getOrDefault("status", "ACTIVE")).toUpperCase();
+        String reason = b.get("reason");
+        String finalStatus = "ACTIVE";
+        if ("REJECT".equals(action) || "REJECTED".equals(action)) {
+            finalStatus = "REJECTED";
+        } else if ("NEED_REVISION".equals(action) || "REQUEST_CHANGES".equals(action)) {
+            finalStatus = "NEED_REVISION";
+        } else if ("SUSPEND".equals(action) || "SUSPENDED".equals(action) || "PAUSE".equals(action) || "PAUSED".equals(action)) {
+            finalStatus = "SUSPENDED";
+        } else if ("ACTIVE".equals(action) || "APPROVE".equals(action)) {
+            finalStatus = "ACTIVE";
+        }
+
+        s.setStatus(finalStatus);
         ServiceListing saved = services.save(s);
-        log(a.getId(), "SERVICE_MODERATE", "SERVICE", id, s.getStatus());
+        if (s.getProviderId() != null) {
+            String msg = "ACTIVE".equals(finalStatus)
+                    ? "Dịch vụ \"" + s.getTitle() + "\" đã được phê duyệt và hiển thị công khai."
+                    : "Dịch vụ \"" + s.getTitle() + "\" đã chuyển trạng thái thành " + finalStatus + (reason != null ? ": " + reason : "");
+            noti.send(s.getProviderId(), "SERVICE_MODERATED", msg, "SERVICE", id);
+        }
+        log(a.getId(), "SERVICE_MODERATE", "SERVICE", id, "status=" + finalStatus + (reason != null ? ", reason=" + reason : ""));
         return saved;
     }
 
@@ -608,13 +627,32 @@ public class AdminController {
         return out;
     }
 
-    @PostMapping("/secondhand/{id}/status")
+    @PostMapping({"/secondhand/{id}/status", "/secondhand/{id}/moderate"})
     public SecondHandListing secondStatus(@PathVariable Long id, HttpServletRequest r, @RequestBody Map<String, String> b) {
         User a = admin(r, "ADMIN", "SUPER_ADMIN", "MODERATOR");
         SecondHandListing x = secondHand.findById(id).orElseThrow();
-        x.setStatus(b.getOrDefault("status", "ACTIVE"));
+        String action = b.getOrDefault("action", b.getOrDefault("status", "ACTIVE")).toUpperCase();
+        String reason = b.get("reason");
+        String finalStatus = "ACTIVE";
+        if ("REJECT".equals(action) || "REJECTED".equals(action)) {
+            finalStatus = "REJECTED";
+        } else if ("NEED_REVISION".equals(action) || "REQUEST_CHANGES".equals(action)) {
+            finalStatus = "NEED_REVISION";
+        } else if ("HIDE".equals(action) || "HIDDEN".equals(action)) {
+            finalStatus = "HIDDEN";
+        } else if ("ACTIVE".equals(action) || "APPROVE".equals(action)) {
+            finalStatus = "ACTIVE";
+        }
+
+        x.setStatus(finalStatus);
         secondHand.save(x);
-        log(a.getId(), "SECONDHAND_STATUS", "SECOND_HAND", id, x.getStatus());
+        if (x.getSellerId() != null) {
+            String msg = "ACTIVE".equals(finalStatus)
+                    ? "Tin đồ cũ \"" + x.getTitle() + "\" đã được hiển thị công khai."
+                    : "Tin đồ cũ \"" + x.getTitle() + "\" đã chuyển trạng thái thành " + finalStatus + (reason != null ? ": " + reason : "");
+            noti.send(x.getSellerId(), "SECONDHAND_MODERATED", msg, "SECOND_HAND", id);
+        }
+        log(a.getId(), "SECONDHAND_STATUS", "SECOND_HAND", id, "status=" + finalStatus + (reason != null ? ", reason=" + reason : ""));
         return x;
     }
 
