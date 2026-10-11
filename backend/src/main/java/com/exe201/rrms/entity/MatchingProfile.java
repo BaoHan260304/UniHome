@@ -10,4 +10,11 @@ public class MatchingProfile {
  @Column(columnDefinition="TEXT") private String intro;
  private String facebookUrl; private String zaloUrl; private String otherSocialUrl;
  private LocalDateTime updatedAt; @PrePersist @PreUpdate void u(){updatedAt=LocalDateTime.now();}
+
+ public Double getDesiredLatitude() { return latitude; }
+ public void setDesiredLatitude(Double lat) { if (lat != null) this.latitude = lat; }
+ public Double getDesiredLongitude() { return longitude; }
+ public void setDesiredLongitude(Double lng) { if (lng != null) this.longitude = lng; }
+ public String getDesiredAddress() { return schoolName; }
+ public void setDesiredAddress(String addr) { if (addr != null && !addr.isBlank()) this.schoolName = addr; }
 }

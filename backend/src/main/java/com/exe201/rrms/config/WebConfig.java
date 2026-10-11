@@ -27,7 +27,7 @@ public class WebConfig implements WebMvcConfigurer {
         if (!uploadPath.endsWith("/")) {
             uploadPath += "/";
         }
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations(uploadPath);
+        registry.addResourceHandler("/uploads/**", "/api/uploads/**")
+                .addResourceLocations(uploadPath, uploadPath);
     }
 }

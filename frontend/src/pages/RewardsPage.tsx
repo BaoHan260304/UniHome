@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { api } from '../lib/api';
+import { Link, useNavigate } from 'react-router-dom';
+import { api, getUser } from '../lib/api';
 
 export default function RewardsPage() {
+  const nav = useNavigate();
+  const user = getUser();
   const [account, setAccount] = useState<any>(null);
   const [tasks, setTasks] = useState<any[]>([]);
   const [vouchers, setVouchers] = useState<any[]>([]);
@@ -42,6 +44,10 @@ export default function RewardsPage() {
   }, [category]);
 
   const handleCheckin = async () => {
+    if (!user) {
+      nav('/login');
+      return;
+    }
     if (!account?.canCheckinToday || checkinLoading) return;
     setCheckinLoading(true);
     setCheckinMsg(null);
@@ -150,16 +156,20 @@ export default function RewardsPage() {
 
             <button
               type="button"
-              disabled={!account?.canCheckinToday || checkinLoading}
+              disabled={user && (!account?.canCheckinToday || checkinLoading)}
               onClick={handleCheckin}
               className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md active:scale-95 ${
-                account?.canCheckinToday
+                !user
+                  ? 'bg-amber-400 text-amber-950 hover:bg-amber-300 ring-2 ring-amber-300'
+                  : account?.canCheckinToday
                   ? 'bg-amber-400 text-amber-950 hover:bg-amber-300 ring-2 ring-amber-300'
                   : 'bg-white/20 text-indigo-200 cursor-not-allowed'
               }`}
             >
               {checkinLoading
                 ? 'Đang nhận...'
+                : !user
+                ? 'Đăng nhập để điểm danh'
                 : account?.canCheckinToday
                 ? `Điểm danh ngay (+${streakRewards[(account?.streakDay || 1) - 1]} điểm)`
                 : '✓ Đã điểm danh hôm nay'}

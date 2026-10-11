@@ -172,18 +172,23 @@ export default function QaPage() {
             <div key={q.id} className="bg-white border rounded-3xl p-6 shadow-xs space-y-4">
               {/* Question header */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
+                <a
+                  href={q.authorProfileUrl || `/profile/${q.authorId || q.userId}`}
+                  className="flex items-center gap-2.5 group hover:opacity-90"
+                >
                   <img src={authorAvatar} alt="" className="w-8 h-8 rounded-full object-cover border" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <b className="text-xs text-gray-900">{q.authorName || `User #${q.userId}`}</b>
+                      <b className="text-xs text-gray-900 group-hover:text-indigo-600 transition-colors">
+                        {q.authorName || 'Người dùng'}
+                      </b>
                       {renderRoleBadge(q.authorRole)}
                     </div>
                     <span className="text-[10px] text-gray-400">
                       {q.createdAt ? new Date(q.createdAt).toLocaleDateString('vi-VN') : ''}
                     </span>
                   </div>
-                </div>
+                </a>
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
                   {q.category || 'Cộng đồng'}
                 </span>
@@ -205,7 +210,7 @@ export default function QaPage() {
                   onClick={() => void show(q.id)}
                   className="font-bold text-indigo-600 hover:underline flex items-center gap-1.5"
                 >
-                  <span>💬</span> {open === q.id ? 'Thu gọn câu trả lời' : `Xem câu trả lời (${qAnswers.length > 0 ? qAnswers.length : 'Trả lời ngay'})`}
+                  <span>💬</span> {open === q.id ? 'Thu gọn câu trả lời' : `Xem câu trả lời (${(q.answerCount ?? qAnswers.length) > 0 ? (q.answerCount ?? qAnswers.length) : 'Trả lời ngay'})`}
                 </button>
               </div>
 
@@ -221,11 +226,16 @@ export default function QaPage() {
                       return (
                         <div key={a.id} className="bg-white p-3.5 rounded-xl border border-gray-100 shadow-2xs space-y-1">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
+                            <a
+                              href={a.authorProfileUrl || `/profile/${a.authorId || a.userId}`}
+                              className="flex items-center gap-2 group hover:opacity-90"
+                            >
                               <img src={aAvatar} alt="" className="w-6 h-6 rounded-full object-cover border" />
-                              <b className="text-xs text-gray-800">{a.authorName || `User #${a.userId}`}</b>
+                              <b className="text-xs text-gray-800 group-hover:text-indigo-600 transition-colors">
+                                {a.authorName || 'Người dùng'}
+                              </b>
                               {renderRoleBadge(a.authorRole, a.isOfficial)}
-                            </div>
+                            </a>
                             <span className="text-[10px] text-gray-400">
                               {a.createdAt ? new Date(a.createdAt).toLocaleDateString('vi-VN') : ''}
                             </span>

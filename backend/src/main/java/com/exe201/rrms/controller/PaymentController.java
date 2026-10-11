@@ -83,23 +83,23 @@ public class PaymentController {
     }
 
     // Generic promotion purchase via wallet
-    @PostMapping("/promotion/wallet")
+    @PostMapping({"/promotion/wallet", "/buy-promotion"})
     public Map<String, Object> buyPromotionWithWallet(HttpServletRequest r, @RequestBody Map<String, Object> b) {
         User u = auth.current(r);
-        String targetType = Objects.toString(b.get("targetType"), "ROOM");
-        Long targetId = Long.valueOf(b.get("targetId").toString());
-        Long planId = Long.valueOf(b.get("planId").toString());
+        String targetType = b.get("category") != null ? b.get("category").toString() : Objects.toString(b.get("targetType"), "ROOM");
+        Long targetId = Long.valueOf(Objects.toString(b.get("targetId"), "0"));
+        Long planId = Long.valueOf(Objects.toString(b.get("packageId") != null ? b.get("packageId") : b.get("planId"), "0"));
         pay.buyPromotionWithWallet(u.getId(), targetType, targetId, planId);
         return Map.of("success", true, "message", "Đã thanh toán và kích hoạt gói ưu tiên thành công qua Ví UniHome!");
     }
 
     // Generic promotion purchase via direct QR
-    @PostMapping("/promotion/direct")
+    @PostMapping({"/promotion/direct", "/create"})
     public Payment buyPromotionDirect(HttpServletRequest r, @RequestBody Map<String, Object> b) {
         User u = auth.current(r);
-        String targetType = Objects.toString(b.get("targetType"), "ROOM");
-        Long targetId = Long.valueOf(b.get("targetId").toString());
-        Long planId = Long.valueOf(b.get("planId").toString());
+        String targetType = b.get("category") != null ? b.get("category").toString() : Objects.toString(b.get("targetType"), "ROOM");
+        Long targetId = Long.valueOf(Objects.toString(b.get("targetId"), "0"));
+        Long planId = Long.valueOf(Objects.toString(b.get("planId") != null ? b.get("planId") : b.get("packageId"), "0"));
         PackagePlan p = plans.findById(planId).orElseThrow();
         Payment payment = pay.createQr(u.getId(), p.getPrice(), "PACKAGE_DIRECT", targetType, targetId);
         payment.setPlanId(p.getId());

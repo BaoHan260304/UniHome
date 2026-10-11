@@ -40,6 +40,7 @@ function Layout() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(getUser());
   const isAuthPage = ['/login', '/register', '/forgot-password', '/verify-otp', '/social-complete'].includes(location.pathname);
+  const isAdminPage = location.pathname.startsWith('/admin');
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [composerOpen, setComposerOpen] = useState(false);
@@ -88,7 +89,7 @@ function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 flex flex-col justify-between">
-      {!isAuthPage ? (
+      {!isAuthPage && !isAdminPage ? (
         <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-20 items-center">
@@ -164,7 +165,7 @@ function Layout() {
             </div>
           </div>
         </nav>
-      ) : (
+      ) : !isAdminPage ? (
         <div className="absolute top-0 left-0 right-0 z-50 px-5 py-4 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2 text-xs font-bold text-indigo-700 bg-white/90 border px-4 py-2 rounded-xl shadow-xs">
             ← Trang chủ
@@ -173,12 +174,12 @@ function Layout() {
             Tiếp tục xem với tư cách khách
           </Link>
         </div>
-      )}
+      ) : null}
 
       {/* Global Post Composer Modal */}
       <PostComposerModal isOpen={composerOpen} onClose={() => setComposerOpen(false)} />
 
-      <main className={!isAuthPage ? 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full' : ''}>
+      <main className={!isAuthPage && !isAdminPage ? 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full' : 'flex-1 w-full'}>
         <ErrorBoundary key={location.pathname}>
           <Routes>
             {/* Auth routes */}
@@ -249,8 +250,8 @@ function Layout() {
         </ErrorBoundary>
       </main>
 
-      {/* Persistent Site Footer on non-auth pages */}
-      {!isAuthPage && <SiteFooter />}
+      {/* Persistent Site Footer on non-auth, non-admin pages */}
+      {!isAuthPage && !isAdminPage && <SiteFooter />}
     </div>
   );
 }

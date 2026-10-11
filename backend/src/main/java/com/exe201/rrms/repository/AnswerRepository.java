@@ -1,1 +1,10 @@
-package com.exe201.rrms.repository; import com.exe201.rrms.entity.Answer; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface AnswerRepository extends JpaRepository<Answer,Long>{ List<Answer> findByQuestionIdAndStatusOrderByCreatedAtAsc(Long questionId,String status); }
+package com.exe201.rrms.repository;
+
+import com.exe201.rrms.entity.Answer;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.*;
+
+public interface AnswerRepository extends JpaRepository<Answer, Long> {
+    List<Answer> findByQuestionIdAndStatusOrderByCreatedAtAsc(Long questionId, String status);
+    long countByQuestionIdAndStatus(Long questionId, String status);
+}

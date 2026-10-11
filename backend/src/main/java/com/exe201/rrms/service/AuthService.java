@@ -36,24 +36,38 @@ public class AuthService {
             errors.put("fullName", "Họ và tên từ 2 đến 100 ký tự");
         }
 
-        if (u.getEmail() == null || u.getEmail().trim().isBlank()) {
-            errors.put("email", "Email không được để trống");
-        } else if (!ValidationUtil.isValidEmail(u.getEmail())) {
-            errors.put("email", "Email không đúng định dạng");
-        } else if (users.findByEmail(u.getEmail().trim().toLowerCase()).isPresent()) {
-            errors.put("email", "Email đã được sử dụng");
+        boolean hasEmail = u.getEmail() != null && !u.getEmail().trim().isBlank();
+        boolean hasPhone = u.getPhone() != null && !u.getPhone().trim().isBlank();
+
+        if (!hasEmail && !hasPhone) {
+            errors.put("email", "Vui lòng cung cấp ít nhất Email hoặc Số điện thoại để liên hệ");
         }
 
-        if (u.getPhone() == null || u.getPhone().trim().isBlank()) {
-            errors.put("phone", "Số điện thoại không được để trống");
-        } else if (!ValidationUtil.isValidVnPhone(u.getPhone())) {
-            errors.put("phone", "Số điện thoại Việt Nam không hợp lệ (10 chữ số, ví dụ 0912345678)");
-        } else {
-            String normPhone = ValidationUtil.normalizePhone(u.getPhone());
-            if (users.findByPhone(normPhone).isPresent()) {
-                errors.put("phone", "Số điện thoại đã được đăng ký bởi tài khoản khác");
+        if (hasEmail) {
+            if (!ValidationUtil.isValidEmail(u.getEmail())) {
+                errors.put("email", "Email không đúng định dạng");
+            } else if (users.findByEmail(u.getEmail().trim().toLowerCase()).isPresent()) {
+                errors.put("email", "Email đã được sử dụng");
+            } else {
+                u.setEmail(u.getEmail().trim().toLowerCase());
             }
-            u.setPhone(normPhone);
+        } else {
+            u.setEmail(null);
+        }
+
+        if (hasPhone) {
+            if (!ValidationUtil.isValidVnPhone(u.getPhone())) {
+                errors.put("phone", "Số điện thoại Việt Nam không hợp lệ (10 chữ số, ví dụ 0912345678)");
+            } else {
+                String normPhone = ValidationUtil.normalizePhone(u.getPhone());
+                if (users.findByPhone(normPhone).isPresent()) {
+                    errors.put("phone", "Số điện thoại đã được đăng ký bởi tài khoản khác");
+                } else {
+                    u.setPhone(normPhone);
+                }
+            }
+        } else {
+            u.setPhone(null);
         }
 
         if (u.getPassword() == null || u.getPassword().isBlank()) {
@@ -77,7 +91,6 @@ public class AuthService {
         }
 
         u.setFullName(u.getFullName().trim());
-        u.setEmail(u.getEmail().trim().toLowerCase());
         u.setRole("USER");
         u.setTermsVersion("1.0");
         u.setTermsAcceptedAt(LocalDateTime.now());
@@ -92,9 +105,10 @@ public class AuthService {
 
         User saved = users.save(u);
 
-        // Send initial email OTP
+        // Send initial OTP via preferred channel (Email if provided, else Phone)
         try {
-            verification.sendOtp(saved, "EMAIL", "REGISTER");
+            String initialChannel = (saved.getEmail() != null && !saved.getEmail().isBlank()) ? "EMAIL" : "PHONE";
+            verification.sendOtp(saved, initialChannel, "REGISTER");
         } catch (Exception e) {
             // log and continue
         }
@@ -102,19 +116,21 @@ public class AuthService {
         return saved;
     }
 
-    public Map<String, Object> login(String email, String password) {
-        if (email == null || email.trim().isBlank()) {
-            throw new ValidationException("email", "Vui lòng nhập email");
+    public Map<String, Object> login(String identifier, String password) {
+        if (identifier == null || identifier.trim().isBlank()) {
+            throw new ValidationException("email", "Vui lòng nhập Email hoặc Số điện thoại");
         }
         if (password == null || password.isBlank()) {
             throw new ValidationException("password", "Vui lòng nhập mật khẩu");
         }
 
-        User u = users.findByEmail(email.trim().toLowerCase())
-                .orElseThrow(() -> new ValidationException("email", "Email hoặc mật khẩu không chính xác"));
+        String loginId = identifier.trim().toLowerCase();
+        User u = users.findByEmail(loginId)
+                .or(() -> users.findByPhone(ValidationUtil.normalizePhone(loginId)))
+                .orElseThrow(() -> new ValidationException("email", "Tài khoản hoặc mật khẩu không chính xác"));
 
         if (!PasswordUtil.verify(password, u.getPassword())) {
-            throw new ValidationException("password", "Email hoặc mật khẩu không chính xác");
+            throw new ValidationException("password", "Tài khoản hoặc mật khẩu không chính xác");
         }
 
         // Auto-upgrade legacy hash if needed
@@ -132,7 +148,7 @@ public class AuthService {
             pendingRes.put("status", "PENDING_VERIFICATION");
             pendingRes.put("message", "Tài khoản cần hoàn tất xác minh trước khi sử dụng");
             pendingRes.put("userId", u.getId());
-            pendingRes.put("email", u.getEmail());
+            pendingRes.put("email", u.getEmail() != null ? u.getEmail() : "");
             pendingRes.put("phone", u.getPhone() != null ? u.getPhone() : "");
             pendingRes.put("emailVerified", Boolean.TRUE.equals(u.getEmailVerified()));
             pendingRes.put("phoneVerified", Boolean.TRUE.equals(u.getPhoneVerified()));

@@ -112,7 +112,7 @@ public class VerificationService {
             user.setPhoneVerifiedAt(LocalDateTime.now());
         }
 
-        if (Boolean.TRUE.equals(user.getEmailVerified()) && Boolean.TRUE.equals(user.getPhoneVerified())) {
+        if (Boolean.TRUE.equals(user.getEmailVerified()) || Boolean.TRUE.equals(user.getPhoneVerified())) {
             user.setStatus("ACTIVE");
         }
 

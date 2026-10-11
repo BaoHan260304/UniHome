@@ -1,0 +1,73 @@
+{
+  "qa": {
+    "createdQId": 136,
+    "status": 200,
+    "hasAuthorAvatar": true,
+    "authorAvatar": "https://ui-avatars.com/api/?name=Nguyen+Minh+An&background=4f46e5&color=fff",
+    "authorName": "Nguyễn Minh An",
+    "authorProfileUrl": "/profile/4"
+  },
+  "service": {
+    "serviceId": 45,
+    "createStatus": 200,
+    "viewStatus": 200,
+    "inMyPosts": true,
+    "editStatus": 200,
+    "hideStatus": 200,
+    "hideNewStatus": "HIDDEN",
+    "unhideStatus": 200,
+    "unhideNewStatus": "ACTIVE",
+    "deleteStatus": 200
+  },
+  "roommate": {
+    "roommateListingId": 88,
+    "categoryInMyPosts": "ROOMMATE",
+    "relationship": "ROOMMATE_SEARCH",
+    "postType": "O_GHEP",
+    "viewStatus": 200,
+    "hideStatus": 200,
+    "unhideStatus": 200,
+    "renewStatus": 200,
+    "deleteStatus": 200
+  },
+  "moderation": {
+    "qHideStatus": 200,
+    "qDelStatus": 200,
+    "ansHideStatus": 200,
+    "ansDelStatus": 200,
+    "revHideStatus": 200,
+    "revDelStatus": 200,
+    "svApproveStatus": 200,
+    "svHideStatus": 200,
+    "svDelStatus": 200,
+    "shHideStatus": 200,
+    "shDelStatus": 200,
+    "repDrilldownStatus": 200,
+    "repTargetTitle": "Phòng đẹp 2.8 triệu gần FPT - đã xác minh",
+    "repTargetOwner": "Chủ trọ Minh Anh",
+    "repResolveStatus": 200,
+    "userBanStatus": 200,
+    "userUnbanStatus": 200,
+    "auditLogCount": 38,
+    "recentAuditAction": "ACTIVATE_USER",
+    "recentAuditActor": 1
+  },
+  "ads": {
+    "placement": "HOME_TOP",
+    "adACount": 2,
+    "adAId": 1,
+    "adBId": 2,
+    "adAImpBefore": 36,
+    "adAImpAfter": 37,
+    "adAClickBefore": 8,
+    "adAClickAfter": 9,
+    "adBImpBefore": 12501,
+    "adBImpAfter": 12502,
+    "adBClickBefore": 481,
+    "adBClickAfter": 482,
+    "impAStatus": 200,
+    "clickAStatus": 200,
+    "impBStatus": 200,
+    "clickBStatus": 200
+  }
+}

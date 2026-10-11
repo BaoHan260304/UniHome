@@ -2,6 +2,7 @@ package com.exe201.rrms.controller;
 
 import com.exe201.rrms.entity.User;
 import com.exe201.rrms.exception.ValidationException;
+import com.exe201.rrms.repository.AuthSessionRepository;
 import com.exe201.rrms.repository.UserRepository;
 import com.exe201.rrms.service.AuthService;
 import com.exe201.rrms.service.VerificationService;
@@ -31,10 +32,11 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping({"/api/auth", "/auth"})
 public class AuthController {
     private final AuthService auth;
     private final UserRepository users;
+    private final AuthSessionRepository sessions;
     private final VerificationService verification;
     private final ObjectMapper mapper;
 
@@ -50,9 +52,10 @@ public class AuthController {
     @Value("${unihome.upload.dir:uploads}")
     private String uploadDir;
 
-    public AuthController(AuthService auth, UserRepository users, VerificationService verification, ObjectMapper mapper) {
+    public AuthController(AuthService auth, UserRepository users, AuthSessionRepository sessions, VerificationService verification, ObjectMapper mapper) {
         this.auth = auth;
         this.users = users;
+        this.sessions = sessions;
         this.verification = verification;
         this.mapper = mapper;
     }
@@ -84,7 +87,10 @@ public class AuthController {
 
     @PostMapping("/login")
     public Map<String, Object> login(@RequestBody Map<String, String> body) {
-        return auth.login(body.get("email"), body.get("password"));
+        String id = body.get("identifier");
+        if (id == null || id.isBlank()) id = body.get("email");
+        if (id == null || id.isBlank()) id = body.get("phone");
+        return auth.login(id, body.get("password"));
     }
 
     @PostMapping("/send-otp")
@@ -357,26 +363,38 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public Map<String, Object> forgotPassword(@RequestBody Map<String, String> body) {
-        String email = body.get("email");
-        if (email == null || email.isBlank()) {
-            throw new ValidationException("email", "Vui lòng nhập email");
+        String identifier = body.get("identifier");
+        if (identifier == null || identifier.isBlank()) identifier = body.get("email");
+        if (identifier == null || identifier.isBlank()) identifier = body.get("phone");
+        if (identifier == null || identifier.isBlank()) {
+            throw new ValidationException("identifier", "Vui lòng nhập Email hoặc Số điện thoại");
         }
-        User user = users.findByEmail(email.trim().toLowerCase())
-                .orElseThrow(() -> new ValidationException("email", "Không tìm thấy tài khoản với email này"));
+        String idStr = identifier.trim().toLowerCase();
+        User user = users.findByEmail(idStr)
+                .or(() -> users.findByPhone(ValidationUtil.normalizePhone(idStr)))
+                .orElseThrow(() -> new ValidationException("identifier", "Không tìm thấy tài khoản với thông tin này"));
 
-        verification.sendOtp(user, "EMAIL", "RESET_PASSWORD");
-        return Map.of("message", "Mã xác thực OTP đã được gửi về email của bạn. Vui lòng kiểm tra hộp thư.");
+        String channel = body.getOrDefault("channel", (user.getEmail() != null && !user.getEmail().isBlank()) ? "EMAIL" : "PHONE").toUpperCase();
+        verification.sendOtp(user, channel, "RESET_PASSWORD");
+        return Map.of(
+                "message", "Mã xác thực OTP đã được gửi qua " + ("PHONE".equals(channel) ? "tin nhắn SMS" : "Email") + ".",
+                "userId", user.getId(),
+                "channel", channel
+        );
     }
 
     @PostMapping("/reset-password")
     public Map<String, Object> resetPassword(@RequestBody Map<String, String> body) {
-        String email = body.get("email");
+        String identifier = body.get("identifier");
+        if (identifier == null || identifier.isBlank()) identifier = body.get("email");
+        if (identifier == null || identifier.isBlank()) identifier = body.get("phone");
         String code = body.get("code");
         String newPassword = body.get("newPassword");
         String confirmPassword = body.get("confirmPassword");
+        String channel = body.getOrDefault("channel", "EMAIL").toUpperCase();
 
         Map<String, String> errors = new LinkedHashMap<>();
-        if (email == null || email.isBlank()) errors.put("email", "Thiếu email");
+        if (identifier == null || identifier.isBlank()) errors.put("identifier", "Thiếu Email hoặc Số điện thoại");
         if (code == null || code.isBlank()) errors.put("code", "Thiếu mã xác thực OTP");
         if (newPassword == null || newPassword.length() < 8) errors.put("newPassword", "Mật khẩu mới tối thiểu 8 ký tự");
         else if (!ValidationUtil.isStrongPassword(newPassword)) errors.put("newPassword", "Mật khẩu phải gồm ít nhất 1 chữ cái và 1 số");
@@ -386,13 +404,20 @@ public class AuthController {
             throw new ValidationException("Dữ liệu chưa hợp lệ", errors);
         }
 
-        User user = users.findByEmail(email.trim().toLowerCase())
-                .orElseThrow(() -> new ValidationException("email", "Không tìm thấy người dùng"));
+        String idStr = identifier.trim().toLowerCase();
+        User user = users.findByEmail(idStr)
+                .or(() -> users.findByPhone(ValidationUtil.normalizePhone(idStr)))
+                .orElseThrow(() -> new ValidationException("identifier", "Không tìm thấy người dùng"));
 
-        verification.verifyOtp(user, "EMAIL", "RESET_PASSWORD", code);
+        verification.verifyOtp(user, channel, "RESET_PASSWORD", code);
 
         user.setPassword(PasswordUtil.hash(newPassword));
         users.save(user);
+
+        // Revoke old sessions for security
+        try {
+            sessions.deleteByUserId(user.getId());
+        } catch (Exception ignored) {}
 
         return Map.of("message", "Đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới.");
     }

@@ -514,7 +514,41 @@ public class ChatController {
         return Map.of("success", true, "conversationId", conversationId);
     }
 
-    @PostMapping("/block/{userId}")
+    @DeleteMapping({"/{conversationId}", "/conversations/{conversationId}"})
+    public Map<String, Object> deleteConversation(@PathVariable Long conversationId, HttpServletRequest request) {
+        User user = auth.current(request);
+        Conversation c = conversations.findById(conversationId)
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy hội thoại #" + conversationId));
+        checkConversationPermission(user, c);
+
+        ConversationParticipantSetting setting = participantSettings.findByConversationIdAndUserId(conversationId, user.getId())
+                .orElseGet(() -> {
+                    ConversationParticipantSetting s = new ConversationParticipantSetting();
+                    s.setConversationId(conversationId);
+                    s.setUserId(user.getId());
+                    return s;
+                });
+        setting.setIsHidden(true);
+        setting.setUpdatedAt(LocalDateTime.now());
+        participantSettings.save(setting);
+        return Map.of("success", true, "conversationId", conversationId, "deleted", true);
+    }
+
+    @DeleteMapping("/messages/{id}")
+    public Map<String, Object> deleteMessage(@PathVariable Long id, HttpServletRequest request) {
+        User user = auth.current(request);
+        Message msg = messages.findById(id).orElseThrow(() -> new IllegalArgumentException("Tin nhắn không tồn tại"));
+        if (!msg.getSenderId().equals(user.getId())) {
+            throw new SecurityException("Chỉ người gửi mới có thể xóa tin nhắn của mình");
+        }
+        msg.setIsRecalled(true);
+        msg.setRecalledAt(LocalDateTime.now());
+        msg.setContent("Tin nhắn đã bị xóa.");
+        messages.save(msg);
+        return Map.of("success", true, "messageId", id, "deleted", true);
+    }
+
+    @PostMapping({"/block/{userId}", "/users/{userId}/block"})
     public Map<String, Object> blockUser(@PathVariable Long userId, @RequestBody(required = false) Map<String, String> body, HttpServletRequest request) {
         User user = auth.current(request);
         if (user.getId().equals(userId)) throw new IllegalArgumentException("Không thể tự chặn chính mình");
@@ -528,14 +562,14 @@ public class ChatController {
         return Map.of("success", true, "blocked", true, "userId", userId);
     }
 
-    @PostMapping("/unblock/{userId}")
+    @PostMapping({"/unblock/{userId}", "/users/{userId}/unblock"})
     public Map<String, Object> unblockUserPost(@PathVariable Long userId, HttpServletRequest request) {
         User user = auth.current(request);
         blocks.deleteByBlockerIdAndBlockedId(user.getId(), userId);
         return Map.of("success", true, "blocked", false, "userId", userId);
     }
 
-    @DeleteMapping("/block/{userId}")
+    @DeleteMapping({"/block/{userId}", "/unblock/{userId}", "/users/{userId}/block"})
     public Map<String, Object> unblockUserDelete(@PathVariable Long userId, HttpServletRequest request) {
         User user = auth.current(request);
         blocks.deleteByBlockerIdAndBlockedId(user.getId(), userId);

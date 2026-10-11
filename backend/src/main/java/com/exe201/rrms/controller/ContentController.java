@@ -183,7 +183,22 @@ public class ContentController {
         if (b.getResponseTime() != null) s.setResponseTime(b.getResponseTime());
         if (b.getFaqJson() != null) s.setFaqJson(b.getFaqJson());
         if (b.getTerms() != null) s.setTerms(b.getTerms());
+        if (b.getStatus() != null && !b.getStatus().isBlank()) s.setStatus(b.getStatus().toUpperCase().trim());
         return services.save(s);
+    }
+
+    @RequestMapping(value = {"/services/{id}/status", "/services/{id}/status/"}, method = {RequestMethod.PUT, RequestMethod.POST})
+    public ServiceListing statusService(@PathVariable Long id, HttpServletRequest r, @RequestBody Map<String, String> b) {
+        User u = auth.current(r);
+        ServiceListing s = services.findById(id).orElseThrow();
+        if (!Objects.equals(s.getProviderId(), u.getId()) && !List.of("ADMIN", "SUPER_ADMIN", "MODERATOR").contains(u.getRole())) {
+            throw new SecurityException("Không phải dịch vụ của bạn");
+        }
+        if (b != null && b.containsKey("status") && b.get("status") != null) {
+            s.setStatus(b.get("status").toUpperCase().trim());
+            return services.save(s);
+        }
+        return s;
     }
 
     @DeleteMapping("/services/{id}")
@@ -337,13 +352,18 @@ public class ContentController {
         return second.save(s);
     }
 
-    @PutMapping("/secondhand/{id}/status")
+    @RequestMapping(value = {"/secondhand/{id}/status", "/secondhand/{id}/status/"}, method = {RequestMethod.PUT, RequestMethod.POST})
     public SecondHandListing statusSecond(@PathVariable Long id, HttpServletRequest r, @RequestBody Map<String, String> b) {
         User u = auth.current(r);
         SecondHandListing s = second.findById(id).orElseThrow();
-        if (!s.getSellerId().equals(u.getId())) throw new SecurityException("Không phải tin của bạn");
-        s.setStatus(b.get("status"));
-        return second.save(s);
+        if (!Objects.equals(s.getSellerId(), u.getId()) && !List.of("ADMIN", "SUPER_ADMIN", "MODERATOR").contains(u.getRole())) {
+            throw new SecurityException("Không phải tin của bạn");
+        }
+        if (b != null && b.containsKey("status") && b.get("status") != null) {
+            s.setStatus(b.get("status").toUpperCase().trim());
+            return second.save(s);
+        }
+        return s;
     }
 
     @PutMapping("/secondhand/{id}")
@@ -455,17 +475,41 @@ public class ContentController {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", q.getId());
             m.put("userId", q.getUserId());
+            m.put("authorId", q.getUserId());
             m.put("category", q.getCategory());
             m.put("title", q.getTitle());
             m.put("content", q.getContent());
             m.put("status", q.getStatus());
             m.put("createdAt", q.getCreatedAt());
-            m.put("authorName", u != null ? u.getFullName() : "Người dùng #" + q.getUserId());
+            m.put("authorName", u != null && u.getFullName() != null && !u.getFullName().isBlank() ? u.getFullName() : "Người dùng");
             m.put("authorAvatar", u != null ? u.getAvatarUrl() : null);
-            m.put("authorRole", u != null ? u.getRole() : "TENANT");
+            m.put("authorRole", u != null ? u.getRole() : "USER");
+            m.put("authorProfileUrl", "/profile/" + q.getUserId());
+            m.put("answerCount", answers.countByQuestionIdAndStatus(q.getId(), "VISIBLE"));
             res.add(m);
         }
         return res;
+    }
+
+    @GetMapping("/questions/{id}")
+    public Map<String, Object> questionDetail(@PathVariable Long id) {
+        Question q = questions.findById(id).orElseThrow();
+        User u = users.findById(q.getUserId()).orElse(null);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", q.getId());
+        m.put("userId", q.getUserId());
+        m.put("authorId", q.getUserId());
+        m.put("category", q.getCategory());
+        m.put("title", q.getTitle());
+        m.put("content", q.getContent());
+        m.put("status", q.getStatus());
+        m.put("createdAt", q.getCreatedAt());
+        m.put("authorName", u != null && u.getFullName() != null && !u.getFullName().isBlank() ? u.getFullName() : "Người dùng");
+        m.put("authorAvatar", u != null ? u.getAvatarUrl() : null);
+        m.put("authorRole", u != null ? u.getRole() : "USER");
+        m.put("authorProfileUrl", "/profile/" + q.getUserId());
+        m.put("answerCount", answers.countByQuestionIdAndStatus(q.getId(), "VISIBLE"));
+        return m;
     }
 
     @PostMapping("/questions")
@@ -485,9 +529,11 @@ public class ContentController {
             m.put("id", a.getId());
             m.put("questionId", a.getQuestionId());
             m.put("userId", a.getUserId());
-            m.put("authorName", u != null ? u.getFullName() : "Người dùng #" + a.getUserId());
+            m.put("authorId", a.getUserId());
+            m.put("authorName", u != null && u.getFullName() != null && !u.getFullName().isBlank() ? u.getFullName() : "Người dùng");
             m.put("authorAvatar", u != null ? u.getAvatarUrl() : null);
-            m.put("authorRole", u != null ? u.getRole() : "TENANT");
+            m.put("authorRole", u != null ? u.getRole() : "USER");
+            m.put("authorProfileUrl", "/profile/" + a.getUserId());
             m.put("isOfficial", u != null && List.of("ADMIN", "SUPER_ADMIN", "MODERATOR").contains(u.getRole()));
             m.put("content", a.getContent());
             m.put("status", a.getStatus());

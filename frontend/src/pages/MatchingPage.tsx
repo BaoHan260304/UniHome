@@ -302,7 +302,10 @@ export default function MatchingPage() {
                     ...prev,
                     latitude: loc.latitude,
                     longitude: loc.longitude,
-                    schoolName: loc.preferredArea || prev.schoolName
+                    desiredLatitude: loc.latitude,
+                    desiredLongitude: loc.longitude,
+                    desiredAddress: loc.preferredArea || loc.address || prev.schoolName,
+                    schoolName: loc.preferredArea || loc.address || prev.schoolName
                   }));
                   setSuccessMsg('Đã cập nhật vị trí và tọa độ tìm kiếm.');
                 }}

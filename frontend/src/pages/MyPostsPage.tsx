@@ -59,7 +59,7 @@ export default function MyPostsPage() {
       // Category filter
       if (selectedCategory !== 'ALL') {
         if (selectedCategory === 'ROOMMATE') {
-          if (p.category !== 'ROOM' || !['ROOMMATE_SEARCH', 'TENANT_TRANSFER'].includes(p.relationship)) {
+          if (p.category !== 'ROOMMATE' && (p.category !== 'ROOM' || !['ROOMMATE_SEARCH', 'TENANT_TRANSFER'].includes(p.relationship))) {
             return false;
           }
         } else if (p.category !== selectedCategory) {
@@ -93,15 +93,15 @@ export default function MyPostsPage() {
   // Actions
   const handleToggleHide = async (p: any) => {
     try {
-      const postId = Number(p.targetId || p.listingId || p.id);
+      const postId = Number(p.targetId ?? p.id);
       if (!Number.isFinite(postId) || postId <= 0) return;
       const nextStatus = p.status === 'HIDDEN' ? 'ACTIVE' : 'HIDDEN';
-      if (p.category === 'ROOM') {
+      if (p.category === 'ROOM' || p.category === 'ROOMMATE') {
         await api.put(`/listings/${postId}/status`, { status: nextStatus });
       } else if (p.category === 'SECOND_HAND') {
-        await api.put(`/content/secondhand/${postId}`, { ...p, status: nextStatus });
+        await api.put(`/content/secondhand/${postId}/status`, { status: nextStatus });
       } else if (p.category === 'SERVICE') {
-        await api.put(`/content/services/${postId}`, { ...p, status: nextStatus });
+        await api.put(`/content/services/${postId}/status`, { status: nextStatus });
       }
       setActionMsg({ type: 'success', text: `Đã ${nextStatus === 'HIDDEN' ? 'ẩn' : 'mở hiển thị'} bài đăng.` });
       loadPosts();
@@ -112,13 +112,15 @@ export default function MyPostsPage() {
 
   const handleMarkSold = async (p: any) => {
     try {
-      const postId = Number(p.targetId || p.listingId || p.id);
+      const postId = Number(p.targetId ?? p.id);
       if (!Number.isFinite(postId) || postId <= 0) return;
-      const targetStatus = p.category === 'ROOM' ? 'FULL' : 'SOLD';
-      if (p.category === 'ROOM') {
+      const targetStatus = (p.category === 'ROOM' || p.category === 'ROOMMATE') ? 'FULL' : 'SOLD';
+      if (p.category === 'ROOM' || p.category === 'ROOMMATE') {
         await api.put(`/listings/${postId}/status`, { status: targetStatus });
       } else if (p.category === 'SECOND_HAND') {
-        await api.put(`/content/secondhand/${postId}`, { ...p, status: targetStatus });
+        await api.put(`/content/secondhand/${postId}/status`, { status: targetStatus });
+      } else if (p.category === 'SERVICE') {
+        await api.put(`/content/services/${postId}/status`, { status: 'PAUSED' });
       }
       setActionMsg({ type: 'success', text: 'Đã cập nhật trạng thái hoàn tất / hết phòng.' });
       loadPosts();
@@ -130,9 +132,9 @@ export default function MyPostsPage() {
   const handleDelete = async (p: any) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa bài đăng "${p.title}"?`)) return;
     try {
-      const postId = Number(p.targetId || p.listingId || p.id);
+      const postId = Number(p.targetId ?? p.id);
       if (!Number.isFinite(postId) || postId <= 0) return;
-      if (p.category === 'ROOM') {
+      if (p.category === 'ROOM' || p.category === 'ROOMMATE') {
         await api.delete(`/listings/${postId}`);
       } else if (p.category === 'SECOND_HAND') {
         await api.delete(`/content/secondhand/${postId}`);
@@ -147,8 +149,8 @@ export default function MyPostsPage() {
   };
 
   const getDetailLink = (p: any) => {
-    const postId = Number(p.targetId || p.listingId || p.id);
-    if (p.category === 'ROOM') return `/property/${postId}`;
+    const postId = Number(p.targetId ?? p.id);
+    if (p.category === 'ROOM' || p.category === 'ROOMMATE') return `/property/${postId}`;
     if (p.category === 'SECOND_HAND') return `/secondhand/${postId}`;
     if (p.category === 'SERVICE') return `/services/${postId}`;
     return '#';
@@ -305,7 +307,7 @@ export default function MyPostsPage() {
                   />
                   <div className="absolute top-2 left-2 flex flex-col gap-1">
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-black/70 text-white backdrop-blur-xs">
-                      {p.category === 'ROOM' ? 'Phòng trọ' : p.category === 'SECOND_HAND' ? 'Đồ cũ' : 'Dịch vụ'}
+                      {p.category === 'ROOM' ? 'Phòng trọ' : p.category === 'ROOMMATE' ? 'Ở ghép / Nhượng' : p.category === 'SECOND_HAND' ? 'Đồ cũ' : 'Dịch vụ'}
                     </span>
                     {isVip && (
                       <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-500 text-white shadow-xs">
@@ -383,7 +385,7 @@ export default function MyPostsPage() {
                           onClick={() => handleMarkSold(p)}
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors"
                         >
-                          {p.category === 'ROOM' ? 'Hết phòng' : 'Đã bán'}
+                          {(p.category === 'ROOM' || p.category === 'ROOMMATE') ? 'Hết phòng' : p.category === 'SECOND_HAND' ? 'Đã bán' : 'Tạm dừng'}
                         </button>
                       )}
 

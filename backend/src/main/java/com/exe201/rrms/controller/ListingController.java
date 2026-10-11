@@ -187,7 +187,7 @@ public class ListingController {
         return Map.of("availability", p.getAvailability(), "listingId", l.getId());
     }
 
-    @PostMapping("/{id}/confirm-availability")
+    @PostMapping({"/{id}/confirm-availability", "/{id}/renew"})
     public Listing confirm(@PathVariable Long id, HttpServletRequest r, @RequestBody(required = false) Map<String, String> b) {
         User u = auth.current(r);
         Listing l = listings.findById(id).orElseThrow();
@@ -239,6 +239,37 @@ public class ListingController {
         l.setArchivedAt(LocalDateTime.now());
         listings.save(l);
         return Map.of("message", "Đã lưu trữ tin đăng");
+    }
+
+    @RequestMapping(value = {"/{id}/status", "/{id}/status/"}, method = {RequestMethod.PUT, RequestMethod.POST})
+    public Map<String, Object> updateStatus(@PathVariable Long id, HttpServletRequest r, @RequestBody Map<String, String> b) {
+        User u = auth.current(r);
+        Listing l = listings.findById(id).orElseThrow();
+        owner(u, l);
+        String st = b.get("status");
+        if (st != null && !st.isBlank()) {
+            st = st.toUpperCase().trim();
+            Property p = l.getPropertyId() != null ? props.findById(l.getPropertyId()).orElse(null) : null;
+            if ("FULL".equals(st) || "RENTED".equals(st) || "SOLD".equals(st)) {
+                l.setStatus("FULL");
+                if (p != null) {
+                    p.setAvailability("FULL");
+                    props.save(p);
+                }
+            } else if ("HIDDEN".equals(st) || "PAUSED".equals(st)) {
+                l.setStatus("HIDDEN");
+            } else if ("ACTIVE".equals(st) || "AVAILABLE".equals(st) || "OPEN".equals(st)) {
+                l.setStatus("ACTIVE");
+                if (p != null && "FULL".equalsIgnoreCase(p.getAvailability())) {
+                    p.setAvailability("AVAILABLE");
+                    props.save(p);
+                }
+            } else {
+                l.setStatus(st);
+            }
+            listings.save(l);
+        }
+        return Map.of("success", true, "listingId", l.getId(), "status", l.getStatus());
     }
 
     @GetMapping("/{id}/interest-status")

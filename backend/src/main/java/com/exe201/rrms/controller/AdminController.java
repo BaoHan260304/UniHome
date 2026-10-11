@@ -526,6 +526,15 @@ public class AdminController {
         return saved;
     }
 
+    @DeleteMapping("/services/{id}")
+    public Map<String, Object> serviceDelete(@PathVariable Long id, HttpServletRequest r) {
+        User a = admin(r, "ADMIN", "SUPER_ADMIN", "MODERATOR");
+        ServiceListing s = services.findById(id).orElseThrow();
+        services.delete(s);
+        log(a.getId(), "SERVICE_DELETE", "SERVICE", id, "DELETED");
+        return Map.of("success", true, "id", id);
+    }
+
     @GetMapping("/secondhand")
     public List<Map<String, Object>> secondHand(HttpServletRequest r) {
         admin(r, "ADMIN", "SUPER_ADMIN", "MODERATOR");
@@ -562,6 +571,15 @@ public class AdminController {
         secondHand.save(x);
         log(a.getId(), "SECONDHAND_STATUS", "SECOND_HAND", id, x.getStatus());
         return x;
+    }
+
+    @DeleteMapping("/secondhand/{id}")
+    public Map<String, Object> secondDelete(@PathVariable Long id, HttpServletRequest r) {
+        User a = admin(r, "ADMIN", "SUPER_ADMIN", "MODERATOR");
+        SecondHandListing x = secondHand.findById(id).orElseThrow();
+        secondHand.delete(x);
+        log(a.getId(), "SECONDHAND_DELETE", "SECOND_HAND", id, "DELETED");
+        return Map.of("success", true, "id", id);
     }
 
     @GetMapping("/questions")

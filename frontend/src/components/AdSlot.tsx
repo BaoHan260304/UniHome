@@ -4,14 +4,24 @@ import { api, resolveMediaUrl } from '../lib/api';
 export default function AdSlot({ placement, className = '' }: { placement: string; className?: string }) {
   const [ads, setAds] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
+  const [hiddenIds, setHiddenIds] = useState<number[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('unihome_hidden_ads');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const visibleAds = ads.filter(a => !hiddenIds.includes(Number(a?.id)));
 
   useEffect(() => {
-    if (ads.length <= 1) return;
+    if (visibleAds.length <= 1) return;
     const t = setInterval(() => {
-      setCurrentIdx(prev => (prev + 1) % ads.length);
+      setCurrentIdx(prev => (prev + 1) % visibleAds.length);
     }, 8000);
     return () => clearInterval(t);
-  }, [ads.length]);
+  }, [visibleAds.length]);
 
   useEffect(() => {
     let mounted = true;
@@ -29,16 +39,25 @@ export default function AdSlot({ placement, className = '' }: { placement: strin
   }, [placement]);
 
   useEffect(() => {
-    const rawId = ads[currentIdx]?.id;
+    const rawId = visibleAds[currentIdx]?.id;
     const numId = Number(rawId);
     if (Number.isFinite(numId) && numId > 0) {
       void api.post(`/content/ads/${numId}/impression`).catch(() => {});
     }
-  }, [currentIdx, ads]);
+  }, [currentIdx, visibleAds]);
 
-  if (!ads.length) return null;
+  const handleHideAd = (e: React.MouseEvent, adId: number) => {
+    e.stopPropagation();
+    const updated = [...hiddenIds, adId];
+    setHiddenIds(updated);
+    try {
+      sessionStorage.setItem('unihome_hidden_ads', JSON.stringify(updated));
+    } catch {}
+  };
 
-  const ad = ads[currentIdx] || ads[0];
+  if (!visibleAds.length) return null;
+
+  const ad = visibleAds[currentIdx % visibleAds.length] || visibleAds[0];
   const bannerUrl = ad.bannerImage ? resolveMediaUrl(ad.bannerImage) : '';
 
   const handleClick = (e: React.MouseEvent) => {
@@ -60,6 +79,15 @@ export default function AdSlot({ placement, className = '' }: { placement: strin
       <div className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur-xs text-[10px] font-bold text-white px-2 py-0.5 rounded-full uppercase tracking-wider">
         Quảng cáo
       </div>
+
+      <button
+        type="button"
+        onClick={(e) => handleHideAd(e, Number(ad.id))}
+        title="Ẩn quảng cáo này"
+        className="absolute top-2 right-2 z-20 bg-black/60 hover:bg-black/90 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold transition-colors"
+      >
+        ✕
+      </button>
 
       {bannerUrl ? (
         <div className="w-full h-full relative">

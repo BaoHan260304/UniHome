@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, getUser, money, resolveMediaUrl } from '../lib/api';
+import { api, getUser, money, resolveMediaUrl, clearAuth } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 import Pagination from '../components/Pagination';
 import {
@@ -18,7 +18,51 @@ import {
   CartesianGrid
 } from 'recharts';
 
-const tabs = [
+export const navGroups = [
+  {
+    title: 'Tổng quan & Báo cáo',
+    items: [
+      { id: 'Tổng quan', label: 'Tổng quan', icon: '📊' },
+      { id: 'Thống kê & Analytics', label: 'Analytics', icon: '📈' },
+    ]
+  },
+  {
+    title: 'Kiểm duyệt & Vận hành',
+    items: [
+      { id: 'Kiểm duyệt', label: 'Kiểm duyệt phòng', icon: '🛡️' },
+      { id: 'Xác minh', label: 'Xác minh thực địa', icon: '🔍' },
+      { id: 'Dịch vụ', label: 'Dịch vụ tiện ích', icon: '🛠️' },
+      { id: 'Đồ cũ', label: 'Chợ đồ cũ', icon: '📦' },
+      { id: 'Báo cáo', label: 'Báo cáo vi phạm', icon: '🚩' },
+    ]
+  },
+  {
+    title: 'Nội dung & Cộng đồng',
+    items: [
+      { id: 'Q&A', label: 'Hỏi & Đáp (Q&A)', icon: '💬' },
+      { id: 'Đánh giá', label: 'Đánh giá phòng', icon: '⭐' },
+      { id: 'Blog', label: 'Tin tức & Blog', icon: '✍️' },
+    ]
+  },
+  {
+    title: 'Kinh doanh & Ví',
+    items: [
+      { id: 'Gói VIP', label: 'Gói VIP đẩy tin', icon: '💎' },
+      { id: 'Quảng cáo', label: 'Chiến dịch Ads', icon: '📢' },
+      { id: 'Voucher & Đối tác', label: 'Voucher & Đối tác', icon: '🎁' },
+      { id: 'Tài chính', label: 'Tài chính & Ví', icon: '💳' },
+    ]
+  },
+  {
+    title: 'Hệ thống',
+    items: [
+      { id: 'Tài khoản', label: 'Tài khoản người dùng', icon: '👥' },
+      { id: 'Audit', label: 'Audit Log', icon: '📜' },
+    ]
+  }
+];
+
+export const tabs = [
   'Tổng quan',
   'Thống kê & Analytics',
   'Kiểm duyệt',
@@ -41,9 +85,55 @@ export default function AdminDashboard() {
   const user = getUser();
   const nav = useNavigate();
   const [tab, setTab] = useState('Tổng quan');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [data, setData] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [analyticsDays, setAnalyticsDays] = useState(30);
+  const [analyticsFromDate, setAnalyticsFromDate] = useState('');
+  const [analyticsToDate, setAnalyticsToDate] = useState('');
+  const [analyticsGroupBy, setAnalyticsGroupBy] = useState<'DAY' | 'WEEK' | 'MONTH'>('DAY');
+
+  // Listing moderation rejection modal (replaces prompt)
+  const [rejectModal, setRejectModal] = useState<{
+    open: boolean;
+    listingId: number | null;
+    action: 'REJECT' | 'REQUEST_CHANGES';
+    reason: string;
+  }>({
+    open: false,
+    listingId: null,
+    action: 'REJECT',
+    reason: ''
+  });
+
+  // On-site verification modal with checklist (replaces prompt)
+  const [verifyModal, setVerifyModal] = useState<{
+    open: boolean;
+    listingId: number | string;
+    propertyId: number | string;
+    level: string;
+    roomExists: boolean;
+    locationVerified: boolean;
+    mediaVerified: boolean;
+    priceVerified: boolean;
+    utilityVerified: boolean;
+    amenityVerified: boolean;
+    availabilityVerified: boolean;
+    note: string;
+  }>({
+    open: false,
+    listingId: '',
+    propertyId: '',
+    level: 'ON_SITE_VERIFIED',
+    roomExists: true,
+    locationVerified: true,
+    mediaVerified: true,
+    priceVerified: true,
+    utilityVerified: true,
+    amenityVerified: true,
+    availabilityVerified: true,
+    note: 'Đã kiểm tra thực địa theo checklist đầy đủ'
+  });
 
   // Pagination & Feedback
   const [adminPage, setAdminPage] = useState(0);
@@ -201,7 +291,12 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       if (tab === 'Tổng quan') setData((await api.get('/admin/dashboard')).data);
-      if (tab === 'Thống kê & Analytics') setData((await api.get('/admin/analytics/dashboard', { params: { days: analyticsDays } })).data);
+      if (tab === 'Thống kê & Analytics') {
+        const params: any = { days: analyticsDays, groupBy: analyticsGroupBy };
+        if (analyticsFromDate) params.fromDate = analyticsFromDate;
+        if (analyticsToDate) params.toDate = analyticsToDate;
+        setData((await api.get('/admin/analytics/dashboard', { params })).data);
+      }
       if (tab === 'Kiểm duyệt') setData({ items: (await api.get('/admin/moderation')).data });
       if (tab === 'Quảng cáo') setData({ items: (await api.get('/admin/ads')).data });
       if (tab === 'Voucher & Đối tác') {
@@ -242,7 +337,7 @@ export default function AdminDashboard() {
     }
     setAdminPage(0);
     load();
-  }, [tab, analyticsDays]);
+  }, [tab, analyticsDays, analyticsFromDate, analyticsToDate, analyticsGroupBy]);
 
   // Moderation
   const moderate = (id: number, action: string) => {
@@ -253,11 +348,29 @@ export default function AdminDashboard() {
       });
       return;
     }
-    const reason = prompt('Nhập lý do / yêu cầu chỉnh sửa gửi tới chủ trọ:');
-    if (!reason || !reason.trim()) return;
-    api.post(`/admin/listings/${id}/moderate`, { action, reason }).then(() => {
-      showToast('Đã cập nhật trạng thái tin đăng');
+    setRejectModal({
+      open: true,
+      listingId: id,
+      action: action as 'REJECT' | 'REQUEST_CHANGES',
+      reason: ''
+    });
+  };
+
+  const submitRejectModeration = () => {
+    if (!rejectModal.listingId) return;
+    if (!rejectModal.reason.trim()) {
+      showToast('Vui lòng nhập lý do từ chối hoặc yêu cầu chỉnh sửa', 'error');
+      return;
+    }
+    api.post(`/admin/listings/${rejectModal.listingId}/moderate`, {
+      action: rejectModal.action,
+      reason: rejectModal.reason.trim()
+    }).then(() => {
+      showToast(rejectModal.action === 'REJECT' ? 'Đã từ chối tin đăng' : 'Đã gửi yêu cầu chỉnh sửa cho chủ trọ');
+      setRejectModal({ open: false, listingId: null, action: 'REJECT', reason: '' });
       load();
+    }).catch(err => {
+      showToast(err.response?.data?.message || 'Có lỗi xảy ra', 'error');
     });
   };
 
@@ -585,14 +698,12 @@ export default function AdminDashboard() {
     });
   };
 
-  const verifyListing = (l: any) => {
-    const listingId = Number(prompt('Listing ID cần xác minh', l.listingId || '') || 0);
-    const propertyId = Number(prompt('Property ID', l.propertyId || '') || 0);
-    const level = prompt('Level: REMOTE_VERIFIED hoặc ON_SITE_VERIFIED', 'ON_SITE_VERIFIED') || 'ON_SITE_VERIFIED';
-    api.post('/admin/verifications', {
-      listingId,
-      propertyId,
-      level,
+  const verifyListing = (l: any = {}) => {
+    setVerifyModal({
+      open: true,
+      listingId: l.listingId || l.id || '',
+      propertyId: l.propertyId || '',
+      level: 'ON_SITE_VERIFIED',
       roomExists: true,
       locationVerified: true,
       mediaVerified: true,
@@ -601,9 +712,34 @@ export default function AdminDashboard() {
       amenityVerified: true,
       availabilityVerified: true,
       note: 'Đã kiểm tra thực địa theo checklist đầy đủ'
+    });
+  };
+
+  const submitVerification = () => {
+    const lId = Number(verifyModal.listingId);
+    if (!lId || isNaN(lId)) {
+      showToast('Vui lòng nhập Listing ID hợp lệ', 'error');
+      return;
+    }
+    const pId = Number(verifyModal.propertyId) || 0;
+    api.post('/admin/verifications', {
+      listingId: lId,
+      propertyId: pId,
+      level: verifyModal.level,
+      roomExists: verifyModal.roomExists,
+      locationVerified: verifyModal.locationVerified,
+      mediaVerified: verifyModal.mediaVerified,
+      priceVerified: verifyModal.priceVerified,
+      utilityVerified: verifyModal.utilityVerified,
+      amenityVerified: verifyModal.amenityVerified,
+      availabilityVerified: verifyModal.availabilityVerified,
+      note: verifyModal.note.trim()
     }).then(() => {
-      showToast('Đã lưu biên bản xác minh');
+      showToast('Đã lưu biên bản xác minh thực địa thành công');
+      setVerifyModal(prev => ({ ...prev, open: false }));
       load();
+    }).catch((err: any) => {
+      showToast(err.response?.data?.message || 'Lỗi khi lưu biên bản xác minh', 'error');
     });
   };
 
@@ -626,23 +762,23 @@ export default function AdminDashboard() {
       }
       const bannerUrl = res.data?.bannerUrl || res.data?.bannerImage;
       setAd({ ...ad, bannerImage: bannerUrl });
-      alert('Tải banner lên thành công!');
+      showToast('Tải banner lên thành công!');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Không thể tải ảnh banner');
+      showToast(err.response?.data?.message || 'Không thể tải ảnh banner', 'error');
     } finally {
       setAdUploading(false);
     }
   };
 
   const saveAd = () => {
-    if (!ad.title.trim()) return alert('Vui lòng nhập tên/tiêu đề quảng cáo');
+    if (!ad.title.trim()) return showToast('Vui lòng nhập tên/tiêu đề quảng cáo', 'error');
     api.post('/admin/ads', {
       ...ad,
       priority: Number(ad.priority || 0),
       startAt: ad.startAt || null,
       endAt: ad.endAt || null
     }).then(() => {
-      alert('Đã lưu chiến dịch quảng cáo thành công');
+      showToast('Đã lưu chiến dịch quảng cáo thành công');
       setAd({
         title: '',
         campaignName: '',
@@ -658,7 +794,7 @@ export default function AdminDashboard() {
         note: ''
       });
       load();
-    }).catch(e => alert(e.response?.data?.message || 'Không thể lưu quảng cáo'));
+    }).catch(e => showToast(e.response?.data?.message || 'Không thể lưu quảng cáo', 'error'));
   };
 
   const toggleAdStatus = (a: any) => {
@@ -668,69 +804,183 @@ export default function AdminDashboard() {
 
   // Partner & Voucher handlers
   const savePartner = async () => {
-    if (!partnerForm.name.trim()) return alert('Vui lòng nhập tên đối tác');
+    if (!partnerForm.name.trim()) return showToast('Vui lòng nhập tên đối tác', 'error');
     try {
       await api.post('/rewards/admin/partners', partnerForm);
       setShowPartnerModal(false);
       setPartnerForm({ name: '', category: 'F&B', logoUrl: '', phone: '', website: '', status: 'ACTIVE' });
-      alert('Đã thêm đối tác thành công!');
+      showToast('Đã thêm đối tác thành công!');
       load();
     } catch (e: any) {
-      alert(e.response?.data?.message || 'Không thể tạo đối tác');
+      showToast(e.response?.data?.message || 'Không thể tạo đối tác', 'error');
     }
   };
 
   const saveVoucher = async () => {
-    if (!voucherForm.title.trim()) return alert('Vui lòng nhập tiêu đề voucher');
-    if (!voucherForm.partnerId) return alert('Vui lòng chọn đối tác liên kết');
+    if (!voucherForm.title.trim()) return showToast('Vui lòng nhập tiêu đề voucher', 'error');
+    if (!voucherForm.partnerId) return showToast('Vui lòng chọn đối tác liên kết', 'error');
     try {
       await api.post('/rewards/admin/vouchers', voucherForm);
       setShowVoucherModal(false);
-      alert('Đã tạo voucher thành công!');
+      showToast('Đã tạo voucher thành công!');
       load();
     } catch (e: any) {
-      alert(e.response?.data?.message || 'Không thể tạo voucher');
+      showToast(e.response?.data?.message || 'Không thể tạo voucher', 'error');
     }
   };
 
   const handleImportCodes = async () => {
     if (!importVoucherId) return;
     const lines = importCodesText.split('\n').map(s => s.trim()).filter(Boolean);
-    if (!lines.length) return alert('Vui lòng nhập ít nhất một mã code');
+    if (!lines.length) return showToast('Vui lòng nhập ít nhất một mã code', 'error');
     try {
       const res = await api.post(`/rewards/admin/vouchers/${importVoucherId}/codes`, { codes: lines });
-      alert(`Đã nạp thành công ${res.data.importedCount} mã voucher vào kho!`);
+      showToast(`Đã nạp thành công ${res.data.importedCount} mã voucher vào kho!`);
       setImportVoucherId(null);
       setImportCodesText('');
       load();
     } catch (e: any) {
-      alert(e.response?.data?.message || 'Không thể nạp mã code');
+      showToast(e.response?.data?.message || 'Không thể nạp mã code', 'error');
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Admin Console</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Quản trị toàn diện: tài khoản, kiểm duyệt tin đăng, quảng cáo đối tác, tài chính và xác minh thực địa.
-        </p>
+    <div className="min-h-screen bg-slate-100 flex flex-col lg:flex-row font-sans w-full">
+      {/* Mobile Top Header */}
+      <div className="lg:hidden bg-slate-900 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
+            title="Menu"
+          >
+            ☰
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold text-base tracking-tight text-indigo-400">UniHome</span>
+            <span className="text-[10px] font-black uppercase bg-indigo-900/60 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-700/50">Admin</span>
+          </div>
+        </div>
+        <button
+          onClick={() => nav('/')}
+          className="text-xs bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg font-bold"
+        >
+          Xem Website
+        </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b pb-3">
-        {tabs.map(t => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
-              tab === t ? 'bg-indigo-600 text-white shadow-xs' : 'bg-white border text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+      {/* Left Sidebar */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-slate-300 flex flex-col transition-transform duration-200 lg:static lg:translate-x-0 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      }`}>
+        {/* Brand */}
+        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-black text-lg shadow-md shadow-indigo-900/40">
+              U
+            </div>
+            <div>
+              <div className="font-extrabold text-white text-base tracking-tight">UniHome</div>
+              <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Management Console</div>
+            </div>
+          </div>
+          {sidebarOpen && (
+            <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-white text-lg p-1">
+              ✕
+            </button>
+          )}
+        </div>
+
+        {/* Navigation Categories */}
+        <nav className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar text-xs">
+          {navGroups.map(group => (
+            <div key={group.title} className="space-y-1">
+              <div className="px-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                {group.title}
+              </div>
+              {group.items.map(item => {
+                const isActive = tab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setTab(item.id);
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-bold transition-all text-left ${
+                      isActive
+                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <span className="text-sm">{item.icon}</span>
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        {/* Admin User Footer in Sidebar */}
+        <div className="p-4 border-t border-slate-800 bg-slate-900/50">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-white text-xs shrink-0 overflow-hidden">
+              {user?.avatarUrl ? <img src={resolveMediaUrl(user.avatarUrl)} alt="Avatar" className="w-full h-full object-cover" /> : (user?.fullName?.[0] || 'A')}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-white truncate">{user?.fullName || 'Quản trị viên'}</div>
+              <div className="text-[10px] text-indigo-400 font-semibold truncate">{user?.role || 'ADMIN'}</div>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => nav('/')}
+              className="flex-1 text-center py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold rounded-lg transition-colors"
+            >
+              🌐 Người dùng
+            </button>
+            <button
+              onClick={() => { clearAuth(); nav('/login'); }}
+              className="py-1.5 px-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/40 text-[11px] font-bold rounded-lg transition-colors"
+              title="Đăng xuất"
+            >
+              Đăng xuất
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 bg-slate-50 min-h-screen">
+        {/* Top Navbar */}
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div>
+              <div className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                <span>UniHome Admin</span>
+                <span>/</span>
+                <span className="text-indigo-600 font-bold">{tab}</span>
+              </div>
+              <h1 className="text-lg font-black text-slate-900 tracking-tight leading-tight">{tab}</h1>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => nav('/')}
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl transition-colors border border-slate-200"
+            >
+              <span>🌐</span> Xem website người dùng
+            </button>
+            <div className="hidden md:flex items-center gap-2 pl-3 border-l border-slate-200">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-semibold text-slate-600">Hệ thống sẵn sàng</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Tab Content View */}
+        <main className="p-4 sm:p-6 lg:p-8 flex-1 space-y-6">
 
       {loading && (
         <div className="flex justify-center p-8">
@@ -763,32 +1013,72 @@ export default function AdminDashboard() {
                 Chỉ số lưu lượng người dùng, phễu chuyển đổi và doanh thu thực tế được ghi nhận minh bạch.
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-semibold text-gray-500">Khoảng thời gian:</span>
               <button
-                onClick={() => setAnalyticsDays(7)}
+                onClick={() => { setAnalyticsDays(7); setAnalyticsFromDate(''); setAnalyticsToDate(''); }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  analyticsDays === 7 ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  analyticsDays === 7 && !analyticsFromDate ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
                 7 ngày qua
               </button>
               <button
-                onClick={() => setAnalyticsDays(30)}
+                onClick={() => { setAnalyticsDays(30); setAnalyticsFromDate(''); setAnalyticsToDate(''); }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  analyticsDays === 30 ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  analyticsDays === 30 && !analyticsFromDate ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
                 30 ngày qua
               </button>
               <button
-                onClick={() => setAnalyticsDays(90)}
+                onClick={() => { setAnalyticsDays(90); setAnalyticsFromDate(''); setAnalyticsToDate(''); }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  analyticsDays === 90 ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  analyticsDays === 90 && !analyticsFromDate ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
                 90 ngày qua
               </button>
+
+              <div className="flex items-center gap-1.5 border-l border-gray-200 pl-2">
+                <span className="text-xs text-gray-500">Từ:</span>
+                <input
+                  type="date"
+                  value={analyticsFromDate}
+                  onChange={(e) => { setAnalyticsFromDate(e.target.value); setAnalyticsDays(0); }}
+                  className="px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                />
+                <span className="text-xs text-gray-500">Đến:</span>
+                <input
+                  type="date"
+                  value={analyticsToDate}
+                  onChange={(e) => { setAnalyticsToDate(e.target.value); setAnalyticsDays(0); }}
+                  className="px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 border-l border-gray-200 pl-2">
+                <span className="text-xs text-gray-500">Nhóm:</span>
+                <select
+                  value={analyticsGroupBy}
+                  onChange={(e) => setAnalyticsGroupBy(e.target.value as any)}
+                  className="px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white font-medium"
+                >
+                  <option value="DAY">Theo Ngày</option>
+                  <option value="WEEK">Theo Tuần</option>
+                  <option value="MONTH">Theo Tháng</option>
+                </select>
+              </div>
+
+              {(analyticsFromDate || analyticsToDate || analyticsGroupBy !== 'DAY') && (
+                <button
+                  onClick={() => { setAnalyticsDays(30); setAnalyticsFromDate(''); setAnalyticsToDate(''); setAnalyticsGroupBy('DAY'); }}
+                  className="px-2.5 py-1 text-xs text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-lg transition-colors font-semibold"
+                  title="Đặt lại mặc định"
+                >
+                  ✕ Đặt lại
+                </button>
+              )}
             </div>
           </div>
 
@@ -2990,6 +3280,182 @@ export default function AdminDashboard() {
           </div>
         );
       })()}
+        </main>
+      </div>
+
+      {/* REJECT MODERATION MODAL */}
+      {rejectModal.open && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in duration-200">
+            <div className="flex justify-between items-center pb-2 border-b">
+              <h3 className="font-extrabold text-base text-gray-900">
+                {rejectModal.action === 'REJECT' ? 'Từ chối tin đăng' : 'Yêu cầu chủ trọ chỉnh sửa'}
+              </h3>
+              <button
+                onClick={() => setRejectModal(prev => ({ ...prev, open: false }))}
+                className="text-gray-400 hover:text-gray-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Tin đăng #{rejectModal.listingId}. Vui lòng nêu rõ lý do để chủ trọ nắm được thông tin và khắc phục.
+            </p>
+            <div className="space-y-2">
+              <div className="text-xs font-bold text-gray-700">Lý do thường gặp:</div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  'Thông tin phòng chưa rõ ràng, thiếu tiện ích thực tế',
+                  'Hình ảnh mờ hoặc chứa logo/SĐT bên thứ ba',
+                  'Giá thuê hoặc đặt cọc sai lệch so với thỏa thuận',
+                  'Địa chỉ hoặc vị trí định vị không chính xác',
+                  'Phòng trọ đã cho thuê hoặc không còn phòng trống'
+                ].map(r => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setRejectModal(prev => ({ ...prev, reason: r }))}
+                    className="text-[11px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1 rounded-lg transition-colors text-left"
+                  >
+                    + {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Chi tiết lý do / Yêu cầu bổ sung:</label>
+              <textarea
+                rows={3}
+                value={rejectModal.reason}
+                onChange={e => setRejectModal(prev => ({ ...prev, reason: e.target.value }))}
+                placeholder="Nhập nội dung phản hồi gửi tới chủ trọ..."
+                className="input"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <button
+                type="button"
+                onClick={() => setRejectModal(prev => ({ ...prev, open: false }))}
+                className="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={submitRejectModeration}
+                className={`px-5 py-2 text-xs font-bold rounded-xl text-white ${
+                  rejectModal.action === 'REJECT' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'
+                }`}
+              >
+                {rejectModal.action === 'REJECT' ? 'Xác nhận từ chối' : 'Gửi yêu cầu'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VERIFY LISTING MODAL WITH CHECKLIST */}
+      {verifyModal.open && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in fade-in duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-2 border-b">
+              <div>
+                <h3 className="font-extrabold text-base text-gray-900">Ghi nhận biên bản xác minh thực địa</h3>
+                <p className="text-xs text-gray-500">Kiểm định chất lượng và cấp huy hiệu tin cậy cho tin đăng</p>
+              </div>
+              <button
+                onClick={() => setVerifyModal(prev => ({ ...prev, open: false }))}
+                className="text-gray-400 hover:text-gray-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Listing ID (*):</label>
+                <input
+                  type="number"
+                  value={verifyModal.listingId}
+                  onChange={e => setVerifyModal(prev => ({ ...prev, listingId: e.target.value }))}
+                  placeholder="Ví dụ: 10"
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Property ID:</label>
+                <input
+                  type="number"
+                  value={verifyModal.propertyId}
+                  onChange={e => setVerifyModal(prev => ({ ...prev, propertyId: e.target.value }))}
+                  placeholder="Ví dụ: 5"
+                  className="input"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Cấp độ xác minh:</label>
+              <select
+                value={verifyModal.level}
+                onChange={e => setVerifyModal(prev => ({ ...prev, level: e.target.value }))}
+                className="input"
+              >
+                <option value="ON_SITE_VERIFIED">ON_SITE_VERIFIED (Kiểm tra thực địa tại phòng)</option>
+                <option value="REMOTE_VERIFIED">REMOTE_VERIFIED (Xác minh từ xa qua giấy tờ / video call)</option>
+              </select>
+            </div>
+            <div className="space-y-2 pt-1">
+              <div className="text-xs font-bold text-gray-700">Checklist tiêu chuẩn kiểm định:</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {[
+                  ['roomExists', 'Phòng có thật và đúng mô tả'],
+                  ['locationVerified', 'Vị trí & địa chỉ chuẩn xác'],
+                  ['mediaVerified', 'Hình ảnh thực tế không gian'],
+                  ['priceVerified', 'Giá thuê & cọc minh bạch'],
+                  ['utilityVerified', 'Chi phí điện nước rõ ràng'],
+                  ['amenityVerified', 'Tiện ích đúng cam kết'],
+                  ['availabilityVerified', 'Phòng còn trống cho thuê']
+                ].map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 p-2 rounded-xl bg-gray-50 border border-gray-100 hover:bg-gray-100 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={(verifyModal as any)[key]}
+                      onChange={e => setVerifyModal(prev => ({ ...prev, [key]: e.target.checked }))}
+                      className="rounded text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="font-semibold text-gray-700">{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Ghi chú biên bản:</label>
+              <textarea
+                rows={2}
+                value={verifyModal.note}
+                onChange={e => setVerifyModal(prev => ({ ...prev, note: e.target.value }))}
+                className="input"
+                placeholder="Ghi nhận tình trạng thực tế..."
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <button
+                type="button"
+                onClick={() => setVerifyModal(prev => ({ ...prev, open: false }))}
+                className="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={submitVerification}
+                className="px-5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs"
+              >
+                Lưu biên bản xác minh
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: Chi tiết người dùng */}
       {showUserDetailModal && selectedUserDetail && (

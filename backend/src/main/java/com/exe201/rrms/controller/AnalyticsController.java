@@ -57,10 +57,13 @@ public class AnalyticsController {
     @GetMapping("/admin/analytics/dashboard")
     public Map<String, Object> getAdminDashboardAnalytics(
             HttpServletRequest req,
-            @RequestParam(defaultValue = "30") int days
+            @RequestParam(defaultValue = "30") int days,
+            @RequestParam(required = false) String fromDate,
+            @RequestParam(required = false) String toDate,
+            @RequestParam(defaultValue = "DAY") String groupBy
     ) {
         User u = auth.current(req);
         auth.requireRole(u, "ADMIN", "SUPER_ADMIN", "CONTENT_ADMIN", "FINANCE_ADMIN");
-        return analyticsService.getDashboardAnalytics(days);
+        return analyticsService.getDashboardAnalytics(days, fromDate, toDate, groupBy);
     }
 }

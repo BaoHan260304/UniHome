@@ -28,6 +28,7 @@ public class RewardService {
     private final ListingInterestRepository interestRepo;
     private final ConversationRepository convRepo;
     private final ReviewRepository reviewRepo;
+    private final NotificationService noti;
 
     public RewardService(RewardAccountRepository accountRepo,
                          RewardTransactionRepository txRepo,
@@ -43,7 +44,8 @@ public class RewardService {
                          FavoriteRepository favRepo,
                          ListingInterestRepository interestRepo,
                          ConversationRepository convRepo,
-                         ReviewRepository reviewRepo) {
+                         ReviewRepository reviewRepo,
+                         NotificationService noti) {
         this.accountRepo = accountRepo;
         this.txRepo = txRepo;
         this.checkinRepo = checkinRepo;
@@ -59,6 +61,7 @@ public class RewardService {
         this.interestRepo = interestRepo;
         this.convRepo = convRepo;
         this.reviewRepo = reviewRepo;
+        this.noti = noti;
     }
 
     @Transactional
@@ -76,7 +79,8 @@ public class RewardService {
     @Transactional(readOnly = true)
     public Map<String, Object> getAccountSummary(Long userId) {
         RewardAccount account = getOrCreateAccount(userId);
-        LocalDate today = LocalDate.now();
+        java.time.ZoneId vnZone = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
+        LocalDate today = LocalDate.now(vnZone);
 
         Optional<DailyCheckin> todayCheckin = checkinRepo.findByUserIdAndCheckinDate(userId, today);
         boolean canCheckinToday = todayCheckin.isEmpty();
@@ -113,7 +117,8 @@ public class RewardService {
     @Transactional(readOnly = true)
     public Map<String, Object> getDailyStatus(Long userId) {
         RewardAccount account = getOrCreateAccount(userId);
-        LocalDate today = LocalDate.now();
+        java.time.ZoneId vnZone = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
+        LocalDate today = LocalDate.now(vnZone);
         Optional<DailyCheckin> todayCheckin = checkinRepo.findByUserIdAndCheckinDate(userId, today);
         boolean claimedToday = todayCheckin.isPresent();
 
@@ -144,10 +149,20 @@ public class RewardService {
     @Transactional
     public Map<String, Object> performDailyCheckin(Long userId) {
         RewardAccount account = getOrCreateAccount(userId);
-        LocalDate today = LocalDate.now();
+        java.time.ZoneId vnZone = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
+        LocalDate today = LocalDate.now(vnZone);
 
-        if (checkinRepo.findByUserIdAndCheckinDate(userId, today).isPresent()) {
-            throw new ValidationException("checkin", "Bạn đã điểm danh hôm nay rồi. Hãy quay lại vào ngày mai!");
+        Optional<DailyCheckin> todayCheckin = checkinRepo.findByUserIdAndCheckinDate(userId, today);
+        if (todayCheckin.isPresent()) {
+            DailyCheckin existing = todayCheckin.get();
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("success", true);
+            res.put("alreadyClaimed", true);
+            res.put("pointsAwarded", 0L);
+            res.put("streakDay", existing.getStreakDay());
+            res.put("newBalance", account.getBalance());
+            res.put("message", "Bạn đã nhận điểm danh hôm nay rồi.");
+            return res;
         }
 
         Optional<DailyCheckin> yesterdayCheckin = checkinRepo.findByUserIdAndCheckinDate(userId, today.minusDays(1));
@@ -183,6 +198,7 @@ public class RewardService {
 
         Map<String, Object> res = new LinkedHashMap<>();
         res.put("success", true);
+        res.put("alreadyClaimed", false);
         res.put("pointsAwarded", pointsAwarded);
         res.put("streakDay", streakDay);
         res.put("newBalance", newBalance);
@@ -376,6 +392,10 @@ public class RewardService {
         tx.setReferenceId(red.getId().toString());
         tx.setDescription("Đổi voucher đối tác: " + voucher.getTitle() + " (" + partnerName + ")");
         txRepo.save(tx);
+
+        try {
+            noti.send(userId, "VOUCHER_REDEEMED", "Đổi voucher thành công: " + voucher.getTitle() + " (Mã: " + assignedCode + ")", "VOUCHER", red.getId());
+        } catch (Exception ignored) {}
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("success", true);

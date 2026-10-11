@@ -29,10 +29,21 @@ export default function Register() {
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!f.fullName.trim()) errs.fullName = 'Họ và tên không được để trống';
-    if (!f.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) errs.email = 'Email không đúng định dạng';
-    const normPhone = f.phone.trim().replace(/\D/g, '');
-    if (!normPhone || normPhone.length !== 10 || !/^0[35789]\d{8}$/.test(normPhone)) {
-      errs.phone = 'Số điện thoại Việt Nam không hợp lệ (10 số, ví dụ: 0912345678)';
+    const hasEmail = Boolean(f.email.trim());
+    const hasPhone = Boolean(f.phone.trim());
+    if (!hasEmail && !hasPhone) {
+      errs.email = 'Vui lòng cung cấp Email hoặc Số điện thoại';
+      errs.phone = 'Vui lòng cung cấp Email hoặc Số điện thoại';
+    } else {
+      if (hasEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) {
+        errs.email = 'Email không đúng định dạng';
+      }
+      if (hasPhone) {
+        const normPhone = f.phone.trim().replace(/\D/g, '');
+        if (normPhone.length !== 10 || !/^0[35789]\d{8}$/.test(normPhone)) {
+          errs.phone = 'Số điện thoại Việt Nam không hợp lệ (10 số, ví dụ: 0912345678)';
+        }
+      }
     }
     if (!f.password || f.password.length < 8) {
       errs.password = 'Mật khẩu tối thiểu 8 ký tự';

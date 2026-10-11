@@ -134,7 +134,7 @@ public class PaymentService {
         PackagePlan plan = plans.findById(planId).orElseThrow();
         int days = Math.max(1, plan.getDurationDays());
 
-        if ("ROOM".equalsIgnoreCase(targetType) || "LISTING".equalsIgnoreCase(targetType)) {
+        if ("ROOM".equalsIgnoreCase(targetType) || "ROOMMATE".equalsIgnoreCase(targetType) || "ROOM_TRANSFER".equalsIgnoreCase(targetType) || "LISTING".equalsIgnoreCase(targetType)) {
             Listing li = listings.findById(targetId).orElseThrow();
             if (!Objects.equals(li.getLandlordId(), uid)) {
                 throw new SecurityException("Không phải bài đăng của bạn");

@@ -80,12 +80,42 @@ public class AnalyticsService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getDashboardAnalytics(int days) {
-        int safeDays = (days == 7 || days == 30 || days == 90) ? days : 30;
-        LocalDateTime since = LocalDateTime.now().minusDays(safeDays);
+        return getDashboardAnalytics(days, null, null, "DAY");
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getDashboardAnalytics(int days, String fromDate, String toDate, String groupBy) {
+        LocalDate today = LocalDate.now();
+        LocalDate startDate;
+        LocalDate endDate;
+
+        if (fromDate != null && !fromDate.isBlank() && toDate != null && !toDate.isBlank()) {
+            try {
+                startDate = LocalDate.parse(fromDate.trim());
+                endDate = LocalDate.parse(toDate.trim());
+                if (startDate.isAfter(endDate)) {
+                    LocalDate tmp = startDate;
+                    startDate = endDate;
+                    endDate = tmp;
+                }
+            } catch (Exception ex) {
+                int safeDays = (days == 7 || days == 30 || days == 90) ? days : 30;
+                startDate = today.minusDays(safeDays - 1);
+                endDate = today;
+            }
+        } else {
+            int safeDays = (days == 7 || days == 30 || days == 90) ? days : 30;
+            startDate = today.minusDays(safeDays - 1);
+            endDate = today;
+        }
+
+        LocalDateTime since = startDate.atStartOfDay();
+        LocalDateTime until = endDate.atTime(23, 59, 59);
+        int totalDays = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1);
 
         List<User> allUsers = userRepo.findAll();
         long totalUsers = allUsers.size();
-        long newUsers = allUsers.stream().filter(u -> u.getCreatedAt() != null && u.getCreatedAt().isAfter(since)).count();
+        long newUsers = allUsers.stream().filter(u -> u.getCreatedAt() != null && u.getCreatedAt().isAfter(since) && u.getCreatedAt().isBefore(until)).count();
         long activeUsers = allUsers.stream().filter(u -> (u.getLastLoginAt() != null && u.getLastLoginAt().isAfter(since)) || "ACTIVE".equalsIgnoreCase(u.getStatus())).count();
         long landlords = allUsers.stream().filter(u -> "LANDLORD".equalsIgnoreCase(u.getRole())).count();
         long tenants = allUsers.stream().filter(u -> "TENANT".equalsIgnoreCase(u.getRole())).count();
@@ -173,29 +203,75 @@ public class AnalyticsService {
                 Map.of("name", "Khác", "value", Math.max(otherRevenue, 0L), "color", "#8B5CF6")
         );
 
-        // Daily series for trends
+        // Trend series with groupBy support (DAY, WEEK, MONTH)
         List<Map<String, Object>> dailySeries = new ArrayList<>();
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM");
-        LocalDate today = LocalDate.now();
+        String normGroupBy = groupBy != null ? groupBy.toUpperCase() : "DAY";
 
         long cumulative = Math.max(1L, totalUsers - newUsers);
-        for (int i = safeDays - 1; i >= 0; i--) {
-            LocalDate d = today.minusDays(i);
-            String dateLabel = d.format(fmt);
 
-            int baseFactor = 35 + (d.getDayOfMonth() % 15) * 5;
-            int dayNewUsers = Math.max(0, (baseFactor % 5));
-            cumulative += dayNewUsers;
+        if ("MONTH".equals(normGroupBy)) {
+            LocalDate curr = startDate.withDayOfMonth(1);
+            LocalDate lastMonth = endDate.withDayOfMonth(1);
+            int mIdx = 1;
+            while (!curr.isAfter(lastMonth)) {
+                String label = "Tháng " + curr.getMonthValue() + "/" + curr.getYear();
+                int baseFactor = 120 + (curr.getMonthValue() % 6) * 30;
+                int monthUsers = Math.max(1, baseFactor / 10);
+                cumulative += monthUsers;
+                dailySeries.add(Map.of(
+                        "date", label,
+                        "pageViews", baseFactor * 35 + 500,
+                        "roomViews", baseFactor * 22 + 250,
+                        "searches", baseFactor * 15 + 120,
+                        "newUsers", monthUsers,
+                        "cumulativeUsers", cumulative,
+                        "recognizedRevenue", (long) (baseFactor * 120000L)
+                ));
+                curr = curr.plusMonths(1);
+                mIdx++;
+            }
+        } else if ("WEEK".equals(normGroupBy)) {
+            int stepWeeks = Math.max(1, (int) Math.ceil((double) totalDays / 7));
+            for (int w = 0; w < stepWeeks; w++) {
+                LocalDate wStart = startDate.plusDays((long) w * 7);
+                LocalDate wEnd = wStart.plusDays(6).isAfter(endDate) ? endDate : wStart.plusDays(6);
+                String label = "T" + (w + 1) + " (" + wStart.format(fmt) + ")";
+                int baseFactor = 70 + (w % 8) * 15;
+                int weekUsers = Math.max(1, baseFactor / 12);
+                cumulative += weekUsers;
+                dailySeries.add(Map.of(
+                        "date", label,
+                        "pageViews", baseFactor * 20 + 300,
+                        "roomViews", baseFactor * 14 + 160,
+                        "searches", baseFactor * 9 + 80,
+                        "newUsers", weekUsers,
+                        "cumulativeUsers", cumulative,
+                        "recognizedRevenue", (long) (baseFactor * 75000L)
+                ));
+            }
+        } else {
+            // DAY group
+            int step = totalDays > 45 ? (int) Math.ceil((double) totalDays / 30) : 1;
+            for (int i = 0; i < totalDays; i += step) {
+                LocalDate d = startDate.plusDays(i);
+                if (d.isAfter(endDate)) break;
+                String dateLabel = d.format(fmt);
 
-            dailySeries.add(Map.of(
-                    "date", dateLabel,
-                    "pageViews", baseFactor * 12 + 150,
-                    "roomViews", baseFactor * 8 + 80,
-                    "searches", baseFactor * 5 + 40,
-                    "newUsers", dayNewUsers,
-                    "cumulativeUsers", cumulative,
-                    "recognizedRevenue", (long) (baseFactor * 35000L)
-            ));
+                int baseFactor = 35 + (d.getDayOfMonth() % 15) * 5;
+                int dayNewUsers = Math.max(0, (baseFactor % 5));
+                cumulative += dayNewUsers;
+
+                dailySeries.add(Map.of(
+                        "date", dateLabel,
+                        "pageViews", baseFactor * 12 + 150,
+                        "roomViews", baseFactor * 8 + 80,
+                        "searches", baseFactor * 5 + 40,
+                        "newUsers", dayNewUsers,
+                        "cumulativeUsers", cumulative,
+                        "recognizedRevenue", (long) (baseFactor * 35000L)
+                ));
+            }
         }
 
         // Listing status breakdown for Recharts Donut
@@ -259,7 +335,11 @@ public class AnalyticsService {
         res.put("adCtr", adImpressions > 0 ? (double) (adClicks * 100) / adImpressions : 0.0);
 
         // Trend series & distributions
+        res.put("groupBy", normGroupBy);
+        res.put("fromDate", startDate.toString());
+        res.put("toDate", endDate.toString());
         res.put("dailySeries", dailySeries);
+        res.put("trendSeries", dailySeries);
         res.put("listingStatusDistribution", listingStatusDistribution);
         res.put("conversionFunnel", conversionFunnel);
 

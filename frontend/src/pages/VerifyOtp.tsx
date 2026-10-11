@@ -158,7 +158,8 @@ export default function VerifyOtp() {
     }
   };
 
-  const allVerified = emailVerified && phoneVerified;
+  const [activeChannel, setActiveChannel] = useState<'EMAIL' | 'PHONE'>(email ? 'EMAIL' : 'PHONE');
+  const isActivated = emailVerified || phoneVerified;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 to-white py-16 px-4">
@@ -166,11 +167,11 @@ export default function VerifyOtp() {
         <div className="text-center">
           <h2 className="text-3xl font-extrabold text-indigo-600 tracking-tight">Xác thực tài khoản</h2>
           <p className="mt-2 text-sm text-gray-600">
-            Để bảo vệ cộng đồng UniHome, cả người thuê và chủ trọ đều cần xác thực Email và Số điện thoại.
+            Chỉ cần xác thực thành công Email hoặc Số điện thoại để kích hoạt tài khoản UniHome của bạn.
           </p>
         </div>
 
-        {allVerified ? (
+        {isActivated ? (
           <div className="bg-green-50 border border-green-200 p-6 rounded-2xl text-center space-y-4">
             <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
               ✓
@@ -186,22 +187,47 @@ export default function VerifyOtp() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Step 1: Email Verification */}
-            <div className={`p-5 rounded-2xl border transition-all ${emailVerified ? 'bg-green-50/60 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${emailVerified ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white'}`}>
-                    {emailVerified ? '✓' : '1'}
-                  </span>
-                  <span className="font-bold text-gray-900 text-sm">Xác thực Email</span>
-                </div>
-                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${emailVerified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                  {emailVerified ? 'Đã xác thực' : 'Chưa xác thực'}
-                </span>
+            {/* Channel Selection if both available */}
+            {email && phone && (
+              <div className="flex bg-gray-100 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setActiveChannel('EMAIL')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                    activeChannel === 'EMAIL' ? 'bg-white text-indigo-700 shadow-xs' : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  📧 Qua Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveChannel('PHONE')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                    activeChannel === 'PHONE' ? 'bg-white text-indigo-700 shadow-xs' : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  📱 Qua Tin nhắn SMS
+                </button>
               </div>
-              <p className="text-xs text-gray-500 mb-3">
-                Mã OTP 6 số đã được gửi tới: <strong className="text-gray-700">{email || 'email của bạn'}</strong>
-              </p>
+            )}
+
+            {/* Email Verification Box */}
+            {(!phone || activeChannel === 'EMAIL') && (
+              <div className={`p-5 rounded-2xl border transition-all ${emailVerified ? 'bg-green-50/60 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${emailVerified ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white'}`}>
+                      {emailVerified ? '✓' : '1'}
+                    </span>
+                    <span className="font-bold text-gray-900 text-sm">Xác thực Email</span>
+                  </div>
+                  <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${emailVerified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {emailVerified ? 'Đã kích hoạt' : 'Chờ xác thực'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">
+                  Mã OTP 6 số đã được gửi tới: <strong className="text-gray-700">{email || 'email của bạn'}</strong>
+                </p>
 
               {!emailVerified ? (
                 <form onSubmit={verifyEmail} className="space-y-3">
@@ -240,61 +266,64 @@ export default function VerifyOtp() {
                 <p className="text-xs text-green-700 font-medium">✓ Email đã được xác thực an toàn.</p>
               )}
             </div>
+            )}
 
             {/* Step 2: Phone Verification */}
-            <div className={`p-5 rounded-2xl border transition-all ${phoneVerified ? 'bg-green-50/60 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${phoneVerified ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white'}`}>
-                    {phoneVerified ? '✓' : '2'}
+            {(!email || activeChannel === 'PHONE') && (
+              <div className={`p-5 rounded-2xl border transition-all ${phoneVerified ? 'bg-green-50/60 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${phoneVerified ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white'}`}>
+                      {phoneVerified ? '✓' : '1'}
+                    </span>
+                    <span className="font-bold text-gray-900 text-sm">Xác thực Số điện thoại</span>
+                  </div>
+                  <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${phoneVerified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {phoneVerified ? 'Đã kích hoạt' : 'Chờ xác thực'}
                   </span>
-                  <span className="font-bold text-gray-900 text-sm">Xác thực Số điện thoại</span>
                 </div>
-                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${phoneVerified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                  {phoneVerified ? 'Đã xác thực' : 'Chưa xác thực'}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 mb-3">
-                Mã OTP 6 số qua SMS tới: <strong className="text-gray-700">{phone || 'số điện thoại của bạn'}</strong>
-              </p>
+                <p className="text-xs text-gray-500 mb-3">
+                  Mã OTP 6 số qua SMS tới: <strong className="text-gray-700">{phone || 'số điện thoại của bạn'}</strong>
+                </p>
 
-              {!phoneVerified ? (
-                <form onSubmit={verifyPhone} className="space-y-3">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      maxLength={6}
-                      placeholder="Mã 6 chữ số"
-                      value={phoneCode}
-                      onChange={e => setPhoneCode(e.target.value.replace(/\D/g, ''))}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-center text-lg font-mono tracking-widest outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <button
-                      type="submit"
-                      disabled={verifyingPhone || phoneCode.length < 6}
-                      className="px-4 py-2 bg-indigo-600 disabled:opacity-50 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors"
-                    >
-                      {verifyingPhone ? 'Kiểm tra...' : 'Xác nhận'}
-                    </button>
-                  </div>
-                  {phoneError && <p className="text-xs text-red-600 font-medium">{phoneError}</p>}
-                  {phoneMsg && <p className="text-xs text-green-600 font-medium">{phoneMsg}</p>}
-                  <div className="flex justify-between items-center text-xs pt-1">
-                    <span className="text-gray-400">Chưa nhận được SMS?</span>
-                    <button
-                      type="button"
-                      onClick={sendPhoneOtp}
-                      disabled={phoneTimer > 0 || sendingPhoneOtp}
-                      className="text-indigo-600 hover:text-indigo-800 font-semibold disabled:text-gray-400"
-                    >
-                      {sendingPhoneOtp ? 'Đang gửi...' : phoneTimer > 0 ? `Gửi lại sau (${phoneTimer}s)` : 'Gửi lại mã'}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <p className="text-xs text-green-700 font-medium">✓ Số điện thoại đã được xác thực.</p>
-              )}
-            </div>
+                {!phoneVerified ? (
+                  <form onSubmit={verifyPhone} className="space-y-3">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        maxLength={6}
+                        placeholder="Mã 6 chữ số"
+                        value={phoneCode}
+                        onChange={e => setPhoneCode(e.target.value.replace(/\D/g, ''))}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-center text-lg font-mono tracking-widest outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <button
+                        type="submit"
+                        disabled={verifyingPhone || phoneCode.length < 6}
+                        className="px-4 py-2 bg-indigo-600 disabled:opacity-50 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors"
+                      >
+                        {verifyingPhone ? 'Kiểm tra...' : 'Xác nhận'}
+                      </button>
+                    </div>
+                    {phoneError && <p className="text-xs text-red-600 font-medium">{phoneError}</p>}
+                    {phoneMsg && <p className="text-xs text-green-600 font-medium">{phoneMsg}</p>}
+                    <div className="flex justify-between items-center text-xs pt-1">
+                      <span className="text-gray-400">Chưa nhận được SMS?</span>
+                      <button
+                        type="button"
+                        onClick={sendPhoneOtp}
+                        disabled={phoneTimer > 0 || sendingPhoneOtp}
+                        className="text-indigo-600 hover:text-indigo-800 font-semibold disabled:text-gray-400"
+                      >
+                        {sendingPhoneOtp ? 'Đang gửi...' : phoneTimer > 0 ? `Gửi lại sau (${phoneTimer}s)` : 'Gửi lại mã'}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <p className="text-xs text-green-700 font-medium">✓ Số điện thoại đã được xác thực.</p>
+                )}
+              </div>
+            )}
 
             <div className="pt-4 border-t text-center">
               <Link to="/login" className="text-sm font-medium text-gray-500 hover:text-indigo-600">

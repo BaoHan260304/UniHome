@@ -8,7 +8,7 @@ import java.time.*;
 public class User {
  @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
  private String fullName;
- @Column(unique=true, nullable=false) private String email;
+ @Column(unique=true) private String email;
  private String password;
  private String role="USER";
  private String status="ACTIVE";
