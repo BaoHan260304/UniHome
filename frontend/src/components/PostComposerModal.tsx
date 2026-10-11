@@ -24,16 +24,16 @@ export default function PostComposerModal({ isOpen, onClose }: PostComposerModal
 
     if (category === 'ROOM') {
       onClose();
-      nav(`/manager/posts?action=create&category=ROOM&relationship=${roomRelationship}`);
+      nav(`/post/new/room?relationship=${roomRelationship}`);
     } else if (category === 'ROOMMATE') {
       onClose();
-      nav(`/manager/posts?action=create&category=ROOMMATE&relationship=${roommateRelationship}`);
+      nav(`/post/new/roommate?relationship=${roommateRelationship}`);
     } else if (category === 'SECOND_HAND') {
       onClose();
-      nav('/secondhand');
+      nav('/post/new/secondhand');
     } else if (category === 'SERVICE') {
       onClose();
-      nav('/services');
+      nav('/post/new/service');
     }
   };
 

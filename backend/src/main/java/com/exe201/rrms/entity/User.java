@@ -43,6 +43,11 @@ public class User {
  private Double preferredLat;
  private Double preferredLng;
  private String contactVisibility = "LOGIN_REQUIRED";
+ private String vipTier = "NONE";
+ private LocalDateTime vipUntil;
+ private String cosmeticStyle = "DEFAULT";
+ private String profileBadge;
+ private String profileFrame;
  // Legacy fields kept only for backward compatibility with the original DB.
  private Integer postLimit=3;
  private String packageExpiryDate;

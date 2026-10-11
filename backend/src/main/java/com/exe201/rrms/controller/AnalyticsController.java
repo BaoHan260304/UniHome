@@ -60,10 +60,14 @@ public class AnalyticsController {
             @RequestParam(defaultValue = "30") int days,
             @RequestParam(required = false) String fromDate,
             @RequestParam(required = false) String toDate,
-            @RequestParam(defaultValue = "DAY") String groupBy
+            @RequestParam(required = false) String groupBy,
+            @RequestParam(required = false) String preset,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) String compare
     ) {
         User u = auth.current(req);
         auth.requireRole(u, "ADMIN", "SUPER_ADMIN", "CONTENT_ADMIN", "FINANCE_ADMIN");
-        return analyticsService.getDashboardAnalytics(days, fromDate, toDate, groupBy);
+        return analyticsService.getDashboardAnalytics(days, fromDate, toDate, groupBy, preset, year, month, compare);
     }
 }

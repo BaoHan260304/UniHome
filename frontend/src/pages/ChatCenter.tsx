@@ -253,28 +253,19 @@ export default function ChatCenter() {
     }
   };
 
-  // Hide conversation
-  const handleHide = async () => {
+  // Delete conversation completely
+  const handleDeleteConversation = async () => {
     if (!active) return;
     setHeaderMenuOpen(false);
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa cuộc trò chuyện với ${active.otherUserName}? Toàn bộ lịch sử trò chuyện sẽ biến mất khỏi hộp thư của bạn.`)) return;
     try {
-      await api.post(`/chat/${active.id}/hide`);
-      showToast('Đã ẩn cuộc trò chuyện khỏi danh sách.');
+      await api.delete(`/chat/conversations/${active.id}`);
+      showToast('Đã xóa cuộc trò chuyện khỏi hộp thư.');
+      setConvs(prev => prev.filter(c => c.id !== active.id));
       setActive(null);
-      void loadConvs();
+      notifyUnreadUpdated();
     } catch (e: any) {
-      showToast(e.response?.data?.message || 'Không thể ẩn cuộc trò chuyện', true);
-    }
-  };
-
-  // Restore conversation
-  const handleRestore = async (convId: number) => {
-    try {
-      await api.post(`/chat/${convId}/unhide`);
-      showToast('Đã khôi phục cuộc trò chuyện.');
-      void loadConvs();
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Không thể khôi phục cuộc trò chuyện', true);
+      showToast(e.response?.data?.message || 'Không thể xóa cuộc trò chuyện', true);
     }
   };
 
@@ -406,15 +397,6 @@ export default function ChatCenter() {
             >
               Chưa đọc
             </button>
-            <button
-              type="button"
-              onClick={() => setTab('HIDDEN')}
-              className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-colors text-center ${
-                tab === 'HIDDEN' ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              Đã ẩn
-            </button>
           </div>
 
           {/* Search box */}
@@ -490,18 +472,7 @@ export default function ChatCenter() {
                         </span>
                       ) : <span />}
 
-                      {tab === 'HIDDEN' && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleRestore(c.id);
-                          }}
-                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-white border border-indigo-200 px-2 py-0.5 rounded-md hover:bg-indigo-50 transition-colors shrink-0"
-                        >
-                          Khôi phục
-                        </button>
-                      )}
+                      <span />
                     </div>
                   </div>
                 </div>
@@ -510,9 +481,7 @@ export default function ChatCenter() {
 
             {convs.length === 0 && (
               <div className="p-8 text-center text-xs text-gray-400">
-                {tab === 'HIDDEN'
-                  ? 'Không có cuộc trò chuyện nào bị ẩn.'
-                  : tab === 'UNREAD'
+                {tab === 'UNREAD'
                   ? 'Không có tin nhắn chưa đọc.'
                   : 'Chưa có cuộc trò chuyện nào. Bạn có thể bấm "Chat với chủ trọ" trên bất kỳ tin phòng nào để bắt đầu!'}
               </div>
@@ -628,10 +597,10 @@ export default function ChatCenter() {
                           </button>
                           <button
                             type="button"
-                            onClick={handleHide}
-                            className="w-full text-left px-4 py-2 hover:bg-gray-50 text-gray-700 flex items-center gap-2.5"
+                            onClick={handleDeleteConversation}
+                            className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2.5 font-bold"
                           >
-                            <span>👁️</span> Xóa khỏi danh sách (Ẩn)
+                            <span>🗑️</span> Xóa cuộc trò chuyện
                           </button>
                         </div>
 

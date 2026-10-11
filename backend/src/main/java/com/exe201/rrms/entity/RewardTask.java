@@ -29,11 +29,32 @@ public class RewardTask {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
+    @Column(name = "target_count", nullable = false)
+    private Integer targetCount = 1;
+
+    @Column(length = 30)
+    private String frequency = "DAILY";
+
+    @Column(name = "min_duration_seconds")
+    private Integer minDurationSeconds;
+
+    @Column(name = "event_type", length = 50)
+    private String eventType;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     @PrePersist
     void prePersist() {
         if (createdAt == null) createdAt = LocalDateTime.now();
+        if (updatedAt == null) updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }

@@ -113,6 +113,36 @@ public class MatchingController {
         return match.sameRoom(u.getId(), listingId);
     }
 
+    @GetMapping({"/listings/{listingId}/candidates", "/listing/{listingId}/candidates"})
+    public Map<String, Object> getListingCandidates(
+            @PathVariable Long listingId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            HttpServletRequest r
+    ) {
+        User u = auth.optional(r);
+        List<Map<String, Object>> candidates = new ArrayList<>();
+        if (u != null) {
+            try {
+                candidates = match.sameRoom(u.getId(), listingId);
+            } catch (Exception ignored) {
+                // User may not have profile or matching enabled
+            }
+        }
+
+        int total = candidates.size();
+        int start = Math.min(page * size, total);
+        int end = Math.min(start + size, total);
+        List<Map<String, Object>> paged = candidates.subList(start, end);
+
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("listingId", listingId);
+        resp.put("threshold", 50);
+        resp.put("totalElements", total);
+        resp.put("items", paged);
+        return resp;
+    }
+
     @GetMapping("/nearby")
     public List<Map<String, Object>> nearby(@RequestParam(defaultValue = "5") int radiusKm, HttpServletRequest r) {
         User u = auth.current(r);

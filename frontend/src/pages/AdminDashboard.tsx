@@ -50,6 +50,7 @@ export const navGroups = [
       { id: 'Gói VIP', label: 'Gói VIP đẩy tin', icon: '💎' },
       { id: 'Quảng cáo', label: 'Chiến dịch Ads', icon: '📢' },
       { id: 'Voucher & Đối tác', label: 'Voucher & Đối tác', icon: '🎁' },
+      { id: 'Nhiệm vụ & Điểm', label: 'Nhiệm vụ & Điểm thưởng', icon: '🎯' },
       { id: 'Tài chính', label: 'Tài chính & Ví', icon: '💳' },
     ]
   },
@@ -57,6 +58,7 @@ export const navGroups = [
     title: 'Hệ thống',
     items: [
       { id: 'Tài khoản', label: 'Tài khoản người dùng', icon: '👥' },
+      { id: 'Cấu hình hệ thống', label: 'Cấu hình hệ thống', icon: '⚙️' },
       { id: 'Audit', label: 'Audit Log', icon: '📜' },
     ]
   }
@@ -68,6 +70,7 @@ export const tabs = [
   'Kiểm duyệt',
   'Quảng cáo',
   'Voucher & Đối tác',
+  'Nhiệm vụ & Điểm',
   'Xác minh',
   'Tài khoản',
   'Tài chính',
@@ -78,6 +81,7 @@ export const tabs = [
   'Q&A',
   'Đánh giá',
   'Blog',
+  'Cấu hình hệ thống',
   'Audit'
 ];
 
@@ -91,7 +95,11 @@ export default function AdminDashboard() {
   const [analyticsDays, setAnalyticsDays] = useState(30);
   const [analyticsFromDate, setAnalyticsFromDate] = useState('');
   const [analyticsToDate, setAnalyticsToDate] = useState('');
-  const [analyticsGroupBy, setAnalyticsGroupBy] = useState<'DAY' | 'WEEK' | 'MONTH'>('DAY');
+  const [analyticsGroupBy, setAnalyticsGroupBy] = useState<'DAY' | 'WEEK' | 'MONTH' | 'QUARTER' | 'YEAR'>('DAY');
+  const [analyticsPreset, setAnalyticsPreset] = useState('');
+  const [analyticsYear, setAnalyticsYear] = useState('');
+  const [analyticsMonth, setAnalyticsMonth] = useState('');
+  const [analyticsCompare, setAnalyticsCompare] = useState('');
 
   // Listing moderation rejection modal (replaces prompt)
   const [rejectModal, setRejectModal] = useState<{
@@ -152,6 +160,19 @@ export default function AdminDashboard() {
     title: '',
     message: '',
     onConfirm: () => {}
+  });
+
+  const [taskModal, setTaskModal] = useState<any>({ open: false, id: null, code: '', name: '', description: '', eventType: 'VIEW_ROOM', targetCount: 3, rewardPoints: 20, active: true });
+  const [settingsForm, setSettingsForm] = useState<any>({
+    site_name: 'UniHome',
+    support_email: 'support@unihome.vn',
+    support_phone: '1900 6868',
+    auto_expiry_days: '30',
+    min_room_images: '3',
+    max_room_images: '20',
+    ads_rotation_seconds: '8',
+    checkin_day1_points: '20',
+    checkin_day7_points: '50'
   });
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -295,6 +316,10 @@ export default function AdminDashboard() {
         const params: any = { days: analyticsDays, groupBy: analyticsGroupBy };
         if (analyticsFromDate) params.fromDate = analyticsFromDate;
         if (analyticsToDate) params.toDate = analyticsToDate;
+        if (analyticsPreset) params.preset = analyticsPreset;
+        if (analyticsYear) params.year = parseInt(analyticsYear);
+        if (analyticsMonth) params.month = parseInt(analyticsMonth);
+        if (analyticsCompare) params.compare = analyticsCompare;
         setData((await api.get('/admin/analytics/dashboard', { params })).data);
       }
       if (tab === 'Kiểm duyệt') setData({ items: (await api.get('/admin/moderation')).data });
@@ -321,7 +346,12 @@ export default function AdminDashboard() {
         setData({ questions: qRes.data || [], answers: aRes.data || [] });
       }
       if (tab === 'Đánh giá') setData({ items: (await api.get('/admin/reviews')).data });
-      if (tab === 'Blog') setData({ items: (await api.get('/admin/blogs')).data });
+      if (tab === 'Nhiệm vụ & Điểm') setData({ tasks: (await api.get('/rewards/admin/tasks')).data || [] });
+      if (tab === 'Cấu hình hệ thống') {
+        const sData = (await api.get('/admin/settings')).data || {};
+        setData({ settings: sData });
+        setSettingsForm((prev: any) => ({ ...prev, ...sData }));
+      }
       if (tab === 'Audit') setData({ items: (await api.get('/admin/audit')).data });
     } catch (e: any) {
       showToast(e.response?.data?.message || 'Không có quyền truy cập', 'error');
@@ -337,7 +367,7 @@ export default function AdminDashboard() {
     }
     setAdminPage(0);
     load();
-  }, [tab, analyticsDays, analyticsFromDate, analyticsToDate, analyticsGroupBy]);
+  }, [tab, analyticsDays, analyticsFromDate, analyticsToDate, analyticsGroupBy, analyticsPreset, analyticsYear, analyticsMonth, analyticsCompare]);
 
   // Moderation
   const moderate = (id: number, action: string) => {
@@ -691,12 +721,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const confirmPayment = (id: number) => {
-    api.post(`/admin/payments/${id}/confirm`).then(() => {
-      showToast('Đã xác nhận thanh toán');
-      load();
-    });
-  };
 
   const verifyListing = (l: any = {}) => {
     setVerifyModal({
@@ -841,6 +865,53 @@ export default function AdminDashboard() {
       load();
     } catch (e: any) {
       showToast(e.response?.data?.message || 'Không thể nạp mã code', 'error');
+    }
+  };
+
+  const saveTask = async () => {
+    try {
+      if (taskModal.id) {
+        await api.put(`/rewards/admin/tasks/${taskModal.id}`, taskModal);
+        showToast('Đã cập nhật nhiệm vụ thành công');
+      } else {
+        await api.post('/rewards/admin/tasks', taskModal);
+        showToast('Đã tạo nhiệm vụ mới thành công');
+      }
+      setTaskModal({ open: false, id: null, code: '', name: '', description: '', eventType: 'VIEW_ROOM', targetCount: 3, rewardPoints: 20, active: true });
+      load();
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Lỗi lưu nhiệm vụ', 'error');
+    }
+  };
+
+  const toggleTaskActive = async (t: any) => {
+    try {
+      await api.put(`/rewards/admin/tasks/${t.id}`, { ...t, active: !t.active });
+      showToast(`Đã ${!t.active ? 'kích hoạt' : 'tạm dừng'} nhiệm vụ`);
+      load();
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Lỗi cập nhật trạng thái', 'error');
+    }
+  };
+
+  const deleteTask = async (id: number) => {
+    if (!window.confirm('Bạn có chắc muốn xóa nhiệm vụ này?')) return;
+    try {
+      await api.delete(`/rewards/admin/tasks/${id}`);
+      showToast('Đã xóa nhiệm vụ');
+      load();
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Lỗi xóa nhiệm vụ', 'error');
+    }
+  };
+
+  const saveSettings = async () => {
+    try {
+      await api.put('/admin/settings', settingsForm);
+      showToast('Đã lưu cấu hình hệ thống thành công');
+      load();
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Lỗi lưu cấu hình', 'error');
     }
   };
 
@@ -1060,6 +1131,7 @@ export default function AdminDashboard() {
               <div className="flex items-center gap-1.5 border-l border-gray-200 pl-2">
                 <span className="text-xs text-gray-500">Nhóm:</span>
                 <select
+                  data-testid="analytics-groupby"
                   value={analyticsGroupBy}
                   onChange={(e) => setAnalyticsGroupBy(e.target.value as any)}
                   className="px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white font-medium"
@@ -1067,18 +1139,105 @@ export default function AdminDashboard() {
                   <option value="DAY">Theo Ngày</option>
                   <option value="WEEK">Theo Tuần</option>
                   <option value="MONTH">Theo Tháng</option>
+                  <option value="QUARTER">Theo Quý</option>
+                  <option value="YEAR">Theo Năm</option>
                 </select>
               </div>
 
-              {(analyticsFromDate || analyticsToDate || analyticsGroupBy !== 'DAY') && (
+              <div className="flex items-center gap-1.5 border-l border-gray-200 pl-2">
+                <span className="text-xs text-gray-500">Kỳ:</span>
+                <select
+                  data-testid="analytics-preset"
+                  value={analyticsPreset}
+                  onChange={(e) => { setAnalyticsPreset(e.target.value); setAnalyticsYear(''); setAnalyticsMonth(''); setAnalyticsFromDate(''); setAnalyticsToDate(''); }}
+                  className="px-2 py-1 text-xs border border-gray-200 rounded-lg bg-white font-medium"
+                >
+                  <option value="">Tùy chọn (ngày qua)</option>
+                  <option value="TODAY">Hôm nay</option>
+                  <option value="YESTERDAY">Hôm qua</option>
+                  <option value="7D">7 ngày</option>
+                  <option value="30D">30 ngày</option>
+                  <option value="THIS_MONTH">Tháng này</option>
+                  <option value="LAST_MONTH">Tháng trước</option>
+                  <option value="THIS_QUARTER">Quý này</option>
+                  <option value="THIS_YEAR">Năm nay</option>
+                  <option value="LAST_YEAR">Năm trước</option>
+                </select>
+                <select
+                  data-testid="analytics-year"
+                  value={analyticsYear}
+                  onChange={(e) => { setAnalyticsYear(e.target.value); setAnalyticsPreset(''); if (!e.target.value) setAnalyticsMonth(''); }}
+                  className="px-2 py-1 text-xs border border-gray-200 rounded-lg bg-white font-medium"
+                >
+                  <option value="">Năm…</option>
+                  <option value="2025">2025</option>
+                  <option value="2026">2026</option>
+                </select>
+                <select
+                  data-testid="analytics-month"
+                  value={analyticsMonth}
+                  disabled={!analyticsYear}
+                  onChange={(e) => { setAnalyticsMonth(e.target.value); if (e.target.value) setAnalyticsGroupBy('DAY'); }}
+                  className="px-2 py-1 text-xs border border-gray-200 rounded-lg bg-white font-medium disabled:opacity-50"
+                >
+                  <option value="">Cả năm</option>
+                  {Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={String(i + 1)}>Tháng {i + 1}</option>)}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1.5 border-l border-gray-200 pl-2">
+                <span className="text-xs text-gray-500">So sánh:</span>
+                <select
+                  data-testid="analytics-compare"
+                  value={analyticsCompare}
+                  onChange={(e) => setAnalyticsCompare(e.target.value)}
+                  className="px-2 py-1 text-xs border border-gray-200 rounded-lg bg-white font-medium"
+                >
+                  <option value="">Không</option>
+                  <option value="PREVIOUS_PERIOD">Kỳ trước</option>
+                  <option value="PREVIOUS_YEAR">Cùng kỳ năm trước</option>
+                </select>
+              </div>
+
+              {(analyticsFromDate || analyticsToDate || analyticsGroupBy !== 'DAY' || analyticsPreset || analyticsYear || analyticsCompare) && (
                 <button
-                  onClick={() => { setAnalyticsDays(30); setAnalyticsFromDate(''); setAnalyticsToDate(''); setAnalyticsGroupBy('DAY'); }}
+                  onClick={() => { setAnalyticsDays(30); setAnalyticsFromDate(''); setAnalyticsToDate(''); setAnalyticsGroupBy('DAY'); setAnalyticsPreset(''); setAnalyticsYear(''); setAnalyticsMonth(''); setAnalyticsCompare(''); }}
                   className="px-2.5 py-1 text-xs text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-lg transition-colors font-semibold"
                   title="Đặt lại mặc định"
                 >
                   ✕ Đặt lại
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Real traffic / engagement KPIs for the selected period (all from analytics_event + tables) */}
+          <div data-testid="analytics-kpis" className="bg-white border border-gray-200 p-5 rounded-3xl space-y-3">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-extrabold text-gray-900">Chỉ số truy cập &amp; tương tác ({data.fromDate} → {data.toDate}, nhóm {data.groupBy})</h3>
+              {data.compare && <span className="text-[11px] text-gray-500">So với {data.compare.fromDate} → {data.compare.toDate}</span>}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+              {[
+                ['uniqueVisitors', 'Unique Visitors'], ['sessions', 'Sessions'], ['pageViews', 'Page Views'],
+                ['activeUsers', 'Active Users'], ['newUsers', 'New Users'], ['returningUsers', 'Returning Users'],
+                ['searches', 'Searches'], ['listingViews', 'Listing Views'], ['favorites', 'Saved'],
+                ['chatInitiated', 'Chat Started'], ['dau', 'DAU'], ['wau', 'WAU'], ['mau', 'MAU'],
+              ].map(([k, label]) => {
+                const cmpKey = k === 'favorites' ? 'saved' : k === 'chatInitiated' ? 'chatStarted' : k;
+                const d = data.compare?.deltaPct?.[cmpKey];
+                return (
+                  <div key={k} data-testid={`kpi-${k}`} className="p-3 rounded-2xl bg-gray-50 border border-gray-100">
+                    <div className="text-[11px] text-gray-500 font-medium">{label}</div>
+                    <div className="text-xl font-extrabold text-gray-900">{Number(data[k] || 0).toLocaleString('vi-VN')}</div>
+                    {data.compare && (
+                      <div className="text-[10px] text-gray-500">
+                        trước: {Number(data.compare.kpis?.[cmpKey] ?? 0).toLocaleString('vi-VN')}{d != null && ` (${d >= 0 ? '+' : ''}${Number(d).toFixed(1)}%)`}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -1123,7 +1282,7 @@ export default function AdminDashboard() {
               <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs">
                 <span className="text-xs text-emerald-700 font-medium">Doanh thu Quảng cáo đối tác</span>
                 <div className="text-2xl font-extrabold text-emerald-600 mt-1">{money(data.adRevenue || 0)}</div>
-                <div className="text-[11px] text-gray-400 mt-1">CPC/CPM từ banner quảng cáo</div>
+                <div className="text-[11px] text-gray-400 mt-1">{data.adRevenueNote || 'Doanh thu quảng cáo thực tế'}</div>
               </div>
             </div>
 
@@ -2175,13 +2334,14 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex gap-3 items-center">
                     <b className="text-sm font-extrabold text-indigo-600">{money(p.amount)}</b>
-                    {p.status === 'PENDING' && (
-                      <button
-                        onClick={() => confirmPayment(p.id)}
-                        className="bg-green-600 text-white px-3 py-1.5 rounded-lg font-bold"
-                      >
-                        Xác nhận
-                      </button>
+                    {p.status === 'PENDING' ? (
+                      <span className="bg-amber-50 text-amber-700 px-2.5 py-1 rounded-lg font-bold border border-amber-200">
+                        ⏳ Chờ Webhook
+                      </span>
+                    ) : (
+                      <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg font-bold border border-emerald-200">
+                        ✓ Đã đối soát
+                      </span>
                     )}
                   </div>
                 </div>
@@ -3280,6 +3440,259 @@ export default function AdminDashboard() {
           </div>
         );
       })()}
+
+      {/* Nhiệm vụ & Điểm Thưởng */}
+      {!loading && tab === 'Nhiệm vụ & Điểm' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center bg-white p-4 rounded-2xl border">
+            <div>
+              <h3 className="text-base font-extrabold text-gray-900">Danh mục Nhiệm vụ hàng ngày (Reward Task Catalog)</h3>
+              <p className="text-xs text-gray-500">Mỗi ngày hệ thống gán tự động 3 nhiệm vụ cho mỗi người dùng từ các nhiệm vụ ĐANG BẬT.</p>
+            </div>
+            <button
+              onClick={() => setTaskModal({ open: true, id: null, code: '', name: '', description: '', eventType: 'VIEW_ROOM', targetCount: 3, rewardPoints: 20, active: true })}
+              className="bg-indigo-600 text-white font-bold text-xs px-4 py-2 rounded-xl hover:bg-indigo-700 shadow-xs"
+            >
+              + Tạo nhiệm vụ mới
+            </button>
+          </div>
+
+          <div className="bg-white border rounded-2xl overflow-hidden shadow-xs divide-y">
+            {(data.tasks || []).map((t: any) => (
+              <div key={t.id} className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-sm text-gray-900">{t.name}</span>
+                    <span className="font-mono text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-bold">{t.code}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-500'}`}>
+                      {t.active ? 'Đang hoạt động' : 'Tạm dừng'}
+                    </span>
+                  </div>
+                  <p className="text-gray-500 mt-1">{t.description}</p>
+                  <div className="flex items-center gap-4 text-gray-400 mt-1.5 text-[11px]">
+                    <span>Sự kiện: <b>{t.eventType}</b></span>
+                    <span>Mục tiêu: <b>{t.targetCount} lần</b></span>
+                    <span>Tần suất: <b>{t.frequency || 'DAILY'}</b></span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-amber-600 font-black text-sm bg-amber-50 px-3 py-1 rounded-xl border border-amber-200">
+                    +{t.rewardPoints} điểm
+                  </span>
+                  <button
+                    onClick={() => toggleTaskActive(t)}
+                    className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-colors ${t.active ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'}`}
+                  >
+                    {t.active ? 'Tạm dừng' : 'Kích hoạt'}
+                  </button>
+                  <button
+                    onClick={() => setTaskModal({ open: true, ...t })}
+                    className="px-3 py-1.5 rounded-xl font-bold text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                  >
+                    Sửa
+                  </button>
+                  <button
+                    onClick={() => deleteTask(t.id)}
+                    className="px-2 py-1.5 text-red-600 hover:bg-red-50 rounded-xl font-bold text-xs"
+                  >
+                    Xóa
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Cấu hình hệ thống */}
+      {!loading && tab === 'Cấu hình hệ thống' && (
+        <div className="bg-white rounded-3xl p-6 border shadow-xs space-y-6">
+          <div className="border-b pb-4">
+            <h3 className="text-base font-extrabold text-gray-900">Cấu hình Hệ thống UniHome</h3>
+            <p className="text-xs text-gray-500 mt-1">Điều chỉnh các hằng số vận hành hệ thống, hạn mức tin đăng, điểm thưởng và quảng cáo.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            {/* Chung */}
+            <div className="space-y-3 bg-gray-50/60 p-4 rounded-2xl border">
+              <h4 className="font-extrabold text-xs text-gray-700 uppercase tracking-wider">Thông tin chung</h4>
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Tên hệ thống (site_name)</label>
+                <input
+                  type="text"
+                  value={settingsForm.site_name || ''}
+                  onChange={e => setSettingsForm({ ...settingsForm, site_name: e.target.value })}
+                  className="w-full border rounded-xl p-2.5 bg-white text-xs font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Email hỗ trợ (support_email)</label>
+                <input
+                  type="email"
+                  value={settingsForm.support_email || ''}
+                  onChange={e => setSettingsForm({ ...settingsForm, support_email: e.target.value })}
+                  className="w-full border rounded-xl p-2.5 bg-white text-xs font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Hotline hỗ trợ (support_phone)</label>
+                <input
+                  type="text"
+                  value={settingsForm.support_phone || ''}
+                  onChange={e => setSettingsForm({ ...settingsForm, support_phone: e.target.value })}
+                  className="w-full border rounded-xl p-2.5 bg-white text-xs font-semibold"
+                />
+              </div>
+            </div>
+
+            {/* Vận hành & Tin đăng */}
+            <div className="space-y-3 bg-gray-50/60 p-4 rounded-2xl border">
+              <h4 className="font-extrabold text-xs text-gray-700 uppercase tracking-wider">Kiểm duyệt & Tin đăng</h4>
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Thời hạn tin đăng mặc định (ngày)</label>
+                <input
+                  type="number"
+                  value={settingsForm.auto_expiry_days || '30'}
+                  onChange={e => setSettingsForm({ ...settingsForm, auto_expiry_days: e.target.value })}
+                  className="w-full border rounded-xl p-2.5 bg-white text-xs font-semibold"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Số ảnh tối thiểu (phòng)</label>
+                  <input
+                    type="number"
+                    value={settingsForm.min_room_images || '3'}
+                    onChange={e => setSettingsForm({ ...settingsForm, min_room_images: e.target.value })}
+                    className="w-full border rounded-xl p-2.5 bg-white text-xs font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Số ảnh tối đa (phòng)</label>
+                  <input
+                    type="number"
+                    value={settingsForm.max_room_images || '20'}
+                    onChange={e => setSettingsForm({ ...settingsForm, max_room_images: e.target.value })}
+                    className="w-full border rounded-xl p-2.5 bg-white text-xs font-semibold"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Thời gian xoay vòng Ads (giây)</label>
+                <input
+                  type="number"
+                  value={settingsForm.ads_rotation_seconds || '8'}
+                  onChange={e => setSettingsForm({ ...settingsForm, ads_rotation_seconds: e.target.value })}
+                  className="w-full border rounded-xl p-2.5 bg-white text-xs font-semibold"
+                />
+              </div>
+            </div>
+
+            {/* Điểm thưởng & Checkin */}
+            <div className="space-y-3 bg-gray-50/60 p-4 rounded-2xl border md:col-span-2">
+              <h4 className="font-extrabold text-xs text-gray-700 uppercase tracking-wider">Điểm danh & Thưởng</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Điểm thưởng ngày thường Ngày 1 - 6</label>
+                  <input
+                    type="number"
+                    value={settingsForm.checkin_day1_points || '20'}
+                    onChange={e => setSettingsForm({ ...settingsForm, checkin_day1_points: e.target.value })}
+                    className="w-full border rounded-xl p-2.5 bg-white text-xs font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Điểm thưởng đặc biệt Ngày 7 (Streak bonus)</label>
+                  <input
+                    type="number"
+                    value={settingsForm.checkin_day7_points || '50'}
+                    onChange={e => setSettingsForm({ ...settingsForm, checkin_day7_points: e.target.value })}
+                    className="w-full border rounded-xl p-2.5 bg-white text-xs font-semibold"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-3 border-t">
+            <button
+              onClick={saveSettings}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs px-6 py-2.5 rounded-xl shadow-md transition-all"
+            >
+              💾 Lưu toàn bộ cấu hình
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Task Modal */}
+      {taskModal.open && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center pb-2 border-b">
+              <h3 className="font-extrabold text-sm text-gray-900">
+                {taskModal.id ? 'Chỉnh sửa nhiệm vụ' : 'Tạo nhiệm vụ thưởng mới'}
+              </h3>
+              <button onClick={() => setTaskModal({ ...taskModal, open: false })} className="text-gray-400 font-bold">✕</button>
+            </div>
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold mb-1">Mã nhiệm vụ (Code)</label>
+                <input
+                  type="text"
+                  placeholder="VD: VIEW_ROOM_3"
+                  value={taskModal.code || ''}
+                  onChange={e => setTaskModal({ ...taskModal, code: e.target.value })}
+                  className="w-full border rounded-xl p-2.5"
+                />
+              </div>
+              <div>
+                <label className="block font-bold mb-1">Tên hiển thị</label>
+                <input
+                  type="text"
+                  placeholder="VD: Xem 3 phòng trọ"
+                  value={taskModal.name || ''}
+                  onChange={e => setTaskModal({ ...taskModal, name: e.target.value })}
+                  className="w-full border rounded-xl p-2.5"
+                />
+              </div>
+              <div>
+                <label className="block font-bold mb-1">Mô tả nhiệm vụ</label>
+                <textarea
+                  rows={2}
+                  value={taskModal.description || ''}
+                  onChange={e => setTaskModal({ ...taskModal, description: e.target.value })}
+                  className="w-full border rounded-xl p-2.5"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold mb-1">Mục tiêu (target)</label>
+                  <input
+                    type="number"
+                    value={taskModal.targetCount || 1}
+                    onChange={e => setTaskModal({ ...taskModal, targetCount: Number(e.target.value) })}
+                    className="w-full border rounded-xl p-2.5"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold mb-1">Điểm thưởng</label>
+                  <input
+                    type="number"
+                    value={taskModal.rewardPoints || 20}
+                    onChange={e => setTaskModal({ ...taskModal, rewardPoints: Number(e.target.value) })}
+                    className="w-full border rounded-xl p-2.5 font-bold text-amber-600"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <button onClick={() => setTaskModal({ ...taskModal, open: false })} className="px-4 py-2 text-xs font-bold text-gray-500">Hủy</button>
+              <button onClick={saveTask} className="px-4 py-2 text-xs font-bold bg-indigo-600 text-white rounded-xl shadow-xs">Lưu nhiệm vụ</button>
+            </div>
+          </div>
+        </div>
+      )}
         </main>
       </div>
 

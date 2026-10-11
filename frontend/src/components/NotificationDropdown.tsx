@@ -60,7 +60,11 @@ export default function NotificationDropdown({ user, unreadCount, onRefreshCount
   };
 
   // Filter by tab
-  const activityTypes = ['INTEREST', 'MATCHING', 'CHAT', 'MESSAGE', 'CHAT_MESSAGE', 'LISTING_APPROVED', 'LISTING_REJECTED'];
+  const activityTypes = [
+    'INTEREST', 'MATCHING', 'CHAT', 'MESSAGE', 'CHAT_MESSAGE',
+    'LISTING_APPROVED', 'LISTING_REJECTED', 'LISTING_NEED_REVISION',
+    'LISTING_SUSPENDED', 'LISTING_DELETED', 'FOLLOWING_NEW_POST'
+  ];
   const filteredList = notifications.filter((n) => {
     const isActivity = activityTypes.includes(n.type?.toUpperCase());
     return activeTab === 'activity' ? isActivity : !isActivity;
@@ -142,9 +146,13 @@ export default function NotificationDropdown({ user, unreadCount, onRefreshCount
                     key={n.id}
                     onClick={() => {
                       if (isUnread) void markSingleAsRead(n.id);
+                      setIsOpen(false);
                       if ((n.type === 'CHAT_MESSAGE' || n.type === 'CHAT' || n.type === 'MESSAGE') && n.referenceId) {
-                        setIsOpen(false);
                         nav(`/chat?conversationId=${n.referenceId}`);
+                      } else if (n.referenceType === 'LISTING' && n.referenceId) {
+                        nav(`/room/${n.referenceId}`);
+                      } else if (n.type?.startsWith('LISTING_') && n.referenceId) {
+                        nav(`/my-posts`);
                       }
                     }}
                     className={`px-5 py-3 hover:bg-gray-50 transition-colors cursor-pointer flex gap-3 items-start ${

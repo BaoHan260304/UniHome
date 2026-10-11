@@ -22,7 +22,71 @@ export default function PropertyDetail() {
     matchingEnabled: false,
     favorite: false
   });
+  const [selectedAmenityCategory, setSelectedAmenityCategory] = useState('Trường học');
   const user = getUser();
+
+  const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return 1.0;
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return Math.round(R * c * 10) / 10;
+  };
+
+  const AMENITY_POIS: Record<string, Array<{ name: string; lat: number; lng: number }>> = {
+    'Trường học': [
+      { name: 'Đại học FPT Hòa Lạc', lat: 21.0128, lng: 105.5273 },
+      { name: 'Đại học Quốc gia Hà Nội (ĐHQG Hòa Lạc)', lat: 21.0035, lng: 105.5188 },
+      { name: 'Viện Khoa học & Công nghệ VKIST', lat: 21.0175, lng: 105.5310 },
+      { name: 'Đại học Việt Pháp (USTH)', lat: 21.0085, lng: 105.5220 }
+    ],
+    'Bệnh viện/Phòng khám': [
+      { name: 'Phòng khám Đa khoa Quốc tế Hòa Lạc', lat: 21.0189, lng: 105.5321 },
+      { name: 'Bệnh viện Đa khoa Thạch Thất', lat: 21.0371, lng: 105.5786 },
+      { name: 'Trạm Y tế Xã Thạch Hòa', lat: 21.0142, lng: 105.5365 }
+    ],
+    'Chợ': [
+      { name: 'Chợ Hòa Lạc (Chợ Cò)', lat: 21.0145, lng: 105.5392 },
+      { name: 'Chợ Tân Xã', lat: 21.0267, lng: 105.5213 },
+      { name: 'Chợ Thôn 3 Thạch Hòa', lat: 21.0112, lng: 105.5340 }
+    ],
+    'Siêu thị': [
+      { name: 'Siêu thị WinMart+ Hòa Lạc', lat: 21.0132, lng: 105.5312 },
+      { name: 'Điện Máy Xanh Thạch Thất', lat: 21.0165, lng: 105.5360 },
+      { name: 'Siêu thị mini FujiMart', lat: 21.0190, lng: 105.5280 }
+    ],
+    'Cửa hàng tiện lợi': [
+      { name: 'Circle K KTX FPT', lat: 21.0121, lng: 105.5265 },
+      { name: '7-Eleven Hòa Lạc Hub', lat: 21.0140, lng: 105.5300 },
+      { name: 'Cửa hàng tiện ích 24/7 Tân Xã', lat: 21.0250, lng: 105.5210 }
+    ],
+    'Nhà thuốc': [
+      { name: 'Nhà thuốc Long Châu Hòa Lạc', lat: 21.0152, lng: 105.5342 },
+      { name: 'Nhà thuốc An Khang Thạch Hòa', lat: 21.0138, lng: 105.5325 },
+      { name: 'Nhà thuốc Dược sĩ ĐH FPT', lat: 21.0125, lng: 105.5278 }
+    ],
+    'Ngân hàng/ATM': [
+      { name: 'ATM Vietcombank ĐH FPT', lat: 21.0130, lng: 105.5270 },
+      { name: 'ATM BIDV Khu Công nghệ cao Hòa Lạc', lat: 21.0170, lng: 105.5350 },
+      { name: 'ATM Techcombank Tân Xã', lat: 21.0255, lng: 105.5220 },
+      { name: 'Chi nhánh Agribank Thạch Hòa', lat: 21.0140, lng: 105.5370 }
+    ],
+    'Trạm xe buýt': [
+      { name: 'Trạm xe buýt Tuyến 107 (Kim Mã - ĐHQG)', lat: 21.0118, lng: 105.5260 },
+      { name: 'Trạm xe buýt Tuyến 74 (Mỹ Đình - Xuân Khanh)', lat: 21.0148, lng: 105.5380 },
+      { name: 'Trạm xe buýt Tuyến 88 (Mỹ Đình - Hòa Lạc)', lat: 21.0160, lng: 105.5340 }
+    ],
+    'Ăn uống': [
+      { name: 'Căn tin FPT Food Court', lat: 21.0126, lng: 105.5268 },
+      { name: 'Highlands Coffee Hòa Lạc', lat: 21.0145, lng: 105.5315 },
+      { name: 'Lẩu Nướng Sinh Viên Tân Xã', lat: 21.0245, lng: 105.5218 },
+      { name: 'Phở bò & Bún bò Huế Thạch Hòa', lat: 21.0135, lng: 105.5350 }
+    ]
+  };
 
   const requireLogin = (action: string) => {
     nav('/login', { state: { from: location.pathname, action } });
@@ -445,18 +509,96 @@ export default function PropertyDetail() {
               </div>
             )}
 
-            {/* Map */}
+            {/* Map & Nearby Amenities */}
             {prop.latitude && prop.longitude && (
-              <div className="mt-8">
-                <h3 className="text-base font-bold mb-3 text-gray-900">Vị trí trên bản đồ</h3>
-                <iframe
-                  title="Bản đồ phòng trọ"
-                  className="w-full h-72 rounded-2xl border"
-                  loading="lazy"
-                  src={`https://maps.google.com/maps?q=${prop.latitude},${prop.longitude}&z=15&output=embed`}
-                />
-                <div className="text-xs text-gray-400 mt-1.5">
-                  Tọa độ: {prop.latitude}, {prop.longitude}
+              <div className="mt-8 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-extrabold text-gray-900 flex items-center gap-2">
+                    <span>📍</span> Vị trí & Tiện ích xung quanh
+                  </h3>
+                  {prop.nearestSchool && (
+                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200">
+                      Cách {prop.nearestSchool} khoảng {prop.nearestSchoolDistanceKm || '1.2'} km
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Google Map Embed */}
+                  <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-2xs">
+                    <iframe
+                      title="Bản đồ phòng trọ"
+                      className="w-full h-80 border-0"
+                      loading="lazy"
+                      src={`https://maps.google.com/maps?q=${prop.latitude},${prop.longitude}&z=15&output=embed`}
+                    />
+                    <div className="p-2 bg-gray-50 text-[11px] text-gray-500 flex justify-between">
+                      <span>Tọa độ: {prop.latitude}, {prop.longitude}</span>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${prop.latitude},${prop.longitude}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-indigo-600 font-bold hover:underline"
+                      >
+                        Mở Google Maps ↗
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Nearby Amenities POI List */}
+                  <div className="bg-gray-50/70 border border-gray-200 rounded-2xl p-4 flex flex-col justify-between">
+                    <div>
+                      {/* Amenity Category Pills */}
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {['Trường học', 'Bệnh viện/Phòng khám', 'Chợ', 'Siêu thị', 'Cửa hàng tiện lợi', 'Nhà thuốc', 'Ngân hàng/ATM', 'Trạm xe buýt', 'Ăn uống'].map((cat) => (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => setSelectedAmenityCategory(cat)}
+                            className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all ${
+                              selectedAmenityCategory === cat
+                                ? 'bg-indigo-600 text-white shadow-2xs'
+                                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* POI Listing */}
+                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        {(AMENITY_POIS[selectedAmenityCategory] || []).map((poi: any, i: number) => {
+                          const dist = haversineDistance(
+                            Number(prop.latitude),
+                            Number(prop.longitude),
+                            poi.lat,
+                            poi.lng
+                          );
+                          const walkMins = Math.max(1, Math.round((dist / 4.5) * 60));
+                          return (
+                            <div
+                              key={i}
+                              className="p-2.5 bg-white rounded-xl border border-gray-100 flex items-center justify-between text-xs shadow-2xs hover:border-indigo-200 transition-colors"
+                            >
+                              <div className="font-semibold text-gray-800 truncate mr-2">
+                                • {poi.name}
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="font-extrabold text-indigo-700">{dist} km</span>
+                                <span className="text-[10px] text-gray-400 block font-normal">~{walkMins}p đi bộ</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="text-[10px] text-gray-400 italic mt-3 pt-2 border-t border-gray-200 flex justify-between">
+                      <span>* Khoảng cách ước tính (đường chim bay theo tọa độ GPS)</span>
+                      <span>Tốc độ đi bộ: 4.5 km/h</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

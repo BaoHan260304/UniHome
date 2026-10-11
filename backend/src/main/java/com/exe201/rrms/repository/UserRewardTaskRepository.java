@@ -7,6 +7,9 @@ import java.util.Optional;
 
 public interface UserRewardTaskRepository extends JpaRepository<UserRewardTask, Long> {
     boolean existsByUserIdAndTaskCode(Long userId, String taskCode);
+    boolean existsByUserIdAndTaskCodeAndTaskDate(Long userId, String taskCode, java.time.LocalDate taskDate);
     List<UserRewardTask> findByUserId(Long userId);
+    List<UserRewardTask> findByUserIdAndTaskDate(Long userId, java.time.LocalDate taskDate);
     Optional<UserRewardTask> findByUserIdAndTaskCode(Long userId, String taskCode);
+    Optional<UserRewardTask> findByUserIdAndTaskCodeAndTaskDate(Long userId, String taskCode, java.time.LocalDate taskDate);
 }

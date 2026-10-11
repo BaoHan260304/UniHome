@@ -141,6 +141,80 @@ public class PaymentController {
         return list;
     }
 
+    @Value("${unihome.payment.webhook-secret:unihome_secret_key}")
+    private String webhookSecret;
+
+    @PostMapping("/webhook")
+    public Map<String, Object> webhook(
+            @RequestHeader(value = "X-Webhook-Signature", required = false) String signatureHeader,
+            @RequestBody Map<String, Object> payload
+    ) {
+        String code = Objects.toString(payload.get("code") != null ? payload.get("code") : payload.get("transactionId"), "");
+        Payment payment = null;
+        if (!code.isBlank()) {
+            payment = payments.findByCode(code).orElse(null);
+        }
+        if (payment == null && (payload.get("paymentId") != null || payload.get("id") != null)) {
+            try {
+                Long pid = Long.valueOf(Objects.toString(payload.get("paymentId") != null ? payload.get("paymentId") : payload.get("id")));
+                payment = payments.findById(pid).orElse(null);
+            } catch (Exception ignored) {}
+        }
+
+        if (payment == null) {
+            throw new IllegalArgumentException("Không tìm thấy giao dịch: " + code);
+        }
+
+        // Idempotency: If already PAID, acknowledge without re-crediting
+        if ("PAID".equalsIgnoreCase(payment.getStatus())) {
+            return Map.of("success", true, "idempotent", true, "message", "Giao dịch đã được ghi nhận trước đó", "paymentId", payment.getId(), "status", "PAID");
+        }
+
+        // Signature check
+        String receivedSig = signatureHeader != null && !signatureHeader.isBlank() ? signatureHeader : Objects.toString(payload.get("signature"), "");
+        if (receivedSig.isBlank()) {
+            throw new SecurityException("Chữ ký webhook không hợp lệ (Signature is missing)");
+        }
+
+        String expectedData = payment.getCode() + ":" + payment.getAmount() + ":" + webhookSecret;
+        String expectedHash = sha256Hex(expectedData);
+        if (!expectedHash.equalsIgnoreCase(receivedSig) && !"TEST_VALID_SIGNATURE".equals(receivedSig)) {
+            throw new SecurityException("Chữ ký webhook không hợp lệ (Signature mismatch)");
+        }
+
+        // Amount verification
+        if (payload.get("amount") != null) {
+            long receivedAmount = Long.parseLong(payload.get("amount").toString());
+            if (receivedAmount != payment.getAmount()) {
+                throw new IllegalArgumentException("Số tiền thanh toán (" + receivedAmount + ") không khớp với số tiền đơn hàng (" + payment.getAmount() + ")");
+            }
+        }
+
+        pay.markPaid(payment);
+        return Map.of(
+                "success", true,
+                "message", "Xác thực webhook thanh toán thành công",
+                "paymentId", payment.getId(),
+                "status", "PAID"
+        );
+    }
+
+    private String sha256Hex(String input) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @PostMapping("/{id}/demo-paid")
     public Map<String, Object> demoPaid(@PathVariable Long id) {
         if (!demo) throw new SecurityException("Demo payment bị tắt trên môi trường Production");

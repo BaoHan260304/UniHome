@@ -202,7 +202,7 @@ export default function TenantDashboard({ view }: { view: 'profile' | 'favorites
 
                       <div className="mt-4 pt-3 border-t space-y-2">
                         <div className="flex items-center justify-between text-xs text-gray-600">
-                          <span>Ứng viên cùng phòng: <b>{x.matchingCandidateCount || 0} người</b></span>
+                          <span>Quan tâm: <b>{x.interestCount || 0}</b> | Phù hợp: <b>{x.matchingCandidateCount || 0}</b></span>
                           <button
                             onClick={() => toggleMatching(x.listingId, x.matchingEnabled)}
                             className={`font-semibold hover:underline ${x.matchingEnabled ? 'text-purple-600' : 'text-gray-500'}`}

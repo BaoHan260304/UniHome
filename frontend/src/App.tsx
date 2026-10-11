@@ -28,6 +28,9 @@ import VoucherVerifyPage from './pages/VoucherVerifyPage';
 import TermsPage from './pages/TermsPage';
 import MyPostsPage from './pages/MyPostsPage';
 import PromotionsPage from './pages/PromotionsPage';
+import PostCreatePage from './pages/PostCreatePage';
+import CommunityPage from './pages/CommunityPage';
+import SavedListingsPage from './pages/SavedListingsPage';
 import TenantAccountLayout from './components/TenantAccountLayout';
 import AccountQuickMenu from './components/AccountQuickMenu';
 import NotificationDropdown from './components/NotificationDropdown';
@@ -44,18 +47,38 @@ function Layout() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [welcomeBanner, setWelcomeBanner] = useState<{ show: boolean; needCheckin: boolean }>({ show: false, needCheckin: false });
 
   // Sync auth state reactively
   useEffect(() => {
     const handleAuthChange = () => {
-      setCurrentUser(getUser());
+      const u = getUser();
+      setCurrentUser(u);
+      if (u) checkWelcome(u);
     };
     window.addEventListener('authChange', handleAuthChange);
     return () => window.removeEventListener('authChange', handleAuthChange);
   }, []);
 
+  const checkWelcome = (u: any) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const key = `unihome_welcome_${u.id}_${today}`;
+    if (!sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, 'true');
+      void api.get('/rewards/account').then(r => {
+        setWelcomeBanner({
+          show: true,
+          needCheckin: !r.data?.checkedInToday
+        });
+      }).catch(() => {
+        setWelcomeBanner({ show: true, needCheckin: false });
+      });
+    }
+  };
+
   useEffect(() => {
     if (currentUser && !isAuthPage) {
+      checkWelcome(currentUser);
       void api.get('/notifications/mine')
         .then(r => setUnreadCount((r.data || []).filter((n: any) => n.status === 'UNREAD').length))
         .catch(() => setUnreadCount(0));
@@ -85,10 +108,48 @@ function Layout() {
 
   const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'VERIFIER', 'CONTENT_ADMIN', 'FINANCE_ADMIN'];
   const role = currentUser?.role;
+  const isAdmin = adminRoles.includes(role);
+
+  // Admin Role Interceptor: Admin accessing commercial user routes redirects to /admin
+  useEffect(() => {
+    if (isAdmin && !isAdminPage && !isAuthPage) {
+      const commercialRoutes = ['/rewards', '/wallet', '/my-posts', '/tenant/matching', '/tenant/wallet', '/post/new'];
+      const isCommercial = commercialRoutes.some(p => location.pathname.startsWith(p));
+      if (isCommercial) {
+        alert('Chức năng dành cho người dùng thương mại. Chuyển hướng về bảng điều khiển Quản trị viên.');
+        navigate('/admin');
+      }
+    }
+  }, [location.pathname, isAdmin, isAdminPage, isAuthPage]);
+
   const logout = () => { clearAuth(); navigate('/'); };
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 flex flex-col justify-between">
+      {/* Welcome Banner Toast */}
+      {welcomeBanner.show && currentUser && !isAdminPage && (
+        <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 text-white px-4 py-2.5 text-xs font-semibold flex items-center justify-between border-b border-indigo-700/50 shadow-md">
+          <div className="flex items-center gap-2 max-w-4xl mx-auto flex-1 justify-center">
+            <span>👋</span>
+            <span>Chào mừng <strong>{currentUser.fullName || currentUser.username}</strong> quay lại UniHome!</span>
+            {welcomeBanner.needCheckin && (
+              <span className="ml-3 flex items-center gap-1.5 bg-amber-400 text-gray-900 px-2.5 py-0.5 rounded-full font-black text-[11px] shadow-xs">
+                <span>🎁</span> Chưa nhận +20 điểm hôm nay:
+                <Link to="/rewards" onClick={() => setWelcomeBanner({ ...welcomeBanner, show: false })} className="underline font-black hover:text-black">
+                  Nhận ngay →
+                </Link>
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => setWelcomeBanner({ ...welcomeBanner, show: false })}
+            className="text-indigo-300 hover:text-white font-bold ml-4"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {!isAuthPage && !isAdminPage ? (
         <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -101,6 +162,9 @@ function Layout() {
                   <Link className="hover:text-indigo-600 transition-colors" to="/">Phòng trọ</Link>
                   <Link className="hover:text-indigo-600 transition-colors" to="/services">Dịch vụ</Link>
                   <Link className="hover:text-indigo-600 transition-colors" to="/secondhand">Đồ cũ</Link>
+                  <Link className="hover:text-indigo-600 transition-colors font-bold text-indigo-600 flex items-center gap-1" to="/community">
+                    <span>💬</span> Tán gẫu
+                  </Link>
                   <Link className="hover:text-indigo-600 transition-colors" to="/blog">Blog</Link>
                   <Link className="hover:text-indigo-600 transition-colors" to="/qa">Hỏi đáp</Link>
                   <Link className="hover:text-indigo-600 transition-colors flex items-center gap-1 text-indigo-700 font-bold bg-indigo-50 px-2.5 py-1 rounded-xl border border-indigo-100" to="/rewards">
@@ -112,12 +176,23 @@ function Layout() {
                 {/* Global + Đăng tin button */}
                 <button
                   type="button"
-                  onClick={() => setComposerOpen(true)}
+                  onClick={() => {
+                    if (isAdmin) {
+                      alert('Chức năng dành cho người dùng thương mại.');
+                      return;
+                    }
+                    setComposerOpen(true);
+                  }}
                   className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 sm:px-4 py-2 rounded-xl shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
                 >
                   <span className="text-sm font-black">+</span> Đăng tin
                 </button>
 
+                {currentUser && (
+                  <Link to="/saved" className="text-gray-600 hover:text-indigo-600 font-semibold text-sm hidden md:inline-block">
+                    Đã lưu
+                  </Link>
+                )}
                 {currentUser && (
                   <Link to="/my-posts" className="text-gray-600 hover:text-indigo-600 font-semibold text-sm hidden md:inline-block">
                     Tin đã đăng
@@ -204,6 +279,10 @@ function Layout() {
             <Route path="/rewards/my-vouchers" element={<MyVouchersPage />} />
             <Route path="/voucher/verify/:token" element={<VoucherVerifyPage />} />
             <Route path="/terms" element={<TermsPage />} />
+            <Route path="/community" element={<CommunityPage />} />
+            <Route path="/saved" element={<SavedListingsPage />} />
+            <Route path="/post/new" element={<PostCreatePage />} />
+            <Route path="/post/new/:category" element={<PostCreatePage />} />
 
             {/* Unified posts & promotions */}
             <Route path="/my-posts" element={<MyPostsPage />} />

@@ -148,6 +148,11 @@ public class RewardService {
 
     @Transactional
     public Map<String, Object> performDailyCheckin(Long userId) {
+        User user = userRepo.findById(userId).orElseThrow(() -> new ValidationException("user", "Người dùng không tồn tại"));
+        if (List.of("ADMIN", "SUPER_ADMIN", "MODERATOR").contains(user.getRole())) {
+            throw new ValidationException("role", "Tài khoản quản trị viên không tham gia chương trình tích điểm thương mại.");
+        }
+
         RewardAccount account = getOrCreateAccount(userId);
         java.time.ZoneId vnZone = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
         LocalDate today = LocalDate.now(vnZone);
@@ -158,6 +163,7 @@ public class RewardService {
             Map<String, Object> res = new LinkedHashMap<>();
             res.put("success", true);
             res.put("alreadyClaimed", true);
+            res.put("earned", 0L);
             res.put("pointsAwarded", 0L);
             res.put("streakDay", existing.getStreakDay());
             res.put("newBalance", account.getBalance());
@@ -180,7 +186,20 @@ public class RewardService {
         checkin.setCheckinDate(today);
         checkin.setStreakDay(streakDay);
         checkin.setPointsAwarded(pointsAwarded);
-        checkinRepo.save(checkin);
+
+        try {
+            checkinRepo.saveAndFlush(checkin);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("success", true);
+            res.put("alreadyClaimed", true);
+            res.put("earned", 0L);
+            res.put("pointsAwarded", 0L);
+            res.put("streakDay", streakDay);
+            res.put("newBalance", account.getBalance());
+            res.put("message", "Bạn đã nhận điểm danh hôm nay rồi.");
+            return res;
+        }
 
         long newBalance = account.getBalance() + pointsAwarded;
         account.setBalance(newBalance);
@@ -199,6 +218,7 @@ public class RewardService {
         Map<String, Object> res = new LinkedHashMap<>();
         res.put("success", true);
         res.put("alreadyClaimed", false);
+        res.put("earned", pointsAwarded);
         res.put("pointsAwarded", pointsAwarded);
         res.put("streakDay", streakDay);
         res.put("newBalance", newBalance);
@@ -206,27 +226,87 @@ public class RewardService {
         return res;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<Map<String, Object>> getRewardTasks(Long userId) {
         User user = userRepo.findById(userId).orElse(null);
-        List<RewardTask> tasks = taskRepo.findByIsActiveTrue();
-        List<UserRewardTask> claimedTasks = userTaskRepo.findByUserId(userId);
-        Set<String> claimedCodes = new HashSet<>();
-        for (UserRewardTask urt : claimedTasks) {
-            claimedCodes.add(urt.getTaskCode());
+        java.time.ZoneId vnZone = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
+        LocalDate today = LocalDate.now(vnZone);
+
+        // Fetch assigned tasks for today
+        List<UserRewardTask> dailyAssigned = new ArrayList<>(userTaskRepo.findByUserIdAndTaskDate(userId, today));
+        boolean hasStaleNonDaily = dailyAssigned.stream().anyMatch(urt -> {
+            RewardTask rt = taskRepo.findById(urt.getTaskCode()).orElse(null);
+            return rt == null || !"DAILY".equalsIgnoreCase(rt.getFrequency());
+        });
+        if (hasStaleNonDaily) {
+            userTaskRepo.deleteAll(dailyAssigned);
+            dailyAssigned = new ArrayList<>();
+        }
+
+        if (dailyAssigned.isEmpty()) {
+            if (taskRepo.count() == 0) {
+                seedDefaultTasks();
+            }
+            // Pick exactly 3 active tasks from catalog where frequency is DAILY
+            List<RewardTask> activeCatalog = taskRepo.findAll().stream()
+                    .filter(t -> Boolean.TRUE.equals(t.getIsActive()))
+                    .filter(t -> "DAILY".equalsIgnoreCase(t.getFrequency()))
+                    .toList();
+
+            if (!activeCatalog.isEmpty()) {
+                int catalogSize = activeCatalog.size();
+                long seed = Math.abs((userId * 31L) + today.toEpochDay());
+                Set<Integer> pickedIndices = new LinkedHashSet<>();
+                for (int i = 0; i < Math.min(3, catalogSize); i++) {
+                    int idx = (int) ((seed + i * 7) % catalogSize);
+                    int attempts = 0;
+                    while (pickedIndices.contains(idx) && attempts < catalogSize) {
+                        idx = (idx + 1) % catalogSize;
+                        attempts++;
+                    }
+                    pickedIndices.add(idx);
+                }
+
+                for (int idx : pickedIndices) {
+                    RewardTask t = activeCatalog.get(idx);
+                    UserRewardTask urt = new UserRewardTask();
+                    urt.setUserId(userId);
+                    urt.setTaskCode(t.getTaskCode());
+                    urt.setTaskDate(today);
+                    urt.setProgress(0);
+                    urt.setTargetCount(t.getTargetCount() != null ? t.getTargetCount() : 1);
+                    urt.setCompleted(false);
+                    urt.setClaimed(false);
+                    urt.setStatus("ASSIGNED");
+                    urt.setRewardPointsSnapshot(t.getPoints());
+                    userTaskRepo.save(urt);
+                    dailyAssigned.add(urt);
+                }
+            }
         }
 
         List<Map<String, Object>> list = new ArrayList<>();
-        for (RewardTask t : tasks) {
-            boolean isClaimed = claimedCodes.contains(t.getTaskCode());
-            boolean isCompleted = isClaimed || checkTaskEligibility(user, t.getTaskCode());
+        for (UserRewardTask urt : dailyAssigned) {
+            RewardTask t = taskRepo.findById(urt.getTaskCode()).orElse(null);
+            if (t == null) continue;
+
+            boolean isClaimed = Boolean.TRUE.equals(urt.getClaimed()) || "CLAIMED".equalsIgnoreCase(urt.getStatus());
+            boolean isCompleted = isClaimed || Boolean.TRUE.equals(urt.getCompleted()) || checkTaskEligibility(user, t.getTaskCode());
+
+            if (isCompleted && !Boolean.TRUE.equals(urt.getCompleted())) {
+                urt.setCompleted(true);
+                urt.setProgress(urt.getTargetCount());
+                userTaskRepo.save(urt);
+            }
 
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("taskCode", t.getTaskCode());
             map.put("title", t.getTitle());
             map.put("description", t.getDescription());
-            map.put("points", t.getPoints());
+            map.put("points", urt.getRewardPointsSnapshot() != null && urt.getRewardPointsSnapshot() > 0 ? urt.getRewardPointsSnapshot() : t.getPoints());
             map.put("actionUrl", t.getActionUrl());
+            map.put("progress", urt.getProgress() != null ? urt.getProgress() : 0);
+            map.put("targetCount", urt.getTargetCount() != null ? urt.getTargetCount() : 1);
             map.put("isCompleted", isCompleted);
             map.put("isClaimed", isClaimed);
             list.add(map);
@@ -248,15 +328,23 @@ public class RewardService {
             case "AVATAR_UPLOADED":
                 return user.getAvatarUrl() != null && !user.getAvatarUrl().isBlank();
             case "MATCHING_PROFILE_COMPLETED":
+            case "COMPLETE_MATCH_PROFILE":
                 return matchingRepo.findByUserId(user.getId()).isPresent();
             case "FIRST_ROOM_FAVORITE":
+            case "FAVORITE_ROOM":
                 return favRepo.countByUserId(user.getId()) > 0;
             case "FIRST_ROOM_INTEREST":
                 return interestRepo.countByUserId(user.getId()) > 0;
             case "FIRST_CHAT_STARTED":
+            case "START_CHAT":
                 return convRepo.countByUser1IdOrUser2Id(user.getId(), user.getId()) > 0;
             case "FIRST_VALID_REVIEW":
                 return reviewRepo.countByUserId(user.getId()) > 0;
+            case "VIEW_ROOM_3":
+            case "VIEW_SECONDHAND_3":
+            case "VIEW_SERVICE":
+            case "FOLLOW_USER":
+                return true;
             default:
                 return false;
         }
@@ -265,37 +353,59 @@ public class RewardService {
     @Transactional
     public Map<String, Object> claimRewardTask(Long userId, String taskCode) {
         User user = userRepo.findById(userId).orElseThrow(() -> new ValidationException("user", "Người dùng không tồn tại"));
+        if (List.of("ADMIN", "SUPER_ADMIN", "MODERATOR").contains(user.getRole())) {
+            throw new ValidationException("role", "Tài khoản quản trị viên không tham gia chương trình tích điểm.");
+        }
+
+        java.time.ZoneId vnZone = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
+        LocalDate today = LocalDate.now(vnZone);
+
+        UserRewardTask urt = userTaskRepo.findByUserIdAndTaskCodeAndTaskDate(userId, taskCode, today)
+                .orElseGet(() -> userTaskRepo.findByUserIdAndTaskCode(userId, taskCode).orElse(null));
+
         RewardTask task = taskRepo.findById(taskCode).orElseThrow(() -> new ValidationException("task", "Nhiệm vụ không tồn tại"));
 
         if (!Boolean.TRUE.equals(task.getIsActive())) {
             throw new ValidationException("task", "Nhiệm vụ không còn hiệu lực");
         }
 
-        if (userTaskRepo.existsByUserIdAndTaskCode(userId, taskCode)) {
+        if (urt != null && (Boolean.TRUE.equals(urt.getClaimed()) || "CLAIMED".equalsIgnoreCase(urt.getStatus()))) {
             throw new ValidationException("task", "Bạn đã nhận thưởng nhiệm vụ này rồi");
         }
 
-        if (!checkTaskEligibility(user, taskCode)) {
+        boolean eligible = checkTaskEligibility(user, taskCode);
+        if (!eligible && (urt == null || !Boolean.TRUE.equals(urt.getCompleted()))) {
             throw new ValidationException("task", "Bạn chưa hoàn thành điều kiện của nhiệm vụ này");
         }
 
+        long awardPoints = (urt != null && urt.getRewardPointsSnapshot() != null && urt.getRewardPointsSnapshot() > 0)
+                ? urt.getRewardPointsSnapshot()
+                : task.getPoints();
+
         RewardAccount account = getOrCreateAccount(userId);
-        long newBalance = account.getBalance() + task.getPoints();
+        long newBalance = account.getBalance() + awardPoints;
         account.setBalance(newBalance);
-        account.setLifetimeEarned(account.getLifetimeEarned() + task.getPoints());
+        account.setLifetimeEarned(account.getLifetimeEarned() + awardPoints);
         accountRepo.save(account);
 
-        UserRewardTask urt = new UserRewardTask();
-        urt.setUserId(userId);
-        urt.setTaskCode(taskCode);
+        if (urt == null) {
+            urt = new UserRewardTask();
+            urt.setUserId(userId);
+            urt.setTaskCode(taskCode);
+            urt.setTaskDate(today);
+        }
         urt.setStatus("CLAIMED");
+        urt.setClaimed(true);
+        urt.setCompleted(true);
+        urt.setClaimedAt(LocalDateTime.now());
+        urt.setRewardPointsSnapshot(awardPoints);
         userTaskRepo.save(urt);
 
         RewardTransaction tx = new RewardTransaction();
         tx.setUserId(userId);
         tx.setType("EARN");
         tx.setSource("TASK");
-        tx.setPoints(task.getPoints());
+        tx.setPoints(awardPoints);
         tx.setBalanceAfter(newBalance);
         tx.setReferenceType("TASK");
         tx.setReferenceId(taskCode);
@@ -304,9 +414,9 @@ public class RewardService {
 
         Map<String, Object> res = new LinkedHashMap<>();
         res.put("success", true);
-        res.put("pointsAwarded", task.getPoints());
+        res.put("pointsAwarded", awardPoints);
         res.put("newBalance", newBalance);
-        res.put("message", "Nhận thưởng thành công +" + task.getPoints() + " Điểm UniHome!");
+        res.put("message", "Nhận thưởng thành công +" + awardPoints + " Điểm UniHome!");
         return res;
     }
 
@@ -450,5 +560,30 @@ public class RewardService {
         res.put("usedAt", red.getUsedAt());
         res.put("message", "Xác thực và sử dụng voucher thành công!");
         return res;
+    }
+
+    private void seedDefaultTasks() {
+        createTaskIfAbsent("PROFILE_COMPLETED", "Cập nhật hồ sơ cá nhân", "Cập nhật đầy đủ họ tên, ngày sinh hoặc phần giới thiệu bản thân", 20L, "/profile", 1, "PROFILE");
+        createTaskIfAbsent("AVATAR_UPLOADED", "Cập nhật ảnh đại diện", "Tải lên ảnh đại diện thực tế để tăng uy tín tài khoản", 15L, "/profile", 1, "AVATAR");
+        createTaskIfAbsent("FAVORITE_ROOM", "Lưu phòng trọ yêu thích", "Thả tim lưu ít nhất 1 phòng trọ vào danh sách quan tâm", 10L, "/marketplace", 1, "FAVORITE");
+        createTaskIfAbsent("START_CHAT", "Liên hệ hỏi thăm người đăng", "Gửi tin nhắn trao đổi với chủ trọ hoặc người bán trên UniHome", 15L, "/marketplace", 1, "CHAT");
+        createTaskIfAbsent("VIEW_ROOM_3", "Khám phá 3 phòng trọ xác thực", "Xem chi tiết 3 phòng trọ có huy hiệu kiểm tra thực tế", 10L, "/marketplace", 3, "VIEW");
+        createTaskIfAbsent("VIEW_SECONDHAND_3", "Xem 3 món đồ cũ sinh viên", "Khám phá các vật dụng giá rẻ từ cộng đồng sinh viên", 10L, "/secondhand", 3, "VIEW");
+    }
+
+    private void createTaskIfAbsent(String code, String title, String desc, Long points, String url, int target, String eventType) {
+        if (taskRepo.findById(code).isEmpty()) {
+            RewardTask t = new RewardTask();
+            t.setTaskCode(code);
+            t.setTitle(title);
+            t.setDescription(desc);
+            t.setPoints(points);
+            t.setActionUrl(url);
+            t.setTargetCount(target);
+            t.setEventType(eventType);
+            t.setIsActive(true);
+            t.setCreatedAt(LocalDateTime.now());
+            taskRepo.save(t);
+        }
     }
 }

@@ -21,17 +21,20 @@ public class RewardController {
     private final PartnerRepository partnerRepo;
     private final VoucherRepository voucherRepo;
     private final VoucherCodePoolRepository codePoolRepo;
+    private final com.exe201.rrms.repository.RewardTaskRepository taskRepo;
 
     public RewardController(AuthService auth,
                             RewardService rewardService,
                             PartnerRepository partnerRepo,
                             VoucherRepository voucherRepo,
-                            VoucherCodePoolRepository codePoolRepo) {
+                            VoucherCodePoolRepository codePoolRepo,
+                            com.exe201.rrms.repository.RewardTaskRepository taskRepo) {
         this.auth = auth;
         this.rewardService = rewardService;
         this.partnerRepo = partnerRepo;
         this.voucherRepo = voucherRepo;
         this.codePoolRepo = codePoolRepo;
+        this.taskRepo = taskRepo;
     }
 
     @GetMapping("/account")
@@ -49,7 +52,7 @@ public class RewardController {
         return rewardService.getDailyStatus(u.getId());
     }
 
-    @PostMapping("/checkin")
+    @PostMapping({"/checkin", "/check-in"})
     public Map<String, Object> checkin(HttpServletRequest r) {
         User u = auth.current(r);
         return rewardService.performDailyCheckin(u.getId());
@@ -133,12 +136,49 @@ public class RewardController {
         return partnerRepo.findByStatus("ACTIVE");
     }
 
-    // Admin management endpoints
+    // --- Admin Partner CRUD ---
+    @GetMapping("/admin/partners")
+    public List<Partner> listAllPartnersAdmin(HttpServletRequest r) {
+        User u = auth.current(r);
+        auth.requireRole(u, "ADMIN", "SUPER_ADMIN", "CONTENT_ADMIN");
+        return partnerRepo.findAll();
+    }
+
     @PostMapping("/admin/partners")
     public Partner createPartner(HttpServletRequest r, @RequestBody Partner p) {
         User u = auth.current(r);
         auth.requireRole(u, "ADMIN", "SUPER_ADMIN", "CONTENT_ADMIN");
         return partnerRepo.save(p);
+    }
+
+    @PutMapping("/admin/partners/{id}")
+    public Partner updatePartner(HttpServletRequest r, @PathVariable Long id, @RequestBody Partner updated) {
+        User u = auth.current(r);
+        auth.requireRole(u, "ADMIN", "SUPER_ADMIN", "CONTENT_ADMIN");
+        Partner p = partnerRepo.findById(id).orElseThrow(() -> new ValidationException("id", "Đối tác không tồn tại"));
+        p.setName(updated.getName());
+        p.setCategory(updated.getCategory());
+        p.setLogoUrl(updated.getLogoUrl());
+        p.setContactPhone(updated.getContactPhone());
+        p.setWebsiteUrl(updated.getWebsiteUrl());
+        p.setStatus(updated.getStatus());
+        return partnerRepo.save(p);
+    }
+
+    @DeleteMapping("/admin/partners/{id}")
+    public Map<String, Object> deletePartner(HttpServletRequest r, @PathVariable Long id) {
+        User u = auth.current(r);
+        auth.requireRole(u, "ADMIN", "SUPER_ADMIN", "CONTENT_ADMIN");
+        partnerRepo.deleteById(id);
+        return Map.of("success", true, "message", "Đã xóa đối tác #" + id);
+    }
+
+    // --- Admin Voucher CRUD ---
+    @GetMapping("/admin/vouchers")
+    public List<Voucher> listAllVouchersAdmin(HttpServletRequest r) {
+        User u = auth.current(r);
+        auth.requireRole(u, "ADMIN", "SUPER_ADMIN", "CONTENT_ADMIN");
+        return voucherRepo.findAll();
     }
 
     @PostMapping("/admin/vouchers")
@@ -175,6 +215,14 @@ public class RewardController {
         return voucherRepo.save(existing);
     }
 
+    @DeleteMapping("/admin/vouchers/{id}")
+    public Map<String, Object> deleteVoucher(HttpServletRequest r, @PathVariable Long id) {
+        User u = auth.current(r);
+        auth.requireRole(u, "ADMIN", "SUPER_ADMIN", "CONTENT_ADMIN");
+        voucherRepo.deleteById(id);
+        return Map.of("success", true, "message", "Đã xóa voucher #" + id);
+    }
+
     @PostMapping("/admin/vouchers/{id}/codes")
     public Map<String, Object> importCodes(HttpServletRequest r, @PathVariable Long id, @RequestBody Map<String, Object> body) {
         User u = auth.current(r);
@@ -197,5 +245,48 @@ public class RewardController {
             }
         }
         return Map.of("importedCount", count, "voucherId", id);
+    }
+
+    // --- Admin Reward Task CRUD ---
+    @GetMapping("/admin/tasks")
+    public List<RewardTask> listAllTasksAdmin(HttpServletRequest r) {
+        User u = auth.current(r);
+        auth.requireRole(u, "ADMIN", "SUPER_ADMIN", "CONTENT_ADMIN");
+        return taskRepo.findAll();
+    }
+
+    @PostMapping("/admin/tasks")
+    public RewardTask createTaskAdmin(HttpServletRequest r, @RequestBody RewardTask task) {
+        User u = auth.current(r);
+        auth.requireRole(u, "ADMIN", "SUPER_ADMIN", "CONTENT_ADMIN");
+        if (task.getTaskCode() == null || task.getTaskCode().isBlank()) {
+            throw new ValidationException("taskCode", "Mã nhiệm vụ không được để trống");
+        }
+        return taskRepo.save(task);
+    }
+
+    @PutMapping("/admin/tasks/{code}")
+    public RewardTask updateTaskAdmin(HttpServletRequest r, @PathVariable String code, @RequestBody RewardTask updated) {
+        User u = auth.current(r);
+        auth.requireRole(u, "ADMIN", "SUPER_ADMIN", "CONTENT_ADMIN");
+        RewardTask existing = taskRepo.findById(code).orElseThrow(() -> new ValidationException("code", "Nhiệm vụ không tồn tại"));
+        existing.setTitle(updated.getTitle());
+        existing.setDescription(updated.getDescription());
+        existing.setPoints(updated.getPoints());
+        existing.setActionUrl(updated.getActionUrl());
+        existing.setIsActive(updated.getIsActive());
+        existing.setTargetCount(updated.getTargetCount());
+        existing.setFrequency(updated.getFrequency());
+        existing.setMinDurationSeconds(updated.getMinDurationSeconds());
+        existing.setEventType(updated.getEventType());
+        return taskRepo.save(existing);
+    }
+
+    @DeleteMapping("/admin/tasks/{code}")
+    public Map<String, Object> deleteTaskAdmin(HttpServletRequest r, @PathVariable String code) {
+        User u = auth.current(r);
+        auth.requireRole(u, "ADMIN", "SUPER_ADMIN", "CONTENT_ADMIN");
+        taskRepo.deleteById(code);
+        return Map.of("success", true, "message", "Đã xóa nhiệm vụ " + code);
     }
 }

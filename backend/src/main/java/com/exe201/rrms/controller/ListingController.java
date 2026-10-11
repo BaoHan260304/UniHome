@@ -24,13 +24,14 @@ public class ListingController {
     private final FavoriteRepository favs;
     private final NotificationService noti;
     private final VerificationRecordRepository verifs;
+    private final MatchingService match;
 
     @Value("${unihome.upload.dir:uploads}")
     private String uploadDir;
 
     public ListingController(AuthService a, ListingRepository l, PropertyRepository p,
                              ListingInterestRepository i, FavoriteRepository f, NotificationService n,
-                             VerificationRecordRepository v) {
+                             VerificationRecordRepository v, MatchingService m) {
         this.auth = a;
         this.listings = l;
         this.props = p;
@@ -38,6 +39,7 @@ public class ListingController {
         this.favs = f;
         this.noti = n;
         this.verifs = v;
+        this.match = m;
     }
 
     @GetMapping("/mine")
@@ -113,8 +115,14 @@ public class ListingController {
         String listingStatus = Objects.toString(b.get("listingStatus"), "DRAFT");
         if ("PENDING_REVIEW".equals(listingStatus)) {
             int imgCount = countImages(p.getImageUrl(), p.getMediaJson());
-            if (imgCount < 4) {
-                throw new ValidationException("images", "Vui lòng tải lên tối thiểu 4 hình ảnh phòng trọ (toàn cảnh, lối vào, WC, bếp,...) trước khi gửi duyệt.");
+            String postType = p.getPostType() != null ? p.getPostType() : "ROOM_FOR_RENT";
+            boolean isRoommateOrTransfer = "O_GHEP".equalsIgnoreCase(postType) || "ROOM_TRANSFER".equalsIgnoreCase(postType) || "ROOMMATE".equalsIgnoreCase(postType);
+            int minImg = isRoommateOrTransfer ? 1 : 3;
+            if (imgCount < minImg) {
+                throw new ValidationException("images", "Vui lòng tải lên tối thiểu " + minImg + " hình ảnh trước khi gửi duyệt.");
+            }
+            if (imgCount > 20) {
+                throw new ValidationException("images", "Tối đa 20 hình ảnh được phép tải lên.");
             }
             l.setFreshnessDueAt(LocalDateTime.now().plusDays(15));
         }
@@ -147,8 +155,14 @@ public class ListingController {
         owner(u, l);
         Property p = props.findById(l.getPropertyId()).orElseThrow();
         int imgCount = countImages(p.getImageUrl(), p.getMediaJson());
-        if (imgCount < 4) {
-            throw new ValidationException("images", "Vui lòng tải lên tối thiểu 4 hình ảnh phòng trọ (toàn cảnh, lối vào, WC, bếp,...) trước khi gửi duyệt.");
+        String postType = p.getPostType() != null ? p.getPostType() : "ROOM_FOR_RENT";
+        boolean isRoommateOrTransfer = "O_GHEP".equalsIgnoreCase(postType) || "ROOM_TRANSFER".equalsIgnoreCase(postType) || "ROOMMATE".equalsIgnoreCase(postType);
+        int minImg = isRoommateOrTransfer ? 1 : 3;
+        if (imgCount < minImg) {
+            throw new ValidationException("images", "Vui lòng tải lên tối thiểu " + minImg + " hình ảnh trước khi gửi duyệt.");
+        }
+        if (imgCount > 20) {
+            throw new ValidationException("images", "Tối đa 20 hình ảnh được phép tải lên.");
         }
         l.setStatus("PENDING_REVIEW");
         l.setRevisionNote(null);
@@ -389,7 +403,15 @@ public class ListingController {
             item.put("packageTier", l.getPackageTier());
             item.put("matchingEnabled", Boolean.TRUE.equals(in.getMatchingEnabled()));
             item.put("interestedAt", in.getCreatedAt());
-            item.put("matchingCandidateCount", interests.countByListingIdAndMatchingEnabledTrue(l.getId()));
+            int matchCandidateCount = 0;
+            if (Boolean.TRUE.equals(in.getMatchingEnabled())) {
+                try {
+                    matchCandidateCount = match.sameRoom(u.getId(), l.getId()).size();
+                } catch (Exception ignored) {}
+            }
+            item.put("matchingCandidateCount", matchCandidateCount);
+            item.put("matchCount", matchCandidateCount);
+            item.put("interestCount", interests.countByListingId(l.getId()));
             if (p != null) {
                 item.put("price", p.getPrice());
                 item.put("area", p.getArea());

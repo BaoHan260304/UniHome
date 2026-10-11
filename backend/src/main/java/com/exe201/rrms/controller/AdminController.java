@@ -42,6 +42,8 @@ public class AdminController {
     private final ExpenseRepository expenses;
     private final NotificationService noti;
     private final AuditLogRepository audit;
+    private final FollowRepository follows;
+    private final SystemSettingRepository settingsRepo;
 
     @Value("${unihome.upload.dir:uploads}")
     private String uploadDir;
@@ -51,7 +53,8 @@ public class AdminController {
                            PaymentRepository py, PaymentService ps, WalletTransactionRepository t,
                            PackagePlanRepository pl, ServiceListingRepository s, SecondHandListingRepository sh,
                            BlogPostRepository b, QuestionRepository q, AnswerRepository an, ReviewRepository rv,
-                           AdvertisementRepository ad, ExpenseRepository e, NotificationService n, AuditLogRepository au) {
+                           AdvertisementRepository ad, ExpenseRepository e, NotificationService n, AuditLogRepository au,
+                           FollowRepository fl, SystemSettingRepository st) {
         this.auth = a;
         this.users = u;
         this.listings = l;
@@ -73,6 +76,8 @@ public class AdminController {
         this.expenses = e;
         this.noti = n;
         this.audit = au;
+        this.follows = fl;
+        this.settingsRepo = st;
     }
 
     private User admin(HttpServletRequest r, String... roles) {
@@ -247,8 +252,10 @@ public class AdminController {
         admin(r, "ADMIN", "SUPER_ADMIN", "MODERATOR");
         List<Listing> raw = listings.findByStatusIn(List.of("PENDING_REVIEW", "NEED_REVISION", "SUSPENDED", "DRAFT"));
         List<Map<String, Object>> out = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
         for (Listing l : raw) {
             Property p = props.findById(l.getPropertyId()).orElse(null);
+            User poster = users.findById(l.getLandlordId()).orElse(null);
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("id", l.getId());
             item.put("listingId", l.getId());
@@ -258,15 +265,38 @@ public class AdminController {
             item.put("revisionNote", l.getRevisionNote());
             item.put("createdAt", l.getCreatedAt());
             item.put("updatedAt", l.getUpdatedAt());
+
+            // SLA waiting time
+            LocalDateTime submittedTime = l.getCreatedAt() != null ? l.getCreatedAt() : now;
+            long waitingMinutes = Math.max(0, java.time.temporal.ChronoUnit.MINUTES.between(submittedTime, now));
+            long hours = waitingMinutes / 60;
+            long mins = waitingMinutes % 60;
+            item.put("waitingMinutes", waitingMinutes);
+            item.put("slaText", hours > 24 ? "Quá hạn kiểm duyệt (" + (hours / 24) + " ngày)" : "Đang chờ " + hours + " giờ " + mins + " phút");
+            item.put("isOverdue", hours >= 24);
+
+            // Poster context
+            if (poster != null) {
+                item.put("posterName", poster.getFullName() != null ? poster.getFullName() : "Người dùng #" + poster.getId());
+                item.put("posterAvatar", poster.getAvatarUrl());
+                item.put("posterPhone", poster.getPhone());
+                item.put("posterEmail", poster.getEmail());
+            }
+
             if (p != null) {
                 item.put("propertyId", p.getId());
+                item.put("propertyName", p.getName());
+                item.put("propertyType", p.getPropertyType());
+                item.put("postType", p.getPostType());
                 item.put("price", p.getPrice());
                 item.put("area", p.getArea());
                 item.put("address", String.join(", ", Arrays.asList(p.getStreet(), p.getWard(), p.getDistrict(), p.getProvince()).stream().filter(Objects::nonNull).filter(s -> !s.isBlank()).toList()));
                 item.put("imageUrl", p.getImageUrl());
+                item.put("mediaJson", p.getMediaJson());
                 item.put("contactPhone", p.getContactPhone());
                 item.put("electricityPrice", p.getElectricityPrice());
                 item.put("waterPrice", p.getWaterPrice());
+                item.put("internetPrice", p.getInternetPrice());
                 item.put("deposit", p.getDeposit());
                 item.put("amenities", p.getAmenities());
                 item.put("rules", p.getRules());
@@ -284,6 +314,10 @@ public class AdminController {
         String action = b.getOrDefault("action", "APPROVE").toUpperCase();
         String reason = b.get("reason");
 
+        if (!"APPROVE".equals(action) && (reason == null || reason.trim().isBlank())) {
+            throw new ValidationException("reason", "Vui lòng nhập lý do thực hiện thao tác kiểm duyệt này.");
+        }
+
         if ("APPROVE".equals(action)) {
             l.setStatus("ACTIVE");
             l.setPublishedAt(l.getPublishedAt() == null ? LocalDateTime.now() : l.getPublishedAt());
@@ -291,7 +325,17 @@ public class AdminController {
             l.setFreshnessDueAt(LocalDateTime.now().plusDays(15));
             l.setRevisionNote(null);
             noti.send(l.getLandlordId(), "LISTING_APPROVED", "Tin #" + id + " (" + l.getTitle() + ") đã được phê duyệt và hiển thị công khai.", "LISTING", id);
-        } else if ("NEED_REVISION".equals(action) || "REQUEST_REVISION".equals(action)) {
+
+            // Follower notifications
+            try {
+                User landlord = users.findById(l.getLandlordId()).orElse(null);
+                String posterName = landlord != null && landlord.getFullName() != null && !landlord.getFullName().isBlank() ? landlord.getFullName() : "Người dùng";
+                List<Follow> followerList = follows.findByFollowingId(l.getLandlordId());
+                for (Follow fl : followerList) {
+                    noti.send(fl.getFollowerId(), "FOLLOWING_NEW_POST", posterName + " vừa đăng tin mới: " + l.getTitle(), "LISTING", l.getId());
+                }
+            } catch (Exception ignored) {}
+        } else if ("NEED_REVISION".equals(action) || "REQUEST_REVISION".equals(action) || "REQUEST_CHANGES".equals(action)) {
             l.setStatus("NEED_REVISION");
             l.setRevisionNote(reason != null && !reason.isBlank() ? reason : "Vui lòng kiểm tra lại thông tin tin đăng.");
             noti.send(l.getLandlordId(), "LISTING_NEED_REVISION", "Tin #" + id + " cần chỉnh sửa: " + l.getRevisionNote(), "LISTING", id);
@@ -299,10 +343,14 @@ public class AdminController {
             l.setStatus("REJECTED");
             l.setRevisionNote(reason);
             noti.send(l.getLandlordId(), "LISTING_REJECTED", "Tin #" + id + " bị từ chối: " + reason, "LISTING", id);
-        } else if ("SUSPEND".equals(action)) {
+        } else if ("SUSPEND".equals(action) || "HIDE".equals(action)) {
             l.setStatus("SUSPENDED");
             l.setRevisionNote(reason);
-            noti.send(l.getLandlordId(), "LISTING_SUSPENDED", "Tin #" + id + " bị tạm khóa: " + reason, "LISTING", id);
+            noti.send(l.getLandlordId(), "LISTING_SUSPENDED", "Tin #" + id + " bị tạm khóa/ẩn: " + reason, "LISTING", id);
+        } else if ("DELETE".equals(action)) {
+            l.setStatus("DELETED");
+            l.setRevisionNote(reason);
+            noti.send(l.getLandlordId(), "LISTING_DELETED", "Tin #" + id + " đã bị xóa: " + reason, "LISTING", id);
         }
         listings.save(l);
 
@@ -448,11 +496,8 @@ public class AdminController {
 
     @PostMapping("/payments/{id}/confirm")
     public Map<String, Object> confirm(@PathVariable Long id, HttpServletRequest r) {
-        User a = admin(r, "ADMIN", "SUPER_ADMIN", "FINANCE_ADMIN");
-        Payment p = payments.findById(id).orElseThrow();
-        paymentService.markPaid(p);
-        log(a.getId(), "CONFIRM_PAYMENT", "PAYMENT", id, p.getCode());
-        return Map.of("message", "Đã xác nhận thanh toán");
+        admin(r, "ADMIN", "SUPER_ADMIN", "FINANCE_ADMIN");
+        throw new IllegalStateException("Nghiệp vụ tài chính không cho phép duyệt thủ công không có đối soát. Giao dịch phải được xử lý tự động qua Webhook / Đối soát ngân hàng.");
     }
 
     @GetMapping("/finance")
@@ -871,6 +916,15 @@ public class AdminController {
         return ads.save(exist);
     }
 
+    @DeleteMapping("/ads/{id}")
+    public Map<String, Object> adDelete(@PathVariable Long id, HttpServletRequest r) {
+        User a = admin(r, "ADMIN", "SUPER_ADMIN", "CONTENT_ADMIN");
+        Advertisement exist = ads.findById(id).orElseThrow();
+        ads.delete(exist);
+        log(a.getId(), "DELETE_AD", "ADVERTISEMENT", id, exist.getCampaignName());
+        return Map.of("success", true, "id", id);
+    }
+
     private void validateAd(Advertisement a) {
         Map<String, String> errors = new LinkedHashMap<>();
         if (a.getAdvertiserName() == null || a.getAdvertiserName().isBlank()) errors.put("advertiserName", "Tên nhà quảng cáo/đối tác không được trống");
@@ -903,5 +957,29 @@ public class AdminController {
             out.add(m);
         }
         return out;
+    }
+
+    @GetMapping("/settings")
+    public List<com.exe201.rrms.entity.SystemSetting> getSettings(HttpServletRequest r) {
+        admin(r, "ADMIN", "SUPER_ADMIN");
+        return settingsRepo.findAll();
+    }
+
+    @PutMapping("/settings")
+    public Map<String, Object> updateSettings(HttpServletRequest r, @RequestBody Map<String, Object> body) {
+        User a = admin(r, "ADMIN", "SUPER_ADMIN");
+        if (body != null) {
+            for (Map.Entry<String, Object> entry : body.entrySet()) {
+                com.exe201.rrms.entity.SystemSetting s = settingsRepo.findBySettingKey(entry.getKey()).orElseGet(() -> {
+                    com.exe201.rrms.entity.SystemSetting ns = new com.exe201.rrms.entity.SystemSetting();
+                    ns.setSettingKey(entry.getKey());
+                    return ns;
+                });
+                s.setSettingValue(entry.getValue() == null ? "" : String.valueOf(entry.getValue()));
+                settingsRepo.save(s);
+            }
+        }
+        log(a.getId(), "UPDATE_SETTINGS", "SYSTEM", 0L, "Cập nhật cấu hình hệ thống");
+        return Map.of("success", true, "message", "Đã lưu cài đặt hệ thống thành công");
     }
 }

@@ -147,6 +147,9 @@ public class ContentController {
         if (s.getTitle() == null || s.getTitle().trim().isBlank()) {
             throw new ValidationException("title", "Tiêu đề dịch vụ không được để trống");
         }
+        if (s.getImageUrl() == null || s.getImageUrl().trim().isBlank()) {
+            throw new ValidationException("imageUrl", "Vui lòng tải lên tối thiểu 1 hình ảnh đại diện dịch vụ");
+        }
         if (s.getPhone() == null || s.getPhone().isBlank()) {
             s.setPhone(u.getPhone());
         }
@@ -347,6 +350,12 @@ public class ContentController {
 
     @PostMapping("/secondhand")
     public SecondHandListing createSecond(HttpServletRequest r, @RequestBody SecondHandListing s) {
+        if (s.getTitle() == null || s.getTitle().trim().isBlank()) {
+            throw new ValidationException("title", "Tiêu đề sản phẩm không được để trống");
+        }
+        if (s.getImageUrl() == null || s.getImageUrl().trim().isBlank()) {
+            throw new ValidationException("imageUrl", "Vui lòng tải lên tối thiểu 1 hình ảnh thật của sản phẩm");
+        }
         s.setId(null);
         s.setSellerId(auth.current(r).getId());
         return second.save(s);
