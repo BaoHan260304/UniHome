@@ -242,4 +242,18 @@ public class UserController {
         users.save(me);
         return Map.of("success", true, "contactVisibility", vis);
     }
+
+    @PutMapping("/cosmetic-style")
+    public Map<String, Object> updateCosmeticStyle(@RequestBody Map<String, String> body, HttpServletRequest r) {
+        User me = auth.current(r);
+        String style = body.getOrDefault("cosmeticStyle", "DEFAULT");
+        // Verify entitlement if user chooses premium skin
+        Set<String> validSkins = Set.of("DEFAULT", "NEON_VIOLET", "AURORA", "SUNSET_GOLD", "CRIMSON_EDGE", "ICE_BLUE", "HOLOGRAPHIC", "SAKURA_BLOOM", "THUNDER_STRIKE");
+        if (!validSkins.contains(style)) {
+            style = "DEFAULT";
+        }
+        me.setCosmeticStyle(style);
+        users.save(me);
+        return Map.of("success", true, "cosmeticStyle", me.getCosmeticStyle());
+    }
 }

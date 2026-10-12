@@ -102,13 +102,21 @@ public class RewardService {
         res.put("balance", account.getBalance());
         res.put("lifetimeEarned", account.getLifetimeEarned());
         res.put("lifetimeSpent", account.getLifetimeSpent());
+        boolean checkedInToday = !canCheckinToday;
+        int cycleDay = checkedInToday ? currentStreak : (currentStreak % 7) + 1;
+        long[] streakRewards = {20, 20, 20, 20, 20, 20, 50};
+        long nextClaimPoints = streakRewards[cycleDay - 1];
+
         res.put("canCheckinToday", canCheckinToday);
+        res.put("checkedInToday", checkedInToday);
+        res.put("alreadyClaimedToday", checkedInToday);
         res.put("currentStreak", currentStreak);
-        res.put("streakDay", canCheckinToday ? (currentStreak % 7) + 1 : currentStreak);
+        res.put("streakDay", cycleDay);
+        res.put("nextClaimPoints", nextClaimPoints);
+        res.put("todayPoints", nextClaimPoints);
         res.put("recentTransactions", recentTxs);
 
         // Streak rewards cycle: 20, 20, 20, 20, 20, 20, 50
-        long[] streakRewards = {20, 20, 20, 20, 20, 20, 50};
         res.put("streakRewards", streakRewards);
 
         return res;

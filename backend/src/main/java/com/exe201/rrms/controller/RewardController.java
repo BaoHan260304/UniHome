@@ -40,13 +40,16 @@ public class RewardController {
     @GetMapping("/account")
     public Map<String, Object> getAccount(HttpServletRequest r) {
         User u = auth.current(r);
+        if (List.of("ADMIN", "SUPER_ADMIN", "MODERATOR", "CONTENT_ADMIN", "FINANCE_ADMIN").contains(u.getRole())) {
+            throw new SecurityException("Tài khoản quản trị viên không tham gia chương trình tích điểm thưởng.");
+        }
         return rewardService.getAccountSummary(u.getId());
     }
 
     @GetMapping("/daily-status")
     public Map<String, Object> dailyStatus(HttpServletRequest r) {
         User u = auth.optional(r);
-        if (u == null) {
+        if (u == null || List.of("ADMIN", "SUPER_ADMIN", "MODERATOR", "CONTENT_ADMIN", "FINANCE_ADMIN").contains(u.getRole())) {
             return Map.of("visitedToday", false, "claimedToday", false, "canClaim", false, "currentStreak", 0, "balance", 0);
         }
         return rewardService.getDailyStatus(u.getId());
@@ -55,18 +58,27 @@ public class RewardController {
     @PostMapping({"/checkin", "/check-in"})
     public Map<String, Object> checkin(HttpServletRequest r) {
         User u = auth.current(r);
+        if (List.of("ADMIN", "SUPER_ADMIN", "MODERATOR", "CONTENT_ADMIN", "FINANCE_ADMIN").contains(u.getRole())) {
+            throw new SecurityException("Tài khoản quản trị viên không tham gia chương trình tích điểm thưởng.");
+        }
         return rewardService.performDailyCheckin(u.getId());
     }
 
     @GetMapping("/tasks")
     public List<Map<String, Object>> getTasks(HttpServletRequest r) {
         User u = auth.current(r);
+        if (List.of("ADMIN", "SUPER_ADMIN", "MODERATOR", "CONTENT_ADMIN", "FINANCE_ADMIN").contains(u.getRole())) {
+            throw new SecurityException("Tài khoản quản trị viên không tham gia nhiệm vụ tích điểm.");
+        }
         return rewardService.getRewardTasks(u.getId());
     }
 
     @PostMapping("/claim-task")
     public Map<String, Object> claimTask(HttpServletRequest r, @RequestBody Map<String, String> body) {
         User u = auth.current(r);
+        if (List.of("ADMIN", "SUPER_ADMIN", "MODERATOR", "CONTENT_ADMIN", "FINANCE_ADMIN").contains(u.getRole())) {
+            throw new SecurityException("Tài khoản quản trị viên không tham gia nhiệm vụ tích điểm.");
+        }
         String taskCode = body.get("taskCode");
         if (taskCode == null || taskCode.isBlank()) {
             throw new ValidationException("taskCode", "Mã nhiệm vụ không được để trống");

@@ -35,9 +35,9 @@ export default function AccountQuickMenu({ user, onLogout }: AccountQuickMenuPro
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [isOpen]);
 
-  // Fetch balances when menu opens
+  // Fetch balances when menu opens (Non-admin only)
   useEffect(() => {
-    if (isOpen && user?.id) {
+    if (isOpen && user?.id && !isAdmin) {
       void api.get('/rewards/account')
         .then((r) => setRewardData(r.data))
         .catch(() => {});
@@ -46,11 +46,11 @@ export default function AccountQuickMenu({ user, onLogout }: AccountQuickMenuPro
         .then((r) => setWalletBalance(r.data?.balance || 0))
         .catch(() => {});
     }
-  }, [isOpen, user?.id]);
+  }, [isOpen, user?.id, isAdmin]);
 
   const handleCheckin = async (e: ReactMouseEvent) => {
     e.stopPropagation();
-    if (checkingIn || !rewardData?.canCheckinToday) return;
+    if (checkingIn || !rewardData?.canCheckinToday || isAdmin) return;
     setCheckingIn(true);
     setCheckinMessage(null);
     try {
@@ -105,7 +105,7 @@ export default function AccountQuickMenu({ user, onLogout }: AccountQuickMenuPro
                       ? 'bg-purple-100 text-purple-700'
                       : 'bg-indigo-100 text-indigo-700'
                   }`}>
-                    {isAdmin ? 'Quản trị viên' : 'Thành viên UniHome'}
+                    {isAdmin ? 'Quản trị viên Hệ thống' : 'Thành viên UniHome'}
                   </span>
                 </div>
                 <p className="text-[11px] text-gray-400 truncate mt-1">{user?.email || user?.phone}</p>
@@ -113,137 +113,145 @@ export default function AccountQuickMenu({ user, onLogout }: AccountQuickMenuPro
             </div>
           </div>
 
-          {/* Wallets & Rewards Snapshot */}
-          <div className="px-5 py-3 bg-gray-50/70 space-y-2.5">
-            {/* UniHome Points & Check-in */}
-            <div className="bg-white rounded-2xl p-3 border border-indigo-50 shadow-2xs">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[11px] text-gray-500 font-medium">Điểm UniHome</span>
-                  <div className="text-base font-extrabold text-indigo-600 flex items-center gap-1">
-                    <span>💎</span> {rewardData?.balance ?? 0}
-                  </div>
-                </div>
-
-                {rewardData?.canCheckinToday ? (
-                  <button
-                    type="button"
-                    disabled={checkingIn}
-                    onClick={handleCheckin}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-xs transition-all active:scale-95 disabled:opacity-50"
-                  >
-                    {checkingIn ? '...' : `Điểm danh (+${rewardData?.streakRewards?.[(rewardData?.streakDay || 1) - 1] ?? 20})`}
-                  </button>
-                ) : (
-                  <div className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
-                    ✓ Chuỗi {rewardData?.currentStreak || 1} ngày
-                  </div>
-                )}
-              </div>
-
-              {checkinMessage && (
-                <p className="text-[11px] text-indigo-700 font-semibold mt-2 bg-indigo-50 p-1.5 rounded-lg text-center animate-fade-in">
-                  {checkinMessage}
-                </p>
-              )}
-            </div>
-
-            {/* Wallet Balance */}
-            <div className="flex items-center justify-between bg-white rounded-2xl p-3 border border-gray-100 shadow-2xs">
-              <div>
-                <span className="text-[11px] text-gray-500 font-medium">Số dư Ví UniHome</span>
-                <p className="text-sm font-extrabold text-gray-900">{formatCurrency(walletBalance)}</p>
-              </div>
-              <Link
-                to="/tenant/wallet"
-                onClick={() => setIsOpen(false)}
-                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 transition-colors"
-              >
-                Nạp ví →
-              </Link>
-            </div>
-
-            {/* Vouchers Link */}
-            <Link
-              to="/rewards"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center justify-between p-2 rounded-xl text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100/70 border border-amber-200/60 transition-colors"
-            >
-              <span className="flex items-center gap-1.5">
-                <span>🎁</span> Đổi Voucher ưu đãi đối tác
-              </span>
-              <span>→</span>
-            </Link>
-          </div>
-
-          {/* Quick Links */}
-          <div className="py-2">
-            <Link
-              to="/tenant/profile"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
-            >
-              <span>👤</span> Trang cá nhân & Cài đặt
-            </Link>
-
-            <Link
-              to="/my-posts"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
-            >
-              <span>📋</span> Quản lý tin đăng
-            </Link>
-
-            <Link
-              to="/promotions"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
-            >
-              <span>🚀</span> Gói VIP & Đẩy tin
-            </Link>
-
-            <Link
-              to="/tenant/favorites"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
-            >
-              <span>❤️</span> Danh sách phòng đã lưu
-            </Link>
-
-            <Link
-              to="/tenant/interests"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
-            >
-              <span>👀</span> Phòng trọ đang quan tâm
-            </Link>
-
-            <Link
-              to="/tenant/matching"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
-            >
-              <span>🤝</span> Hồ sơ tìm bạn cùng phòng
-            </Link>
-
-            <Link
-              to="/rewards/my-vouchers"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
-            >
-              <span>🎟</span> Voucher của tôi
-            </Link>
-
-            {isAdmin && (
+          {/* ADMIN ISOLATION VIEW */}
+          {isAdmin ? (
+            <div className="py-2">
               <Link
                 to="/admin"
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-purple-700 font-bold transition-colors"
+                className="flex items-center gap-3 px-5 py-2.5 hover:bg-purple-50 text-purple-700 font-bold transition-colors"
               >
-                <span>⚡</span> Quản trị hệ thống (Admin)
+                <span>⚡</span> Bảng điều khiển Quản trị (Admin Console)
               </Link>
-            )}
-          </div>
+              <div className="px-5 py-2 text-[11px] text-gray-400 leading-relaxed">
+                Tài khoản phân quyền Quản trị viên chỉ truy cập các công cụ kiểm duyệt, vận hành và quản lý hệ thống.
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Wallets & Rewards Snapshot (User Only) */}
+              <div className="px-5 py-3 bg-gray-50/70 space-y-2.5">
+                {/* UniHome Points & Check-in */}
+                <div className="bg-white rounded-2xl p-3 border border-indigo-50 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] text-gray-500 font-medium">Điểm UniHome</span>
+                      <div className="text-base font-extrabold text-indigo-600 flex items-center gap-1">
+                        <span>💎</span> {rewardData?.balance ?? 0}
+                      </div>
+                    </div>
+
+                    {rewardData?.canCheckinToday ? (
+                      <button
+                        type="button"
+                        disabled={checkingIn}
+                        onClick={handleCheckin}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-xs transition-all active:scale-95 disabled:opacity-50"
+                      >
+                        {checkingIn ? '...' : `Điểm danh (+${rewardData?.streakRewards?.[(rewardData?.streakDay || 1) - 1] ?? 20})`}
+                      </button>
+                    ) : (
+                      <div className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
+                        ✓ Chuỗi {rewardData?.currentStreak || 1} ngày
+                      </div>
+                    )}
+                  </div>
+
+                  {checkinMessage && (
+                    <p className="text-[11px] text-indigo-700 font-semibold mt-2 bg-indigo-50 p-1.5 rounded-lg text-center animate-fade-in">
+                      {checkinMessage}
+                    </p>
+                  )}
+                </div>
+
+                {/* Wallet Balance */}
+                <div className="flex items-center justify-between bg-white rounded-2xl p-3 border border-gray-100 shadow-2xs">
+                  <div>
+                    <span className="text-[11px] text-gray-500 font-medium">Số dư Ví UniHome</span>
+                    <p className="text-sm font-extrabold text-gray-900">{formatCurrency(walletBalance)}</p>
+                  </div>
+                  <Link
+                    to="/tenant/wallet"
+                    onClick={() => setIsOpen(false)}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 transition-colors"
+                  >
+                    Nạp ví →
+                  </Link>
+                </div>
+
+                {/* Vouchers Link */}
+                <Link
+                  to="/rewards"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center justify-between p-2 rounded-xl text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100/70 border border-amber-200/60 transition-colors"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>🎁</span> Đổi Voucher ưu đãi đối tác
+                  </span>
+                  <span>→</span>
+                </Link>
+              </div>
+
+              {/* Quick Links (User Only) */}
+              <div className="py-2">
+                <Link
+                  to="/tenant/profile"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+                >
+                  <span>👤</span> Trang cá nhân & Cài đặt
+                </Link>
+
+                <Link
+                  to="/my-posts"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+                >
+                  <span>📋</span> Quản lý tin đăng
+                </Link>
+
+                <Link
+                  to="/promotions"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+                >
+                  <span>🚀</span> Gói VIP & Đẩy tin
+                </Link>
+
+                <Link
+                  to="/tenant/favorites"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+                >
+                  <span>❤️</span> Danh sách phòng đã lưu
+                </Link>
+
+                <Link
+                  to="/tenant/interests"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+                >
+                  <span>👀</span> Phòng trọ đang quan tâm
+                </Link>
+
+                <Link
+                  to="/tenant/matching"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+                >
+                  <span>🤝</span> Hồ sơ tìm bạn cùng phòng
+                </Link>
+
+                <Link
+                  to="/rewards/my-vouchers"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+                >
+                  <span>🎟</span> Voucher của tôi
+                </Link>
+              </div>
+            </>
+          )}
 
           {/* Logout */}
           <div className="py-2 px-5">

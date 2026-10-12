@@ -56,10 +56,10 @@ public class ApiExceptionHandler {
     @ExceptionHandler(SecurityException.class)
     public ResponseEntity<?> handleSecurity(SecurityException e, HttpServletRequest req) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("status", 401);
+        body.put("status", 403);
         body.put("message", e.getMessage());
         body.put("path", req.getRequestURI());
-        return ResponseEntity.status(401).body(body);
+        return ResponseEntity.status(403).body(body);
     }
 
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})

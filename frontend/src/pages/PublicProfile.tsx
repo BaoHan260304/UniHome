@@ -83,11 +83,6 @@ export default function PublicProfile() {
               alt={p.fullName}
               className={`w-28 h-28 md:w-32 md:h-32 rounded-full object-cover border-4 ${vipCosmetics.glowClass} shadow-sm`}
             />
-            {p.profileBadge && (
-              <span className={`absolute -bottom-2 -right-1 text-[11px] px-2.5 py-0.5 rounded-full ${vipCosmetics.badgeClass} ring-2 ring-white shadow-xs`}>
-                {p.profileBadge}
-              </span>
-            )}
           </div>
 
           <div className="flex-1 text-center md:text-left">
@@ -95,11 +90,6 @@ export default function PublicProfile() {
               <h1 className={`text-3xl font-extrabold tracking-tight ${vipCosmetics.textClass}`}>
                 {p.fullName}
               </h1>
-              {p.vipTier && p.vipTier !== 'NONE' && (
-                <span className={`inline-block self-center md:self-auto text-xs px-2.5 py-0.5 rounded-full ${vipCosmetics.badgeClass}`}>
-                  ★ {p.vipTier}
-                </span>
-              )}
             </div>
 
             <div className="flex flex-wrap gap-2 items-center justify-center md:justify-start mt-1.5">

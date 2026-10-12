@@ -409,11 +409,6 @@ export default function CommunityPage() {
                         </div>
                       )}
                     </button>
-                    {m.profileBadge && (
-                      <span className={`absolute -bottom-1 -right-1 text-[9px] px-1.5 py-0.2 rounded-md ${cosmetic.badgeClass} ring-1 ring-white shadow-2xs`}>
-                        {m.profileBadge}
-                      </span>
-                    )}
                   </div>
 
                   {/* Message Bubble */}
@@ -426,11 +421,6 @@ export default function CommunityPage() {
                       >
                         {m.authorName}
                       </button>
-                      {m.vipTier && m.vipTier !== 'NONE' && (
-                        <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-md ${cosmetic.badgeClass}`}>
-                          {m.vipTier}
-                        </span>
-                      )}
                       {m.role === 'ADMIN' && (
                         <span className="bg-purple-100 text-purple-800 text-[9px] font-black px-1.5 py-0.2 rounded-md border border-purple-200">
                           ADMIN
@@ -454,7 +444,7 @@ export default function CommunityPage() {
 
                     {/* Bubble Content according to Message Type */}
                     {m.messageType === 'STICKER' && m.mediaUrl ? (
-                      <div className="p-2">
+                      <div className={`p-2 rounded-2xl ${cosmetic.bubbleClass}`}>
                         <img
                           src={resolveMediaUrl(m.mediaUrl)}
                           alt="Sticker"
@@ -462,7 +452,7 @@ export default function CommunityPage() {
                         />
                       </div>
                     ) : m.messageType === 'IMAGE' && m.mediaUrl ? (
-                      <div className="p-1 rounded-2xl overflow-hidden max-w-sm">
+                      <div className={`p-1 rounded-2xl overflow-hidden max-w-sm ${cosmetic.bubbleClass}`}>
                         <img
                           src={resolveMediaUrl(m.mediaUrl)}
                           alt="Attachment"
@@ -473,8 +463,8 @@ export default function CommunityPage() {
                       <div
                         className={`p-3.5 rounded-2xl text-xs leading-relaxed break-words shadow-2xs ${
                           isMe
-                            ? 'bg-indigo-600 text-white rounded-tr-none'
-                            : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
+                            ? `bg-indigo-600 text-white rounded-tr-none ${cosmetic.bubbleClass}`
+                            : `bg-white text-gray-800 border border-gray-100 rounded-tl-none ${cosmetic.bubbleClass}`
                         }`}
                       >
                         {m.content}
