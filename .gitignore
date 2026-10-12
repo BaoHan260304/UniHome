@@ -29,3 +29,19 @@ frontend/node_modules/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Dev, Test & Automation Artifacts
+.chrome_dev/
+scratch/
+*.zip
+evidence_*.png
+*.patch*
+capture_popover.js
+cdp_screenshot.js
+test_ads_isolation.js
+
+# Keys & Local Backups
+*api key*.txt
+AQ.*.txt
+*.sql
+!database/*.sql
