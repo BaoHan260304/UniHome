@@ -73,6 +73,7 @@ export default function CommunityPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationMode, setNotificationMode] = useState('MENTION_REPLY_ONLY');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showSkinPickerModal, setShowSkinPickerModal] = useState(false);
   const [userDrawerId, setUserDrawerId] = useState<number | null>(null);
   const [userDrawerMessages, setUserDrawerMessages] = useState<CommunityMsg[]>([]);
   const [activeReactionPickerId, setActiveReactionPickerId] = useState<number | null>(null);
@@ -308,12 +309,23 @@ export default function CommunityPage() {
         {/* Channel controls */}
         <div className="flex items-center gap-2 text-xs font-semibold self-end md:self-auto">
           {user && (
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className="bg-white/10 hover:bg-white/20 px-3 py-2 rounded-xl border border-white/20 text-xs font-bold transition-colors flex items-center gap-1.5"
-            >
-              <span>🔔</span> Thông báo
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setShowSkinPickerModal(true)}
+                className="bg-white/10 hover:bg-white/20 px-3 py-2 rounded-xl border border-white/20 text-xs font-bold transition-colors flex items-center gap-1.5"
+                title="Đổi phong cách hoạt ảnh VIP (Skin)"
+              >
+                <span>✨</span> Hiệu ứng VIP
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(true)}
+                className="bg-white/10 hover:bg-white/20 px-3 py-2 rounded-xl border border-white/20 text-xs font-bold transition-colors flex items-center gap-1.5"
+              >
+                <span>🔔</span> Thông báo
+              </button>
+            </>
           )}
           <div className="bg-white/10 px-3.5 py-2 rounded-xl border border-white/20 text-xs font-bold">
             {messages.length} tin nhắn
@@ -785,6 +797,81 @@ export default function CommunityPage() {
                 className="text-xs font-black px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-xl shadow-xs"
               >
                 Gửi báo cáo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIP Skin Picker Modal */}
+      {showSkinPickerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-gray-100">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="font-extrabold text-base text-gray-900 flex items-center gap-2">
+                  <span>✨</span> Bộ sưu tập Skin hoạt ảnh VIP (8 Skins)
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Đổi phong cách viền sáng, chữ đổi màu và hoạt ảnh khung chat chuyển động mượt mà.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSkinPickerModal(false)}
+                className="text-gray-400 hover:text-gray-600 font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto p-1">
+              {[
+                { id: 'NEON_VIOLET', name: 'Tím Neon Cyberpunk', desc: 'Viền hồng tím chuyển sắc, ánh sáng neon rực rỡ', previewClass: 'vip-name-neon', bubbleClass: 'vip-bubble-neon' },
+                { id: 'AURORA', name: 'Cực quang phương Bắc', desc: 'Dải cực quang xanh ngọc, lục bảo chuyển động nhẹ', previewClass: 'vip-name-aurora', bubbleClass: 'vip-bubble-aurora' },
+                { id: 'SUNSET_GOLD', name: 'Hoàng hôn dát vàng', desc: 'Sắc cam ấm, hổ phách, hoàng hôn rực rỡ', previewClass: 'vip-name-sunset', bubbleClass: 'vip-bubble-sunset' },
+                { id: 'CRIMSON_EDGE', name: 'Đỏ hồng thạch lựu', desc: 'Viền ruby nhịp thở đỏ thẫm uy lực', previewClass: 'vip-name-crimson', bubbleClass: 'vip-bubble-crimson' },
+                { id: 'ICE_BLUE', name: 'Băng thanh hàn ngọc', desc: 'Xanh băng tuyết, ánh lướt cạnh tinh thể', previewClass: 'vip-name-ice', bubbleClass: 'vip-bubble-ice' },
+                { id: 'HOLOGRAPHIC', name: 'Lăng kính Hologram', desc: 'Quang phổ đa sắc chuyển động lăng kính', previewClass: 'vip-name-holographic', bubbleClass: 'vip-bubble-holographic' },
+                { id: 'SAKURA_BLOOM', name: 'Hoa anh đào nở', desc: 'Cánh hoa anh đào rơi/xoay trôi quanh khung chat', previewClass: 'vip-name-sakura', bubbleClass: 'vip-bubble-sakura' },
+                { id: 'THUNDER_STRIKE', name: 'Tia chớp hoàng kim', desc: 'Tia sét điện quang vàng chạy dọc viền chat', previewClass: 'vip-name-thunder', bubbleClass: 'vip-bubble-thunder' }
+              ].map(skin => (
+                <div
+                  key={skin.id}
+                  onClick={async () => {
+                    try {
+                      await api.put('/users/cosmetic-style', { cosmeticStyle: skin.id });
+                      setShowSkinPickerModal(false);
+                      await fetchMessages();
+                      alert(`Đã kích hoạt Skin hoạt ảnh: ${skin.name}`);
+                    } catch (e: any) {
+                      alert('Không thể cập nhật phong cách hoạt ảnh lúc này');
+                    }
+                  }}
+                  className={`p-3 rounded-2xl border cursor-pointer hover:scale-[1.02] transition-all flex flex-col justify-between gap-2 ${skin.bubbleClass}`}
+                >
+                  <div>
+                    <p className={`text-xs font-black ${skin.previewClass}`}>
+                      {skin.name}
+                    </p>
+                    <p className="text-[10px] text-gray-500 mt-1 leading-relaxed">
+                      {skin.desc}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-bold text-indigo-600 bg-white/80 self-end px-2 py-0.5 rounded-lg border border-indigo-100 shadow-2xs">
+                    Áp dụng →
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t">
+              <button
+                type="button"
+                onClick={() => setShowSkinPickerModal(false)}
+                className="text-xs font-bold px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-xl"
+              >
+                Đóng
               </button>
             </div>
           </div>
