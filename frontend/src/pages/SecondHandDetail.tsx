@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { api, getUser, money, resolveMediaUrl } from '../lib/api';
+import PremiumProfilePopover from '../components/PremiumProfilePopover';
 
 export default function SecondHandDetail() {
   const { id } = useParams();
@@ -12,6 +13,7 @@ export default function SecondHandDetail() {
   const [text, setText] = useState('');
   const [revealedPhone, setRevealedPhone] = useState<string | null>(null);
   const [revealing, setRevealing] = useState(false);
+  const [popoverUserId, setPopoverUserId] = useState<number | null>(null);
 
   const load = () => {
     api.get(`/content/secondhand/${id}`).then(r => {
@@ -140,13 +142,17 @@ export default function SecondHandDetail() {
             {/* Seller Card */}
             <div className="border-t pt-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <img src={sellerAvatar} alt="" className="w-10 h-10 rounded-full object-cover border" />
+                <button
+                  type="button"
+                  onClick={() => item?.sellerId && setPopoverUserId(item.sellerId)}
+                  className="flex items-center gap-3 text-left hover:opacity-90 group cursor-pointer"
+                >
+                  <img src={sellerAvatar} alt="" className="w-10 h-10 rounded-full object-cover border group-hover:ring-2 ring-indigo-400 transition-all" />
                   <div>
-                    <b className="text-sm text-gray-900">{item.sellerName || 'Sinh viên UniHome'}</b>
-                    <div className="text-[11px] text-gray-500">Người bán đã xác minh</div>
+                    <b className="text-sm text-gray-900 group-hover:text-indigo-600 transition-colors">{item.sellerName || 'Sinh viên UniHome'}</b>
+                    <div className="text-[11px] text-gray-500">Người bán đã xác minh • Xem hồ sơ</div>
                   </div>
-                </div>
+                </button>
                 <span className="text-xs font-bold px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md">
                   {item.status || 'AVAILABLE'}
                 </span>
@@ -195,9 +201,13 @@ export default function SecondHandDetail() {
             return (
               <div key={c.id} className="bg-gray-50 rounded-2xl p-4 text-sm space-y-1.5 border border-gray-100">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => c.userId && setPopoverUserId(c.userId)}
+                    className="flex items-center gap-2 hover:opacity-80 text-left cursor-pointer"
+                  >
                     <img src={avatar} alt="" className="w-6 h-6 rounded-full object-cover border" />
-                    <span className="font-bold text-xs text-gray-800">{c.authorName || `User #${c.userId}`}</span>
+                    <span className="font-bold text-xs text-gray-800 hover:text-indigo-600 transition-colors">{c.authorName || `User #${c.userId}`}</span>
                     {c.authorRole === 'ADMIN' || c.authorRole === 'SUPER_ADMIN' ? (
                       <span className="px-1.5 py-0.2 bg-red-100 text-red-700 text-[10px] font-bold rounded">BQT UniHome</span>
                     ) : c.authorRole === 'LANDLORD' ? (
@@ -205,7 +215,7 @@ export default function SecondHandDetail() {
                     ) : (
                       <span className="px-1.5 py-0.2 bg-blue-50 text-blue-700 text-[10px] font-medium rounded">Sinh viên</span>
                     )}
-                  </div>
+                  </button>
                   <span className="text-[11px] text-gray-400">
                     {c.createdAt ? new Date(c.createdAt).toLocaleDateString('vi-VN') : ''}
                   </span>
@@ -237,6 +247,15 @@ export default function SecondHandDetail() {
           </button>
         </div>
       </div>
+
+      {/* Premium Profile Popover */}
+      {popoverUserId && (
+        <PremiumProfilePopover
+          userId={popoverUserId}
+          isOpen={Boolean(popoverUserId)}
+          onClose={() => setPopoverUserId(null)}
+        />
+      )}
     </div>
   );
 }

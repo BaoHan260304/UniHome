@@ -145,7 +145,7 @@ export default function Login() {
         </div>
 
         {/* Unified Social Login Section */}
-        <SocialAuthSection from={from} onError={setServerError} />
+        <SocialAuthSection from={from} />
 
         <p className="text-center text-xs text-gray-600">
           Chưa có tài khoản?{' '}

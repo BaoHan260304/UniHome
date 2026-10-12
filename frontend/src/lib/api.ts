@@ -51,6 +51,13 @@ export function clearAuth() {
   }
   localStorage.removeItem('authToken');
   localStorage.removeItem('user');
+  try {
+    Object.keys(sessionStorage).forEach(k => {
+      if (k.startsWith('unihome_hidden_ads')) {
+        sessionStorage.removeItem(k);
+      }
+    });
+  } catch {}
   window.dispatchEvent(new Event('authChange'));
 }
 

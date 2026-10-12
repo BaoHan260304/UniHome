@@ -113,7 +113,8 @@ export default function Marketplace() {
         <p className="mt-2 text-lg text-gray-600">Tìm phòng theo khu vực, trường, khoảng cách, giá, tiện ích và mức xác minh.</p>
       </div>
 
-      <AdSlot placement="TOP_BANNER" className="w-full h-28" />
+      {/* Top Banner Ad: HOME_TOP */}
+      <AdSlot placement="HOME_TOP" className="w-full h-32 md:h-36" />
 
       {/* Filter Bar */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-4">
@@ -198,13 +199,18 @@ export default function Marketplace() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_180px] gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_180px] xl:grid-cols-[160px_1fr_180px] gap-6 items-start">
+          {/* Left Wing Ad: HOME_LEFT */}
+          <div className="hidden xl:block">
+            <AdSlot placement="HOME_LEFT" className="w-full h-[520px] sticky top-28" />
+          </div>
+
           <div>
             <div className="mb-4 text-sm text-gray-500">
               Tìm thấy <b>{totalElements}</b> tin phù hợp. VIP chỉ tăng ưu tiên sau khi tin đã phù hợp với bộ lọc.
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {list.map((x: any) => (
                 <RoomCard key={x.listingId || x.id} item={x} onFavorite={favorite} />
               ))}
@@ -231,8 +237,9 @@ export default function Marketplace() {
             />
           </div>
 
-          <div className="hidden lg:block">
-            <AdSlot placement="RIGHT_SIDEBAR" className="w-full h-[520px] sticky top-32" />
+          {/* Right Wing Ad: HOME_RIGHT or RIGHT_SIDEBAR */}
+          <div className="hidden lg:block space-y-4">
+            <AdSlot placement="HOME_RIGHT" className="w-full h-[520px] sticky top-28" />
           </div>
         </div>
       )}

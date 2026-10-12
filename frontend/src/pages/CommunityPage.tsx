@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api, getUser, resolveMediaUrl, getVipCosmeticStyle } from '../lib/api';
 import { Link } from 'react-router-dom';
+import PremiumProfilePopover from '../components/PremiumProfilePopover';
 
 interface CommunityMsg {
   id: number;
@@ -76,6 +77,7 @@ export default function CommunityPage() {
   const [showSkinPickerModal, setShowSkinPickerModal] = useState(false);
   const [userDrawerId, setUserDrawerId] = useState<number | null>(null);
   const [userDrawerMessages, setUserDrawerMessages] = useState<CommunityMsg[]>([]);
+  const [popoverUserId, setPopoverUserId] = useState<number | null>(null);
   const [activeReactionPickerId, setActiveReactionPickerId] = useState<number | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
@@ -405,9 +407,9 @@ export default function CommunityPage() {
                   {/* Avatar */}
                   <div className="relative shrink-0">
                     <button
-                      onClick={() => openUserHistory(m.userId)}
+                      onClick={() => setPopoverUserId(m.userId)}
                       className="hover:opacity-90 block"
-                      title="Xem lịch sử chat công khai"
+                      title="Xem hồ sơ nổi bật"
                     >
                       {m.authorAvatar ? (
                         <img
@@ -428,7 +430,7 @@ export default function CommunityPage() {
                     {/* Author Meta */}
                     <div className={`flex items-center gap-1.5 text-xs ${isMe ? 'justify-end' : ''}`}>
                       <button
-                        onClick={() => openUserHistory(m.userId)}
+                        onClick={() => setPopoverUserId(m.userId)}
                         className={`font-black hover:underline ${cosmetic.textClass}`}
                       >
                         {m.authorName}
@@ -539,6 +541,15 @@ export default function CommunityPage() {
                         className="hover:text-indigo-600 font-semibold"
                       >
                         Trả lời
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openUserHistory(m.userId)}
+                        className="hover:text-indigo-600 font-semibold"
+                        title="Xem lịch sử chat công khai của thành viên này"
+                      >
+                        Lịch sử
                       </button>
 
                       {isMe && (
@@ -876,6 +887,15 @@ export default function CommunityPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Premium Profile Popover Modal */}
+      {popoverUserId && (
+        <PremiumProfilePopover
+          userId={popoverUserId}
+          isOpen={Boolean(popoverUserId)}
+          onClose={() => setPopoverUserId(null)}
+        />
       )}
     </div>
   );

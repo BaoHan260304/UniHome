@@ -1,12 +1,21 @@
 import { useEffect, useState } from 'react';
-import { api, resolveMediaUrl } from '../lib/api';
+import { api, getUser, resolveMediaUrl } from '../lib/api';
 
 export default function AdSlot({ placement, className = '' }: { placement: string; className?: string }) {
   const [ads, setAds] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
+
+  // Strictly user-session isolated key: userId + authToken/sessionId
+  const getStorageKey = () => {
+    const user = getUser();
+    const token = localStorage.getItem('authToken') || 'guest_sess';
+    const uid = user?.id ? String(user.id) : 'guest';
+    return `unihome_hidden_ads_${uid}_${token.slice(-10)}`;
+  };
+
   const [hiddenIds, setHiddenIds] = useState<number[]>(() => {
     try {
-      const saved = sessionStorage.getItem('unihome_hidden_ads');
+      const saved = sessionStorage.getItem(getStorageKey());
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -51,7 +60,7 @@ export default function AdSlot({ placement, className = '' }: { placement: strin
     const updated = [...hiddenIds, adId];
     setHiddenIds(updated);
     try {
-      sessionStorage.setItem('unihome_hidden_ads', JSON.stringify(updated));
+      sessionStorage.setItem(getStorageKey(), JSON.stringify(updated));
     } catch {}
   };
 

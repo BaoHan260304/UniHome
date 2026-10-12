@@ -30,10 +30,14 @@ import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping({"/api/auth", "/auth"})
 public class AuthController {
+    public record SocialTicket(String provider, String sub, String email, String fullName, String avatarUrl, LocalDateTime expiresAt) {}
+    private static final Map<String, SocialTicket> socialTicketStore = new ConcurrentHashMap<>();
+
     private final AuthService auth;
     private final UserRepository users;
     private final AuthSessionRepository sessions;
@@ -194,9 +198,13 @@ public class AuthController {
         User user = users.findByGoogleSub(googleSub).orElseGet(() -> users.findByEmail(email).orElse(null));
 
         if (user == null) {
-            // New user via Google: prompt for completion (role and phone)
+            // New user via Google: issue a short-lived secure ticket for social completion
+            String ticket = UUID.randomUUID().toString();
+            socialTicketStore.put(ticket, new SocialTicket("GOOGLE", googleSub, email, fullName, avatar, LocalDateTime.now().plusMinutes(10)));
+
             Map<String, Object> reqComp = new LinkedHashMap<>();
             reqComp.put("status", "REQUIRE_COMPLETION");
+            reqComp.put("ticket", ticket);
             reqComp.put("authProvider", "GOOGLE");
             reqComp.put("googleSub", googleSub);
             reqComp.put("email", email);
@@ -212,18 +220,6 @@ public class AuthController {
         if (user.getFullName() == null || user.getFullName().isBlank()) user.setFullName(fullName);
         user.setLastLoginAt(LocalDateTime.now());
         users.save(user);
-
-        if (!Boolean.TRUE.equals(user.getPhoneVerified())) {
-            Map<String, Object> reqPhone = new LinkedHashMap<>();
-            reqPhone.put("status", "PENDING_VERIFICATION");
-            reqPhone.put("message", "Tài khoản cần xác minh số điện thoại");
-            reqPhone.put("userId", user.getId());
-            reqPhone.put("email", user.getEmail());
-            reqPhone.put("phone", user.getPhone() != null ? user.getPhone() : "");
-            reqPhone.put("emailVerified", true);
-            reqPhone.put("phoneVerified", false);
-            return reqPhone;
-        }
 
         return auth.issue(user);
     }
@@ -257,8 +253,12 @@ public class AuthController {
         }
 
         if (user == null) {
+            String ticket = UUID.randomUUID().toString();
+            socialTicketStore.put(ticket, new SocialTicket("FACEBOOK", fbSub, email, fullName, avatar, LocalDateTime.now().plusMinutes(10)));
+
             Map<String, Object> reqComp = new LinkedHashMap<>();
             reqComp.put("status", "REQUIRE_COMPLETION");
+            reqComp.put("ticket", ticket);
             reqComp.put("authProvider", "FACEBOOK");
             reqComp.put("facebookSub", fbSub);
             reqComp.put("email", email);
@@ -277,50 +277,58 @@ public class AuthController {
         user.setLastLoginAt(LocalDateTime.now());
         users.save(user);
 
-        if (!Boolean.TRUE.equals(user.getPhoneVerified())) {
-            Map<String, Object> reqPhone = new LinkedHashMap<>();
-            reqPhone.put("status", "PENDING_VERIFICATION");
-            reqPhone.put("message", "Tài khoản cần xác minh số điện thoại");
-            reqPhone.put("userId", user.getId());
-            reqPhone.put("email", user.getEmail());
-            reqPhone.put("phone", user.getPhone() != null ? user.getPhone() : "");
-            reqPhone.put("emailVerified", Boolean.TRUE.equals(user.getEmailVerified()));
-            reqPhone.put("phoneVerified", false);
-            return reqPhone;
-        }
-
         return auth.issue(user);
     }
 
     @PostMapping("/social-complete")
     public Map<String, Object> socialComplete(@RequestBody Map<String, Object> body) {
-        String authProvider = Objects.toString(body.get("authProvider"), "GOOGLE").toUpperCase();
-        String sub = Objects.toString(body.get("sub"), "");
-        String email = Objects.toString(body.get("email"), "").trim().toLowerCase();
-        String fullName = Objects.toString(body.get("fullName"), "").trim();
-        String avatarUrl = Objects.toString(body.get("avatarUrl"), "");
+        String ticket = Objects.toString(body.get("ticket"), "").trim();
+        if (ticket.isBlank()) {
+            throw new SecurityException("Phiên hoàn tất liên kết mạng xã hội không hợp lệ hoặc thiếu mã xác thực (ticket missing)");
+        }
+
+        SocialTicket st = socialTicketStore.remove(ticket);
+        if (st == null || st.expiresAt().isBefore(LocalDateTime.now())) {
+            throw new SecurityException("Phiên hoàn tất đã hết hạn hoặc đã được sử dụng. Vui lòng đăng nhập lại.");
+        }
+
+        String authProvider = st.provider();
+        String sub = st.sub();
+        String email = st.email();
+        // If OAuth provider didn't provide email (e.g. some FB accounts), allow user to supply valid email
+        if (email.isBlank()) {
+            email = Objects.toString(body.get("email"), "").trim().toLowerCase();
+        }
+
+        String fullName = Objects.toString(body.get("fullName"), st.fullName()).trim();
+        String avatarUrl = st.avatarUrl();
         String phone = Objects.toString(body.get("phone"), "").trim();
 
         Map<String, String> errors = new LinkedHashMap<>();
         if (email.isBlank() || !ValidationUtil.isValidEmail(email)) {
             errors.put("email", "Email không hợp lệ");
         }
-        if (!ValidationUtil.isValidVnPhone(phone)) {
+        if (!phone.isBlank() && !ValidationUtil.isValidVnPhone(phone)) {
             errors.put("phone", "Số điện thoại Việt Nam không hợp lệ (10 số, ví dụ 0912345678)");
         }
         if (!errors.isEmpty()) {
+            // Re-store ticket so user can fix their form input
+            socialTicketStore.put(ticket, st);
             throw new ValidationException("Dữ liệu chưa hợp lệ", errors);
         }
 
-        String normPhone = ValidationUtil.normalizePhone(phone);
-        if (users.findByPhone(normPhone).isPresent()) {
+        String normPhone = phone.isBlank() ? null : ValidationUtil.normalizePhone(phone);
+        if (normPhone != null && users.findByPhone(normPhone).isPresent()) {
+            socialTicketStore.put(ticket, st);
             throw new ValidationException("phone", "Số điện thoại đã được liên kết với tài khoản khác");
         }
 
         User user = users.findByEmail(email).orElseGet(User::new);
         user.setEmail(email);
-        user.setFullName(fullName.isBlank() ? "Người dùng UniHome" : fullName);
-        user.setAvatarUrl(avatarUrl);
+        user.setFullName(fullName.isBlank() ? (st.fullName().isBlank() ? "Người dùng UniHome" : st.fullName()) : fullName);
+        if (avatarUrl != null && !avatarUrl.isBlank()) {
+            user.setAvatarUrl(avatarUrl);
+        }
         if (user.getRole() == null || user.getRole().isBlank() || Set.of("TENANT", "LANDLORD", "SERVICE_PROVIDER").contains(user.getRole())) {
             user.setRole("USER");
         }
@@ -328,37 +336,25 @@ public class AuthController {
         user.setTermsAcceptedAt(LocalDateTime.now());
         user.setPrivacyVersion("1.0");
         user.setPrivacyAcceptedAt(LocalDateTime.now());
-        user.setPhone(normPhone);
+        if (normPhone != null) {
+            user.setPhone(normPhone);
+            user.setPhoneVerified(true);
+            user.setPhoneVerifiedAt(LocalDateTime.now());
+        }
         user.setAuthProvider(authProvider);
         if ("GOOGLE".equals(authProvider)) {
             user.setGoogleSub(sub);
-            user.setEmailVerified(true);
-            user.setEmailVerifiedAt(LocalDateTime.now());
         } else if ("FACEBOOK".equals(authProvider)) {
             user.setFacebookSub(sub);
-            user.setEmailVerified(true);
-            user.setEmailVerifiedAt(LocalDateTime.now());
         }
-        user.setPhoneVerified(false);
-        user.setStatus("PENDING_VERIFICATION");
+        user.setEmailVerified(true);
+        user.setEmailVerifiedAt(LocalDateTime.now());
+        user.setStatus("ACTIVE");
         user.setPassword(PasswordUtil.hash(UUID.randomUUID().toString()));
         user.setCreatedAt(LocalDateTime.now());
         User saved = users.save(user);
 
-        // Send phone OTP
-        try {
-            verification.sendOtp(saved, "PHONE", "REGISTER");
-        } catch (Exception e) {}
-
-        Map<String, Object> resp = new LinkedHashMap<>();
-        resp.put("message", "Đã tạo tài khoản. Vui lòng xác thực số điện thoại để kích hoạt.");
-        resp.put("userId", saved.getId());
-        resp.put("email", saved.getEmail());
-        resp.put("phone", saved.getPhone());
-        resp.put("emailVerified", Boolean.TRUE.equals(saved.getEmailVerified()));
-        resp.put("phoneVerified", false);
-        resp.put("status", "PENDING_VERIFICATION");
-        return resp;
+        return auth.issue(saved);
     }
 
     @PostMapping("/forgot-password")

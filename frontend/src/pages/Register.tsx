@@ -290,7 +290,7 @@ export default function Register() {
         </div>
 
         {/* Unified Social Login Section */}
-        <SocialAuthSection from={from} onError={setServerError} />
+        <SocialAuthSection from={from} />
 
         <p className="text-center text-xs text-gray-600">
           Đã có tài khoản?{' '}

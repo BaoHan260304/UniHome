@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { api } from '../lib/api';
+import { api, saveAuth } from '../lib/api';
 
 export default function SocialCompletion() {
   const nav = useNavigate();
@@ -8,6 +8,7 @@ export default function SocialCompletion() {
   const state = (location.state as any) || {};
 
   const role = 'USER';
+  const ticket = state.ticket || '';
   const [email, setEmail] = useState<string>(state.email || '');
   const [fullName, setFullName] = useState<string>(state.fullName || '');
   const [phone, setPhone] = useState<string>('');
@@ -17,7 +18,6 @@ export default function SocialCompletion() {
   const [serverError, setServerError] = useState('');
 
   const authProvider = state.authProvider || 'GOOGLE';
-  const sub = state.googleSub || state.facebookSub || '';
   const avatarUrl = state.avatarUrl || '';
   const requireEmail = state.requireEmail || !email;
   const from = state.from || '/';
@@ -26,9 +26,11 @@ export default function SocialCompletion() {
     const errs: Record<string, string> = {};
     if (!fullName.trim()) errs.fullName = 'Họ và tên không được để trống';
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = 'Email không hợp lệ';
-    const normPhone = phone.trim().replace(/\D/g, '');
-    if (!normPhone || normPhone.length !== 10 || !/^0[35789]\d{8}$/.test(normPhone)) {
-      errs.phone = 'Số điện thoại Việt Nam không hợp lệ (10 số, ví dụ 0912345678)';
+    if (phone.trim()) {
+      const normPhone = phone.trim().replace(/\D/g, '');
+      if (normPhone.length !== 10 || !/^0[35789]\d{8}$/.test(normPhone)) {
+        errs.phone = 'Số điện thoại Việt Nam không hợp lệ (10 số, ví dụ 0912345678)';
+      }
     }
     if (!agreeTerms) errs.agreeTerms = 'Bạn cần đồng ý với Điều khoản dịch vụ và Chính sách bảo mật';
     setErrors(errs);
@@ -43,26 +45,34 @@ export default function SocialCompletion() {
     setLoading(true);
     try {
       const res = await api.post('/auth/social-complete', {
-        authProvider,
-        sub,
+        ticket,
         email: email.trim().toLowerCase(),
         fullName: fullName.trim(),
-        avatarUrl,
         role,
         phone: phone.trim()
       });
 
-      // Redirect to VerifyOtp for phone OTP verification
-      nav('/verify-otp', {
-        state: {
-          userId: res.data.userId,
-          email: res.data.email,
-          phone: res.data.phone,
-          emailVerified: true,
-          phoneVerified: false,
-          from
-        }
-      });
+      if (res.data.token) {
+        saveAuth(res.data);
+        nav(from, { replace: true });
+        return;
+      }
+
+      if (res.data.status === 'PENDING_VERIFICATION') {
+        nav('/verify-otp', {
+          state: {
+            userId: res.data.userId,
+            email: res.data.email,
+            phone: res.data.phone,
+            emailVerified: res.data.emailVerified,
+            phoneVerified: res.data.phoneVerified,
+            from
+          }
+        });
+        return;
+      }
+
+      nav('/login', { replace: true });
     } catch (err: any) {
       if (err.response?.data?.fieldErrors) {
         setErrors(err.response.data.fieldErrors);

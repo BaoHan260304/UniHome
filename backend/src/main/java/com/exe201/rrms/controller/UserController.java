@@ -247,11 +247,22 @@ public class UserController {
     public Map<String, Object> updateCosmeticStyle(@RequestBody Map<String, String> body, HttpServletRequest r) {
         User me = auth.current(r);
         String style = body.getOrDefault("cosmeticStyle", "DEFAULT");
-        // Verify entitlement if user chooses premium skin
         Set<String> validSkins = Set.of("DEFAULT", "NEON_VIOLET", "AURORA", "SUNSET_GOLD", "CRIMSON_EDGE", "ICE_BLUE", "HOLOGRAPHIC", "SAKURA_BLOOM", "THUNDER_STRIKE");
         if (!validSkins.contains(style)) {
             style = "DEFAULT";
         }
+
+        // Backend Entitlement Security: non-DEFAULT skin requires active VIP entitlement
+        if (!"DEFAULT".equals(style)) {
+            boolean hasActiveVip = me.getVipUntil() != null 
+                    && me.getVipUntil().isAfter(java.time.LocalDateTime.now())
+                    && me.getVipTier() != null
+                    && !"NONE".equalsIgnoreCase(me.getVipTier());
+            if (!hasActiveVip) {
+                throw new SecurityException("Bạn chưa sở hữu gói Hội viên VIP hoặc gói đã hết hạn để sử dụng hiệu ứng này");
+            }
+        }
+
         me.setCosmeticStyle(style);
         users.save(me);
         return Map.of("success", true, "cosmeticStyle", me.getCosmeticStyle());
