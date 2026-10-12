@@ -49,6 +49,8 @@ public class CommunityController {
         this.stickerRepo = stickerRepo;
     }
 
+    private static final java.util.concurrent.ConcurrentHashMap<Long, java.time.Instant> ACTIVE_USERS = new java.util.concurrent.ConcurrentHashMap<>();
+
     // --- Channels list & info ---
     @GetMapping("/channels")
     public List<Map<String, Object>> getChannels() {
@@ -70,6 +72,15 @@ public class CommunityController {
         User current = null;
         try { current = authService.current(req); } catch (Exception ignored) {}
 
+        java.time.Instant now = java.time.Instant.now();
+        if (current != null) {
+            ACTIVE_USERS.put(current.getId(), now);
+        }
+        // Cleanup users inactive for > 10 minutes
+        ACTIVE_USERS.entrySet().removeIf(e -> java.time.Duration.between(e.getValue(), now).toMinutes() > 10);
+        long activeSessionCount = ACTIVE_USERS.size();
+        long onlineCount = Math.max(1, activeSessionCount);
+
         List<CommunityMessage> latest = messageRepo.findByStatusAndChannelIdOrderByIdDesc("ACTIVE", 1L, PageRequest.of(0, 6));
         List<CommunityMessage> chronological = new ArrayList<>(latest);
         Collections.reverse(chronological);
@@ -85,7 +96,7 @@ public class CommunityController {
 
         return Map.of(
                 "channelId", 1L,
-                "onlineCount", 42,
+                "onlineCount", onlineCount,
                 "unreadCount", unreadCount,
                 "latestMessages", previewMsgs
         );

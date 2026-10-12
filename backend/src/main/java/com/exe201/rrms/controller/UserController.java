@@ -21,10 +21,11 @@ public class UserController {
     private final ListingInterestRepository interests;
     private final MatchingService matchingService;
     private final UserBlockRepository blocks;
+    private final com.exe201.rrms.service.NotificationService noti;
 
     public UserController(UserRepository u, FollowRepository f, AuthService a, ListingRepository l,
                           MatchingProfileRepository mp, ListingInterestRepository i, MatchingService ms,
-                          UserBlockRepository blocks) {
+                          UserBlockRepository blocks, com.exe201.rrms.service.NotificationService noti) {
         this.users = u;
         this.follows = f;
         this.auth = a;
@@ -33,6 +34,7 @@ public class UserController {
         this.interests = i;
         this.matchingService = ms;
         this.blocks = blocks;
+        this.noti = noti;
     }
 
     @GetMapping("/{id}/public")
@@ -157,6 +159,10 @@ public class UserController {
         f.setFollowerId(me.getId());
         f.setFollowingId(id);
         follows.save(f);
+        try {
+            String name = (me.getFullName() != null && !me.getFullName().isBlank()) ? me.getFullName() : "Một người dùng";
+            noti.send(me.getId(), id, "NEW_FOLLOWER", name + " đã bắt đầu theo dõi bạn.", "USER", me.getId());
+        } catch (Exception ignored) {}
         return Map.of("following", true, "followers", follows.countByFollowingId(id));
     }
 

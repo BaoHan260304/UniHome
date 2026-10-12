@@ -5,27 +5,32 @@ import { api, getUser } from '../lib/api';
 type PostCategory = 'room' | 'roommate' | 'secondhand' | 'service';
 
 export default function PostCreatePage() {
-  const { category: paramCategory } = useParams<{ category?: string }>();
+  const { category: paramCategory, id: editId } = useParams<{ category?: string; id?: string }>();
   const [searchParams] = useSearchParams();
+  const queryCategory = searchParams.get('category');
   const nav = useNavigate();
   const user = getUser();
 
   // Active Category state
+  const resolvedCategory = (paramCategory || queryCategory || '').toLowerCase();
   const initialCategory: PostCategory = 
-    (paramCategory === 'roommate' || paramCategory === 'secondhand' || paramCategory === 'service')
-      ? paramCategory
+    (resolvedCategory === 'roommate' || resolvedCategory === 'secondhand' || resolvedCategory === 'second_hand' || resolvedCategory === 'service')
+      ? (resolvedCategory === 'second_hand' ? 'secondhand' : resolvedCategory as PostCategory)
       : 'room';
   const [category, setCategory] = useState<PostCategory>(initialCategory);
 
   useEffect(() => {
-    if (paramCategory && ['room', 'roommate', 'secondhand', 'service'].includes(paramCategory)) {
-      setCategory(paramCategory as PostCategory);
+    const cat = (paramCategory || queryCategory || '').toLowerCase();
+    if (cat) {
+      if (cat === 'second_hand' || cat === 'secondhand') setCategory('secondhand');
+      else if (['room', 'roommate', 'service'].includes(cat)) setCategory(cat as PostCategory);
     }
-  }, [paramCategory]);
+  }, [paramCategory, queryCategory]);
 
   // Image Guidelines Modal State
   const [showImageGuide, setShowImageGuide] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   // 1. Room / Roommate Common Form State
@@ -143,6 +148,119 @@ export default function PostCreatePage() {
     'PCCC đạt chuẩn', 'Chỗ để xe', 'Camera an ninh', 'Wifi tốc độ cao'
   ];
 
+  // Fetch existing item for editing
+  useEffect(() => {
+    if (!editId) return;
+    setLoadingData(true);
+    const fetchExisting = async () => {
+      try {
+        if (category === 'room' || category === 'roommate') {
+          const res = await api.get(`/listings/${editId}`);
+          const d = res.data;
+          let imgs: string[] = [];
+          if (d.mediaJson) {
+            try {
+              const parsed = JSON.parse(d.mediaJson);
+              imgs = parsed.map((item: any) => typeof item === 'string' ? item : item.url).filter(Boolean);
+            } catch (ignored) {}
+          }
+          if (imgs.length === 0 && d.imageUrl) {
+            imgs = [d.imageUrl];
+          }
+          let ams: string[] = [];
+          if (d.amenities) {
+            ams = d.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
+          }
+          setRoomForm({
+            title: d.title || '',
+            name: d.name || d.title || '',
+            posterRelationship: d.posterRelationship || 'OWNER',
+            postType: d.postType || (category === 'roommate' ? 'O_GHEP' : 'ROOM_FOR_RENT'),
+            province: d.province || 'Hà Nội',
+            district: d.district || 'Thạch Thất',
+            ward: d.ward || '',
+            street: d.street || '',
+            latitude: d.latitude ? String(d.latitude) : '21.0125',
+            longitude: d.longitude ? String(d.longitude) : '105.5268',
+            university: d.nearestSchool || 'Đại học FPT',
+            nearestSchool: d.nearestSchool || 'Đại học FPT Hà Nội',
+            nearestSchoolDistanceKm: d.nearestSchoolDistanceKm ? String(d.nearestSchoolDistanceKm) : '1.2',
+            price: d.price ? String(d.price) : '',
+            deposit: d.deposit ? String(d.deposit) : '',
+            area: d.area ? String(d.area) : '',
+            propertyType: d.propertyType || 'Phòng trọ',
+            floorText: d.floorText || 'Tầng 2',
+            maxOccupants: d.maxOccupants ? String(d.maxOccupants) : '2',
+            furniture: d.furniture || 'basic',
+            electricityPrice: d.electricityPrice ? String(d.electricityPrice) : '3500',
+            waterPrice: d.waterPrice ? String(d.waterPrice) : '30000',
+            internetPrice: d.internetPrice ? String(d.internetPrice) : '100000',
+            parkingFee: d.parkingFee ? String(d.parkingFee) : '0',
+            otherFees: d.otherFees ? String(d.otherFees) : '0',
+            amenities: ams,
+            rules: d.rules || 'Giờ giấc tự do, không nuôi thú cưng',
+            contactPhone: d.contactPhone || user?.phone || '',
+            contactZalo: d.contactZalo || user?.phone || '',
+            description: d.description || '',
+            images: imgs,
+            videoUrl: ''
+          });
+        } else if (category === 'secondhand') {
+          const res = await api.get(`/content/secondhand/${editId}`);
+          const d = res.data?.item || res.data;
+          let imgs: string[] = [];
+          if (d.galleryJson) {
+            try {
+              imgs = JSON.parse(d.galleryJson);
+            } catch (ignored) {}
+          }
+          if (imgs.length === 0 && d.imageUrl) {
+            imgs = [d.imageUrl];
+          }
+          setSecondHandForm({
+            title: d.title || '',
+            category: d.category || 'Đồ gia dụng',
+            price: d.price ? String(d.price) : '',
+            conditionText: d.conditionText || 'Đã qua sử dụng',
+            province: d.province || 'Hà Nội',
+            district: d.district || 'Thạch Thất',
+            description: d.description || '',
+            images: imgs
+          });
+        } else if (category === 'service') {
+          const res = await api.get(`/content/services/${editId}`);
+          const d = res.data?.service || res.data;
+          let imgs: string[] = [];
+          if (d.galleryJson) {
+            try {
+              imgs = JSON.parse(d.galleryJson);
+            } catch (ignored) {}
+          }
+          if (imgs.length === 0 && d.imageUrl) {
+            imgs = [d.imageUrl];
+          }
+          setServiceForm({
+            title: d.title || '',
+            category: d.category || 'Vận chuyển & chuyển trọ',
+            priceFrom: d.priceFrom ? String(d.priceFrom) : '',
+            province: d.province || 'Hà Nội',
+            areaServed: d.serviceArea || 'Khu vực Hòa Lạc, Thạch Thất, Quốc Oai',
+            workingHours: d.businessHours || '08:00 - 20:00 hàng ngày',
+            phone: d.phone || user?.phone || '',
+            zalo: d.zaloUrl || user?.phone || '',
+            description: d.description || '',
+            images: imgs
+          });
+        }
+      } catch (err: any) {
+        setErrorMsg('Không thể tải dữ liệu bài đăng cần sửa.');
+      } finally {
+        setLoadingData(false);
+      }
+    };
+    fetchExisting();
+  }, [editId, category]);
+
   // Submit Handler
   const handleSubmit = async (isDraft: boolean) => {
     if (!user) {
@@ -200,8 +318,13 @@ export default function PostCreatePage() {
           listingStatus: isDraft ? 'DRAFT' : 'PENDING_REVIEW'
         };
 
-        await api.post('/listings', payload);
-        alert(isDraft ? 'Đã lưu bản nháp thành công!' : 'Đã gửi duyệt tin đăng thành công! Ban quản trị sẽ duyệt trong vòng 24h.');
+        if (editId) {
+          await api.put(`/listings/${editId}`, payload);
+          alert(isDraft ? 'Đã cập nhật bản nháp thành công!' : 'Đã cập nhật và gửi duyệt tin đăng thành công!');
+        } else {
+          await api.post('/listings', payload);
+          alert(isDraft ? 'Đã lưu bản nháp thành công!' : 'Đã gửi duyệt tin đăng thành công! Ban quản trị sẽ duyệt trong vòng 24h.');
+        }
         nav('/my-posts');
       } else if (category === 'secondhand') {
         if (!isDraft) {
@@ -220,11 +343,17 @@ export default function PostCreatePage() {
           district: secondHandForm.district,
           description: secondHandForm.description,
           imageUrl: secondHandForm.images[0] || '',
+          galleryJson: JSON.stringify(secondHandForm.images),
           imagesJson: JSON.stringify(secondHandForm.images),
-          status: isDraft ? 'DRAFT' : 'PENDING'
+          status: isDraft ? 'DRAFT' : 'PENDING_REVIEW'
         };
-        await api.post('/content/secondhand', payload);
-        alert(isDraft ? 'Đã lưu bản nháp đồ cũ!' : 'Đã đăng tin đồ cũ và gửi duyệt thành công!');
+        if (editId) {
+          await api.put(`/content/secondhand/${editId}`, payload);
+          alert(isDraft ? 'Đã cập nhật bản nháp đồ cũ!' : 'Đã cập nhật và gửi duyệt tin đồ cũ thành công!');
+        } else {
+          await api.post('/content/secondhand', payload);
+          alert(isDraft ? 'Đã lưu bản nháp đồ cũ!' : 'Đã đăng tin đồ cũ và gửi duyệt thành công!');
+        }
         nav('/my-posts');
       } else if (category === 'service') {
         if (!isDraft) {
@@ -239,13 +368,22 @@ export default function PostCreatePage() {
           category: serviceForm.category,
           priceFrom: parseInt(serviceForm.priceFrom || '0'),
           province: serviceForm.province,
-          description: `${serviceForm.description}\n\nKhu vực: ${serviceForm.areaServed}\nGiờ làm việc: ${serviceForm.workingHours}`,
+          serviceArea: serviceForm.areaServed,
+          businessHours: serviceForm.workingHours,
           phone: serviceForm.phone,
+          zaloUrl: serviceForm.zalo,
+          description: serviceForm.description,
           imageUrl: serviceForm.images[0] || '',
-          status: isDraft ? 'DRAFT' : 'PENDING'
+          galleryJson: JSON.stringify(serviceForm.images),
+          status: isDraft ? 'DRAFT' : 'PENDING_REVIEW'
         };
-        await api.post('/content/services', payload);
-        alert(isDraft ? 'Đã lưu bản nháp dịch vụ!' : 'Đã gửi dịch vụ lên kiểm duyệt thành công!');
+        if (editId) {
+          await api.put(`/content/services/${editId}`, payload);
+          alert(isDraft ? 'Đã cập nhật bản nháp dịch vụ!' : 'Đã cập nhật và gửi duyệt dịch vụ thành công!');
+        } else {
+          await api.post('/content/services', payload);
+          alert(isDraft ? 'Đã lưu bản nháp dịch vụ!' : 'Đã gửi dịch vụ lên kiểm duyệt thành công!');
+        }
         nav('/my-posts');
       }
     } catch (e: any) {
@@ -254,6 +392,15 @@ export default function PostCreatePage() {
       setSubmitting(false);
     }
   };
+
+  if (loadingData) {
+    return (
+      <div className="max-w-4xl mx-auto py-12 px-4 text-center">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent mb-4" />
+        <p className="text-sm font-semibold text-gray-600">Đang tải thông tin bài đăng...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto py-6 px-4 sm:px-6 space-y-6 animate-fade-in">

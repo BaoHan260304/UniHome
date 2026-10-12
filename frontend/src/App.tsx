@@ -281,6 +281,7 @@ function Layout() {
             <Route path="/saved" element={<SavedListingsPage />} />
             <Route path="/post/new" element={<PostCreatePage />} />
             <Route path="/post/new/:category" element={<PostCreatePage />} />
+            <Route path="/post/edit/:id" element={<PostCreatePage />} />
 
             {/* Unified posts & promotions */}
             <Route path="/my-posts" element={<MyPostsPage />} />

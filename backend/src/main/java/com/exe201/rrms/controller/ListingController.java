@@ -131,6 +131,53 @@ public class ListingController {
         return Map.of("property", p, "listing", l);
     }
 
+    @GetMapping("/{id}")
+    public Map<String, Object> getOne(@PathVariable Long id, HttpServletRequest r) {
+        User u = auth.current(r);
+        Listing l = listings.findById(id).orElseThrow();
+        owner(u, l);
+        Property p = props.findById(l.getPropertyId()).orElseThrow();
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", l.getId());
+        m.put("listingId", l.getId());
+        m.put("propertyId", p.getId());
+        m.put("title", l.getTitle() != null ? l.getTitle() : p.getName());
+        m.put("name", p.getName());
+        m.put("status", l.getStatus());
+        m.put("postType", p.getPostType());
+        m.put("posterRelationship", p.getPosterRelationship());
+        m.put("province", p.getProvince());
+        m.put("district", p.getDistrict());
+        m.put("ward", p.getWard());
+        m.put("street", p.getStreet());
+        m.put("latitude", p.getLatitude());
+        m.put("longitude", p.getLongitude());
+        m.put("price", p.getPrice());
+        m.put("deposit", p.getDeposit());
+        m.put("area", p.getArea());
+        m.put("propertyType", p.getPropertyType());
+        m.put("furniture", p.getFurniture());
+        m.put("floorText", p.getFloorText());
+        m.put("maxOccupants", p.getMaxOccupants());
+        m.put("electricityPrice", p.getElectricityPrice());
+        m.put("waterPrice", p.getWaterPrice());
+        m.put("internetPrice", p.getInternetPrice());
+        m.put("parkingFee", p.getParkingFee());
+        m.put("otherFees", p.getOtherFees());
+        m.put("nearestSchool", p.getNearestSchool());
+        m.put("nearestSchoolDistanceKm", p.getNearestSchoolDistanceKm());
+        m.put("amenities", p.getAmenities());
+        m.put("rules", p.getRules());
+        m.put("contactPhone", p.getContactPhone());
+        m.put("contactZalo", p.getContactZalo());
+        m.put("description", p.getDescription());
+        m.put("imageUrl", p.getImageUrl());
+        m.put("mediaJson", p.getMediaJson());
+        m.put("property", p);
+        m.put("listing", l);
+        return m;
+    }
+
     @PutMapping("/{id}")
     public Map<String, Object> update(@PathVariable Long id, HttpServletRequest r, @RequestBody Map<String, Object> b) {
         User u = auth.current(r);
@@ -140,7 +187,22 @@ public class ListingController {
         apply(p, b);
         props.save(p);
         if (b.get("title") != null) l.setTitle(b.get("title").toString());
-        if (List.of("ACTIVE", "PENDING_REVIEW", "NEED_REVISION").contains(l.getStatus())) {
+        if (b.get("listingStatus") != null) {
+            String targetStatus = b.get("listingStatus").toString();
+            if ("PENDING_REVIEW".equalsIgnoreCase(targetStatus)) {
+                int imgCount = countImages(p.getImageUrl(), p.getMediaJson());
+                String postType = p.getPostType() != null ? p.getPostType() : "ROOM_FOR_RENT";
+                boolean isRoommateOrTransfer = "O_GHEP".equalsIgnoreCase(postType) || "ROOM_TRANSFER".equalsIgnoreCase(postType) || "ROOMMATE".equalsIgnoreCase(postType);
+                int minImg = isRoommateOrTransfer ? 1 : 3;
+                if (imgCount < minImg) {
+                    throw new ValidationException("images", "Vui lòng tải lên tối thiểu " + minImg + " hình ảnh trước khi gửi duyệt.");
+                }
+                l.setStatus("PENDING_REVIEW");
+                l.setFreshnessDueAt(LocalDateTime.now().plusDays(15));
+            } else if ("DRAFT".equalsIgnoreCase(targetStatus)) {
+                l.setStatus("DRAFT");
+            }
+        } else if (List.of("ACTIVE", "PENDING_REVIEW", "NEED_REVISION").contains(l.getStatus())) {
             l.setStatus("PENDING_REVIEW");
             l.setRevisionNote("Thông tin đã thay đổi và cần kiểm duyệt lại");
         }

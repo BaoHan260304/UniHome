@@ -69,7 +69,7 @@ export default function CommunityPage() {
   const [stickerPacks, setStickerPacks] = useState<StickerPack[]>([]);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [selectedPackId, setSelectedPackId] = useState<number | null>(null);
-  const [onlineCount, setOnlineCount] = useState(42);
+  const [onlineCount, setOnlineCount] = useState(1);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationMode, setNotificationMode] = useState('MENTION_REPLY_ONLY');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -91,7 +91,7 @@ export default function CommunityPage() {
         }
       }
       if (previewRes.data) {
-        setOnlineCount(previewRes.data.onlineCount || 42);
+        setOnlineCount(previewRes.data.onlineCount || 1);
         setUnreadCount(previewRes.data.unreadCount || 0);
       }
     } catch (e: any) {

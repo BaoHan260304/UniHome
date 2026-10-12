@@ -49,6 +49,9 @@ public class MatchingController {
     @PutMapping("/profile")
     public MatchingProfile save(HttpServletRequest r, @RequestBody MatchingProfile d) {
         User u = auth.current(r);
+        if (List.of("ADMIN", "SUPER_ADMIN", "MODERATOR").contains(u.getRole())) {
+            throw new ValidationException("role", "Tài khoản quản trị viên không tham gia tính năng tìm người ở ghép.");
+        }
 
         Map<String, String> errors = new LinkedHashMap<>();
         if (Boolean.TRUE.equals(d.getEnabled())) {
