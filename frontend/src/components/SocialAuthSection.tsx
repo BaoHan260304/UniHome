@@ -294,62 +294,52 @@ export default function SocialAuthSection({ from = '/', onError }: Props) {
         )}
       </div>
 
-      {/* 2. Facebook Option */}
-      <div className="w-full">
-        {!isFbConfigured ? (
-          <div>
-            <button
-              type="button"
-              disabled
-              className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 border border-gray-200 rounded-xl text-xs font-semibold text-gray-400 bg-gray-50 cursor-not-allowed shadow-xs"
-            >
-              <FacebookIcon className="w-4 h-4 text-gray-400 opacity-60" />
-              <span>Tiếp tục với Facebook</span>
-            </button>
-            <p className="text-[11px] text-gray-400 text-center mt-1">Facebook Login chưa được cấu hình.</p>
-          </div>
-        ) : fbError ? (
-          <div>
-            <button
-              type="button"
-              disabled
-              className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 border border-red-200 rounded-xl text-xs font-semibold text-gray-400 bg-red-50/20 cursor-not-allowed shadow-xs"
-            >
-              <FacebookIcon className="w-4 h-4 text-gray-400 opacity-60" />
-              <span>Tiếp tục với Facebook</span>
-            </button>
-            <p className="text-[11px] text-red-500 text-center mt-1">{fbError}</p>
-          </div>
-        ) : fbLoading && !fbReady ? (
-          <button
-            type="button"
-            disabled
-            className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 border border-gray-200 rounded-xl text-xs font-semibold text-gray-500 bg-gray-50 cursor-not-allowed shadow-xs"
-          >
-            <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin" />
-            <span>Đang tải Facebook...</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleFacebookClick}
-            disabled={fbAuthenticating}
-            className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 border border-gray-300 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-xs disabled:opacity-60"
-          >
-            {fbAuthenticating ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-[#1877F2] rounded-full animate-spin" />
-                <span>Đang kết nối Facebook...</span>
-              </>
-            ) : (
-              <>
-                <FacebookIcon className="w-4 h-4 text-[#1877F2]" />
+      {/* 2. Facebook Option (hidden if not configured) */}
+      {isFbConfigured && (
+        <div className="w-full">
+          {fbError ? (
+            <div>
+              <button
+                type="button"
+                disabled
+                className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 border border-red-200 rounded-xl text-xs font-semibold text-gray-400 bg-red-50/20 cursor-not-allowed shadow-xs"
+              >
+                <FacebookIcon className="w-4 h-4 text-gray-400 opacity-60" />
                 <span>Tiếp tục với Facebook</span>
-              </>
-            )}
-          </button>
-        )}
-      </div>
+              </button>
+              <p className="text-[11px] text-red-500 text-center mt-1">{fbError}</p>
+            </div>
+          ) : fbLoading && !fbReady ? (
+            <button
+              type="button"
+              disabled
+              className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 border border-gray-200 rounded-xl text-xs font-semibold text-gray-500 bg-gray-50 cursor-not-allowed shadow-xs"
+            >
+              <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin" />
+              <span>Đang tải Facebook...</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleFacebookClick}
+              disabled={fbAuthenticating}
+              className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 border border-gray-300 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-xs disabled:opacity-60"
+            >
+              {fbAuthenticating ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-[#1877F2] rounded-full animate-spin" />
+                  <span>Đang kết nối Facebook...</span>
+                </>
+              ) : (
+                <>
+                  <FacebookIcon className="w-4 h-4 text-[#1877F2]" />
+                  <span>Tiếp tục với Facebook</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

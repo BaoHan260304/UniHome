@@ -4,7 +4,7 @@
 -- Idempotent and safe migration for existing rrmsdb database
 -- ================================================================
 
-USE rrmsdb;
+USE unihome_demo;
 SET NAMES utf8mb4;
 
 DROP PROCEDURE IF EXISTS unihome_add_col_if_missing;

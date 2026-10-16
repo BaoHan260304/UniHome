@@ -2,7 +2,7 @@
 -- UNiHOME DATABASE MIGRATION 07: MASTER ARCHITECTURE UNIFICATION
 -- Safe migration: No DROP TABLE, preserves user data and production records.
 -- =====================================================================
-
+USE unihome_demo;
 -- 1. Unify regular accounts to role 'USER' while preserving system admin roles
 UPDATE users 
 SET role = 'USER' 

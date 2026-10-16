@@ -1572,23 +1572,35 @@ export default function AdminDashboard() {
         <div className="space-y-3">
           {(data.items || []).map((x: any) => (
             <div key={x.id} className="bg-white border rounded-2xl p-5 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center shadow-xs">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-gray-900 text-base">{x.title}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                    x.status === 'PENDING_REVIEW' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    #{x.id} • {x.status}
-                  </span>
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
+                  <img
+                    src={resolveMediaUrl(x.imageUrl) || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800'}
+                    alt=""
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800';
+                    }}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Chủ trọ ID: #{x.landlordId} • Giá: {money(x.price)} • Địa chỉ: {x.address || '—'}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-gray-900 text-base">{x.title}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                      x.status === 'PENDING_REVIEW' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      #{x.id} • {x.status}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Chủ trọ ID: #{x.landlordId} • Giá: {money(x.price)} • Địa chỉ: {x.address || '—'}
+                  </div>
+                  {x.revisionNote && (
+                    <div className="text-xs text-red-600 font-semibold mt-1">Ghi chú hiện tại: {x.revisionNote}</div>
+                  )}
                 </div>
-                {x.revisionNote && (
-                  <div className="text-xs text-red-600 font-semibold mt-1">Ghi chú hiện tại: {x.revisionNote}</div>
-                )}
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 shrink-0">
                 <button
                   onClick={() => moderate(x.id, 'APPROVE')}
                   className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors"

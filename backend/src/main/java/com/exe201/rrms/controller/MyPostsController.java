@@ -106,7 +106,7 @@ public class MyPostsController {
 
                     // First image
                     String img = null;
-                    if (p != null && p.getImageUrl() != null && !p.getImageUrl().isBlank()) {
+                    if (p != null) {
                         img = extractFirstImage(p.getImageUrl(), p.getMediaJson());
                     }
                     item.put("imageUrl", img);

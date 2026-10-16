@@ -2,7 +2,8 @@
 -- UNiHOME MASTER DEMO DATA & UTF-8 CLEAN SEED (09_demo_master_clean_utf8.sql)
 -- Safe migration: Fixes mojibake, enriches demo data across all modules
 -- ==============================================================================
-
+USE unihome_demo;
+SET FOREIGN_KEY_CHECKS = 0; -- DÒNG NÀY ĐÂY! Tắt kiểm tra khóa ngoại để nạp data mượt mà
 SET NAMES utf8mb4;
 SET CHARACTER SET utf8mb4;
 
@@ -815,3 +816,4 @@ INSERT INTO analytics_event (user_id, session_id, event_type, entity_type, entit
 (9, 'sess_0308_9', 'PAGE_VIEW', 'BLOG', 72, '{"device":"mobile","browser":"Chrome","duration":53}', DATE_ADD(NOW(), INTERVAL -3696 MINUTE)),
 (10, 'sess_0309_10', 'SEARCH', 'QUESTION', 73, '{"device":"mobile","browser":"Chrome","duration":54}', DATE_ADD(NOW(), INTERVAL -3708 MINUTE)),
 (11, 'sess_0310_11', 'VIEW_LISTING', 'ROOM', 74, '{"device":"mobile","browser":"Chrome","duration":55}', DATE_ADD(NOW(), INTERVAL -3720 MINUTE));
+SET FOREIGN_KEY_CHECKS = 1;

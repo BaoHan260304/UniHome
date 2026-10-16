@@ -17,6 +17,7 @@ export default function PropertyDetail() {
   const [services, setServices] = useState<any[]>([]);
   const [panoramas, setPanoramas] = useState<string[]>([]);
   const [activePanoramaUrl, setActivePanoramaUrl] = useState<string | null>(null);
+  const [selectedMediaIdx, setSelectedMediaIdx] = useState(0);
   const [interestStatus, setInterestStatus] = useState<{ interested: boolean; matchingEnabled: boolean; favorite: boolean }>({
     interested: false,
     matchingEnabled: false,
@@ -158,7 +159,21 @@ export default function PropertyDetail() {
     );
   }
 
-  const media = mediaList(prop.imageUrl);
+  let media: string[] = [];
+  if (prop.mediaJson) {
+    try {
+      const parsed = typeof prop.mediaJson === 'string' ? JSON.parse(prop.mediaJson.trim()) : prop.mediaJson;
+      if (Array.isArray(parsed)) {
+        media = parsed
+          .filter((x: any) => x.type === 'IMAGE' || x.type === 'VIDEO' || !x.type)
+          .map((x: any) => (typeof x === 'string' ? x : x.url))
+          .filter(Boolean);
+      }
+    } catch {}
+  }
+  if (media.length === 0 && prop.imageUrl) {
+    media = mediaList(prop.imageUrl);
+  }
   const verification = prop.verification || {};
 
   const reveal = () => {
@@ -252,40 +267,125 @@ export default function PropertyDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-8">
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-          {/* Gallery */}
-          <div className="relative">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-1 bg-gray-100">
-              {media.length ? (
-                media.map((u: string, i: number) => {
-                  const resolved = resolveMediaUrl(u);
-                  const isVid = u.startsWith('data:video') || u.endsWith('.mp4') || u.endsWith('.webm');
-                  return (
-                    <div key={i} className={`${media.length === 1 ? 'md:col-span-2' : ''} h-72 md:h-96 bg-black relative`}>
-                      {isVid ? (
-                        <video src={resolved} controls playsInline preload="metadata" className="w-full h-full object-cover" />
-                      ) : (
-                        <img src={resolved} alt={prop.title} className="w-full h-full object-cover" />
-                      )}
-                    </div>
+          {/* Gallery - Hero View with Thumbnails Strip below */}
+          <div className="relative bg-black flex flex-col">
+            {/* Main Hero Viewer */}
+            <div className="relative w-full h-80 sm:h-96 md:h-[480px] bg-black flex items-center justify-center overflow-hidden select-none">
+              {media.length > 0 ? (
+                (() => {
+                  const safeIdx = Math.min(selectedMediaIdx, media.length - 1);
+                  const currentItem = media[safeIdx] || media[0];
+                  const resolvedCurrent = resolveMediaUrl(currentItem);
+                  const isCurrentVid = currentItem.startsWith('data:video') || currentItem.endsWith('.mp4') || currentItem.endsWith('.webm');
+
+                  return isCurrentVid ? (
+                    <video
+                      key={resolvedCurrent}
+                      src={resolvedCurrent}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <img
+                      key={resolvedCurrent}
+                      src={resolvedCurrent}
+                      alt={prop.title}
+                      className="w-full h-full object-contain"
+                    />
                   );
-                })
+                })()
               ) : (
-                <div className="md:col-span-2 h-64 flex items-center justify-center text-gray-400">
+                <div className="text-gray-400 text-sm">
                   Không có hình ảnh/video
+                </div>
+              )}
+
+              {/* Prev / Next buttons on Hero Viewer */}
+              {media.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMediaIdx(prev => (prev - 1 + media.length) % media.length)}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/85 hover:bg-white text-gray-800 shadow-lg flex items-center justify-center backdrop-blur-md transition-all hover:scale-110 cursor-pointer z-10"
+                    title="Ảnh trước"
+                    aria-label="Ảnh trước"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMediaIdx(prev => (prev + 1) % media.length)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/85 hover:bg-white text-gray-800 shadow-lg flex items-center justify-center backdrop-blur-md transition-all hover:scale-110 cursor-pointer z-10"
+                    title="Ảnh tiếp theo"
+                    aria-label="Ảnh tiếp theo"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+
+                  {/* Counter Badge on bottom-right of hero */}
+                  <div className="absolute bottom-4 right-4 z-10 bg-black/60 backdrop-blur-md text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md pointer-events-none">
+                    {Math.min(selectedMediaIdx, media.length - 1) + 1}/{media.length}
+                  </div>
+                </>
+              )}
+
+              {/* 360 Panorama CTA button */}
+              {panoramas.length > 0 && (
+                <div className="absolute bottom-4 left-4 z-10">
+                  <button
+                    onClick={() => setActivePanoramaUrl(panoramas[0])}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-2xl font-bold text-xs shadow-lg flex items-center gap-2 backdrop-blur-xs transition-all hover:scale-105 cursor-pointer"
+                  >
+                    <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-extrabold">360°</span>
+                    Trải nghiệm Panorama ({panoramas.length})
+                  </button>
                 </div>
               )}
             </div>
 
-            {/* 360 Panorama CTA button */}
-            {panoramas.length > 0 && (
-              <div className="absolute bottom-4 right-4 z-10">
-                <button
-                  onClick={() => setActivePanoramaUrl(panoramas[0])}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-2xl font-bold text-xs shadow-lg flex items-center gap-2 backdrop-blur-xs transition-all hover:scale-105"
-                >
-                  <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-extrabold">360°</span>
-                  Trải nghiệm Panorama ({panoramas.length})
-                </button>
+            {/* Thumbnail Strip underneath hero (List ảnh dưới) */}
+            {media.length > 1 && (
+              <div className="p-3 sm:p-4 bg-white border-b border-gray-100 flex items-center gap-3 overflow-x-auto scrollbar-thin">
+                {media.map((u: string, i: number) => {
+                  const resolved = resolveMediaUrl(u);
+                  const isVid = u.startsWith('data:video') || u.endsWith('.mp4') || u.endsWith('.webm');
+                  const isSelected = i === Math.min(selectedMediaIdx, media.length - 1);
+
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setSelectedMediaIdx(i)}
+                      className={`relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-2xl overflow-hidden border-2 transition-all cursor-pointer bg-gray-100 ${
+                        isSelected
+                          ? 'border-indigo-600 ring-2 ring-indigo-300 scale-105 shadow-sm'
+                          : 'border-transparent opacity-65 hover:opacity-100 hover:border-gray-300'
+                      }`}
+                      aria-label={`Xem ảnh ${i + 1}`}
+                    >
+                      {isVid ? (
+                        <div className="w-full h-full relative bg-gray-900 flex items-center justify-center">
+                          <video src={resolved} className="w-full h-full object-cover pointer-events-none" />
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <div className="w-6 h-6 rounded-full bg-white/90 flex items-center justify-center shadow-xs">
+                              <svg className="w-3.5 h-3.5 text-gray-900 fill-current ml-0.5" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <img src={resolved} alt="" className="w-full h-full object-cover" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -104,6 +104,13 @@ export default function ChatCenter() {
 
   const fetchSingleConversationAndSelect = async (convId: number) => {
     try {
+      try {
+        const cRes = await api.get(`/chat/conversations/${convId}`);
+        if (cRes.data) {
+          setActive(cRes.data);
+        }
+      } catch {}
+
       const r = await api.get(`/chat/${convId}/messages`, { params: { size: 30 } });
       const messagesData = Array.isArray(r.data) ? r.data : (r.data?.messages || []);
       setMsgs(messagesData);
@@ -253,6 +260,28 @@ export default function ChatCenter() {
     }
   };
 
+  // Hide / Unhide conversation
+  const handleToggleHide = async () => {
+    if (!active) return;
+    setHeaderMenuOpen(false);
+    const currentlyHidden = Boolean(active.isHidden);
+    try {
+      if (currentlyHidden) {
+        await api.post(`/chat/${active.id}/unhide`);
+        setActive((prev: any) => ({ ...prev, isHidden: false }));
+        showToast('Đã bỏ ẩn và khôi phục cuộc trò chuyện về hộp thư chính.');
+      } else {
+        await api.post(`/chat/${active.id}/hide`);
+        setActive((prev: any) => ({ ...prev, isHidden: true }));
+        showToast('Đã ẩn cuộc trò chuyện vào mục Đã ẩn.');
+      }
+      void loadConvs(active.id);
+      notifyUnreadUpdated();
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Không thể thay đổi trạng thái ẩn', true);
+    }
+  };
+
   // Delete conversation completely
   const handleDeleteConversation = async () => {
     if (!active) return;
@@ -397,6 +426,15 @@ export default function ChatCenter() {
             >
               Chưa đọc
             </button>
+            <button
+              type="button"
+              onClick={() => setTab('HIDDEN')}
+              className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-colors text-center ${
+                tab === 'HIDDEN' ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              🗄️ Đã ẩn
+            </button>
           </div>
 
           {/* Search box */}
@@ -483,6 +521,8 @@ export default function ChatCenter() {
               <div className="p-8 text-center text-xs text-gray-400">
                 {tab === 'UNREAD'
                   ? 'Không có tin nhắn chưa đọc.'
+                  : tab === 'HIDDEN'
+                  ? 'Không có cuộc trò chuyện nào bị ẩn.'
                   : 'Chưa có cuộc trò chuyện nào. Bạn có thể bấm "Chat với chủ trọ" trên bất kỳ tin phòng nào để bắt đầu!'}
               </div>
             )}
@@ -597,6 +637,14 @@ export default function ChatCenter() {
                           </button>
                           <button
                             type="button"
+                            onClick={handleToggleHide}
+                            className="w-full text-left px-4 py-2 hover:bg-gray-50 text-gray-700 flex items-center gap-2.5"
+                          >
+                            <span>{active.isHidden ? '👁️' : '🗄️'}</span>
+                            {active.isHidden ? 'Bỏ ẩn cuộc trò chuyện' : 'Ẩn cuộc trò chuyện'}
+                          </button>
+                          <button
+                            type="button"
                             onClick={handleDeleteConversation}
                             className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2.5 font-bold"
                           >
@@ -638,6 +686,37 @@ export default function ChatCenter() {
               {actionError && (
                 <div className="px-4 py-2 bg-red-50 text-red-800 text-xs font-semibold border-b border-red-100 text-center animate-fade-in">
                   ⚠ {actionError}
+                </div>
+              )}
+
+              {/* Hidden status notice */}
+              {active.isHidden && (
+                <div className="px-4 py-2 bg-gray-100 border-b border-gray-200 flex items-center justify-between text-xs text-gray-600 animate-fade-in">
+                  <span className="flex items-center gap-1.5">
+                    <span>🗄️</span> Cuộc trò chuyện này đang nằm trong mục <b>Đã ẩn</b>.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleToggleHide}
+                    className="font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+                  >
+                    Bỏ ẩn ngay
+                  </button>
+                </div>
+              )}
+
+              {/* Uninterested / Cancelled matching notice */}
+              {active.hasUninterestedParty && (
+                <div className="mx-4 mt-3 mb-1 p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-start gap-2.5 shadow-2xs animate-fade-in">
+                  <span className="text-base leading-none">ℹ️</span>
+                  <div className="flex-1 space-y-1">
+                    <p className="font-bold text-amber-950">
+                      Thông tin bài đăng: {active.uninterestedNotice || 'Một trong hai bạn đã hủy quan tâm bài đăng phòng này.'}
+                    </p>
+                    <p className="text-[11px] text-amber-800">
+                      Hai bạn vẫn có thể tiếp tục trò chuyện để cùng tìm phòng khác, hoặc sử dụng menu <span className="font-bold">⋮</span> để <b>Ẩn</b> hoặc <b>Chặn</b> nếu không còn nhu cầu.
+                    </p>
+                  </div>
                 </div>
               )}
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { api, getUser, money, resolveMediaUrl } from '../lib/api';
+import { api, getUser, mediaList, money, resolveMediaUrl } from '../lib/api';
 import PremiumProfilePopover from '../components/PremiumProfilePopover';
 
 export default function SecondHandDetail() {
@@ -14,6 +14,7 @@ export default function SecondHandDetail() {
   const [revealedPhone, setRevealedPhone] = useState<string | null>(null);
   const [revealing, setRevealing] = useState(false);
   const [popoverUserId, setPopoverUserId] = useState<number | null>(null);
+  const [activeImageIdx, setActiveImageIdx] = useState(0);
 
   const load = () => {
     api.get(`/content/secondhand/${id}`).then(r => {
@@ -96,19 +97,89 @@ export default function SecondHandDetail() {
 
       <div className="bg-white border rounded-3xl overflow-hidden shadow-sm">
         <div className="grid md:grid-cols-2">
-          {/* Image */}
-          <div className="bg-gray-100 min-h-80 flex items-center justify-center relative">
-            {item.imageUrl ? (
-              <img src={resolveMediaUrl(item.imageUrl)} alt={item.title} className="w-full h-full object-cover max-h-[420px]" />
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-400 text-sm">
-                Không có ảnh sản phẩm
+          {/* Image & Gallery */}
+          {(() => {
+            const gallery: string[] = (() => {
+              if (item.galleryJson) {
+                const parsed = mediaList(item.galleryJson);
+                if (parsed.length > 0) return parsed;
+              }
+              if (item.imagesJson) {
+                const parsed = mediaList(item.imagesJson);
+                if (parsed.length > 0) return parsed;
+              }
+              if (item.imageUrl) return [item.imageUrl];
+              return [];
+            })();
+
+            const currentImg = gallery[activeImageIdx] || item.imageUrl || '';
+
+            return (
+              <div className="bg-gray-100 flex flex-col justify-between relative select-none">
+                <div className="relative min-h-80 flex-1 flex items-center justify-center overflow-hidden bg-gray-900">
+                  {currentImg ? (
+                    <img
+                      src={resolveMediaUrl(currentImg)}
+                      alt={item.title}
+                      className="w-full h-full object-contain max-h-[420px]"
+                    />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-400 text-sm">
+                      Không có ảnh sản phẩm
+                    </div>
+                  )}
+                  <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-xs px-3 py-1 rounded-full text-xs font-bold text-gray-700 shadow-xs z-10">
+                    {item.category || 'Đồ dùng'}
+                  </span>
+
+                  {gallery.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setActiveImageIdx(prev => (prev - 1 + gallery.length) % gallery.length)}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 hover:bg-white text-gray-800 shadow-md flex items-center justify-center transition-all cursor-pointer z-10"
+                        title="Ảnh trước"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveImageIdx(prev => (prev + 1) % gallery.length)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 hover:bg-white text-gray-800 shadow-md flex items-center justify-center transition-all cursor-pointer z-10"
+                        title="Ảnh tiếp"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                      <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full z-10">
+                        {activeImageIdx + 1}/{gallery.length}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {gallery.length > 1 && (
+                  <div className="p-3 bg-white border-t flex gap-2 overflow-x-auto">
+                    {gallery.map((img, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setActiveImageIdx(i)}
+                        className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                          i === activeImageIdx ? 'border-indigo-600 ring-2 ring-indigo-200' : 'border-gray-200 opacity-60 hover:opacity-100'
+                        }`}
+                      >
+                        <img src={resolveMediaUrl(img)} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-            <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-xs px-3 py-1 rounded-full text-xs font-bold text-gray-700 shadow-xs">
-              {item.category || 'Đồ dùng'}
-            </span>
-          </div>
+            );
+          })()}
 
           {/* Details */}
           <div className="p-6 md:p-8 flex flex-col justify-between space-y-4">

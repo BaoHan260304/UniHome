@@ -24,6 +24,7 @@ public class ChatController {
     private final UserBlockRepository blocks;
     private final ConversationParticipantSettingRepository participantSettings;
     private final ReportRepository reports;
+    private final ListingInterestRepository interests;
     private final com.exe201.rrms.service.NotificationService noti;
 
     public ChatController(AuthService auth, ConversationRepository conversations, MessageRepository messages,
@@ -32,6 +33,7 @@ public class ChatController {
                           UserBlockRepository blocks,
                           ConversationParticipantSettingRepository participantSettings,
                           ReportRepository reports,
+                          ListingInterestRepository interests,
                           com.exe201.rrms.service.NotificationService noti) {
         this.auth = auth;
         this.conversations = conversations;
@@ -44,7 +46,61 @@ public class ChatController {
         this.blocks = blocks;
         this.participantSettings = participantSettings;
         this.reports = reports;
+        this.interests = interests;
         this.noti = noti;
+    }
+
+    public Map<String, Object> toConversationDto(Conversation c, Long me) {
+        Long otherId = c.getUser1Id().equals(me) ? c.getUser2Id() : c.getUser1Id();
+        boolean isBlockedByMe = blocks.existsByBlockerIdAndBlockedId(me, otherId);
+        boolean isBlockedByOther = blocks.existsByBlockerIdAndBlockedId(otherId, me);
+        boolean isBlocked = isBlockedByMe || isBlockedByOther;
+
+        var setting = participantSettings.findByConversationIdAndUserId(c.getId(), me).orElse(null);
+        boolean isHidden = setting != null && Boolean.TRUE.equals(setting.getIsHidden());
+        boolean isMuted = setting != null && Boolean.TRUE.equals(setting.getIsMuted());
+
+        long unread = messages.countByConversationIdAndSenderIdNotAndReadAtIsNull(c.getId(), me);
+
+        User other = users.findById(otherId).orElse(null);
+        String otherName = (other != null && other.getFullName() != null && !other.getFullName().isBlank())
+                ? other.getFullName().trim()
+                : (other != null && other.getEmail() != null ? other.getEmail().split("@")[0] : "Người dùng");
+
+        Map<String, Object> dto = new LinkedHashMap<>();
+        dto.put("id", c.getId());
+        dto.put("conversationId", c.getId());
+        dto.put("otherUserId", otherId);
+        dto.put("otherUserName", otherName);
+        dto.put("otherUserAvatar", other != null ? other.getAvatarUrl() : null);
+        dto.put("otherUserRole", other != null ? other.getRole() : "USER");
+        dto.put("isMuted", isMuted);
+        dto.put("isHidden", isHidden);
+        dto.put("isBlocked", isBlocked);
+        dto.put("isBlockedByMe", isBlockedByMe);
+        dto.put("isBlockedByOther", isBlockedByOther);
+
+        dto.put("contextType", c.getContextType());
+        dto.put("contextId", c.getContextId());
+        dto.put("updatedAt", c.getUpdatedAt());
+
+        // Context card metadata
+        resolveContext(c, dto);
+
+        // Last message & unread
+        Optional<Message> last = messages.findTopByConversationIdOrderBySentAtDesc(c.getId());
+        if (last.isPresent()) {
+            dto.put("lastMessage", last.get().getContent());
+            dto.put("lastMessageTime", last.get().getSentAt());
+            dto.put("lastSenderId", last.get().getSenderId());
+        } else {
+            dto.put("lastMessage", "Chưa có tin nhắn");
+            dto.put("lastMessageTime", c.getCreatedAt());
+            dto.put("lastSenderId", null);
+        }
+
+        dto.put("unreadCount", unread);
+        return dto;
     }
 
     @GetMapping("/conversations")
@@ -59,16 +115,9 @@ public class ChatController {
         List<Map<String, Object>> filtered = new ArrayList<>();
 
         for (Conversation c : list) {
-            Long otherId = c.getUser1Id().equals(me) ? c.getUser2Id() : c.getUser1Id();
-            boolean isBlockedByMe = blocks.existsByBlockerIdAndBlockedId(me, otherId);
-            boolean isBlockedByOther = blocks.existsByBlockerIdAndBlockedId(otherId, me);
-            boolean isBlocked = isBlockedByMe || isBlockedByOther;
-
-            var setting = participantSettings.findByConversationIdAndUserId(c.getId(), me).orElse(null);
-            boolean isHidden = setting != null && Boolean.TRUE.equals(setting.getIsHidden());
-            boolean isMuted = setting != null && Boolean.TRUE.equals(setting.getIsMuted());
-
-            long unread = messages.countByConversationIdAndSenderIdNotAndReadAtIsNull(c.getId(), me);
+            Map<String, Object> dto = toConversationDto(c, me);
+            boolean isHidden = Boolean.TRUE.equals(dto.get("isHidden"));
+            long unread = ((Number) dto.getOrDefault("unreadCount", 0L)).longValue();
 
             // Tab filtering
             if ("HIDDEN".equalsIgnoreCase(filter)) {
@@ -79,49 +128,11 @@ public class ChatController {
                 if (isHidden) continue;
             }
 
-            User other = users.findById(otherId).orElse(null);
-            String otherName = (other != null && other.getFullName() != null && !other.getFullName().isBlank())
-                    ? other.getFullName().trim()
-                    : (other != null && other.getEmail() != null ? other.getEmail().split("@")[0] : "Người dùng");
-
-            Map<String, Object> dto = new LinkedHashMap<>();
-            dto.put("id", c.getId());
-            dto.put("conversationId", c.getId());
-            dto.put("otherUserId", otherId);
-            dto.put("otherUserName", otherName);
-            dto.put("otherUserAvatar", other != null ? other.getAvatarUrl() : null);
-            dto.put("otherUserRole", other != null ? other.getRole() : "USER");
-            dto.put("isMuted", isMuted);
-            dto.put("isHidden", isHidden);
-            dto.put("isBlocked", isBlocked);
-            dto.put("isBlockedByMe", isBlockedByMe);
-            dto.put("isBlockedByOther", isBlockedByOther);
-
-            dto.put("contextType", c.getContextType());
-            dto.put("contextId", c.getContextId());
-            dto.put("updatedAt", c.getUpdatedAt());
-
-            // Context card metadata
-            resolveContext(c, dto);
-
-            // Last message & unread
-            Optional<Message> last = messages.findTopByConversationIdOrderBySentAtDesc(c.getId());
-            if (last.isPresent()) {
-                dto.put("lastMessage", last.get().getContent());
-                dto.put("lastMessageTime", last.get().getSentAt());
-                dto.put("lastSenderId", last.get().getSenderId());
-            } else {
-                dto.put("lastMessage", "Chưa có tin nhắn");
-                dto.put("lastMessageTime", c.getCreatedAt());
-                dto.put("lastSenderId", null);
-            }
-
-            dto.put("unreadCount", unread);
-
             // Search filter by keyword
             if (keyword != null && !keyword.isBlank()) {
                 String kw = keyword.toLowerCase().trim();
-                boolean match = otherName.toLowerCase().contains(kw)
+                String otherName = String.valueOf(dto.getOrDefault("otherUserName", "")).toLowerCase();
+                boolean match = otherName.contains(kw)
                         || (dto.get("lastMessage") != null && dto.get("lastMessage").toString().toLowerCase().contains(kw))
                         || (dto.get("contextTitle") != null && dto.get("contextTitle").toString().toLowerCase().contains(kw));
                 if (!match) continue;
@@ -143,6 +154,15 @@ public class ChatController {
         res.put("totalElements", total);
         res.put("totalPages", totalPages);
         return res;
+    }
+
+    @GetMapping({"/{conversationId}", "/conversations/{conversationId}"})
+    public Map<String, Object> getConversation(@PathVariable Long conversationId, HttpServletRequest request) {
+        User user = auth.current(request);
+        Conversation c = conversations.findById(conversationId)
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy hội thoại #" + conversationId));
+        checkConversationPermission(user, c);
+        return toConversationDto(c, user.getId());
     }
 
     @GetMapping({"/unread-count", "/unread"})
@@ -226,17 +246,7 @@ public class ChatController {
                     return conversations.save(c);
                 });
 
-        Map<String, Object> dto = new LinkedHashMap<>();
-        dto.put("id", conv.getId());
-        dto.put("conversationId", conv.getId());
-        dto.put("otherUserId", other);
-        User otherUser = users.findById(other).orElse(null);
-        dto.put("otherUserName", otherUser != null ? otherUser.getFullName() : "Người dùng #" + other);
-        dto.put("otherUserAvatar", otherUser != null ? otherUser.getAvatarUrl() : null);
-        dto.put("contextType", conv.getContextType());
-        dto.put("contextId", conv.getContextId());
-        resolveContext(conv, dto);
-        return dto;
+        return toConversationDto(conv, me);
     }
 
     @GetMapping({"/{conversationId}/messages", "/conversations/{conversationId}/messages"})
@@ -377,6 +387,16 @@ public class ChatController {
                         dto.put("contextPrice", p.getPrice());
                     });
                 });
+                if ("ROOM_MATCH".equalsIgnoreCase(type)) {
+                    boolean u1Interested = interests.findByListingIdAndUserId(cid, c.getUser1Id())
+                            .map(i -> Boolean.TRUE.equals(i.getMatchingEnabled())).orElse(false);
+                    boolean u2Interested = interests.findByListingIdAndUserId(cid, c.getUser2Id())
+                            .map(i -> Boolean.TRUE.equals(i.getMatchingEnabled())).orElse(false);
+                    if (!u1Interested || !u2Interested) {
+                        dto.put("hasUninterestedParty", true);
+                        dto.put("uninterestedNotice", "Một trong hai bạn đã hủy quan tâm bài đăng phòng này.");
+                    }
+                }
             }
             if (!dto.containsKey("contextTitle")) dto.put("contextTitle", "Phòng trọ #" + cid);
         } else if ("SECOND_HAND".equalsIgnoreCase(type)) {

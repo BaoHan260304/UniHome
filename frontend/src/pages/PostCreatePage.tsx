@@ -1,6 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { api, getUser } from '../lib/api';
+import { api, getUser, resolveMediaUrl } from '../lib/api';
+import {
+  PROVINCE_LIST,
+  getDistrictsByProvince,
+  getWardsByDistrict,
+  formatCurrencyInput,
+  formatAmountWords
+} from '../lib/vietnamLocations';
 
 type PostCategory = 'room' | 'roommate' | 'secondhand' | 'service';
 
@@ -95,8 +102,116 @@ export default function PostCreatePage() {
     images: [] as string[]
   });
 
-  // Image upload helper
+  // Media upload helpers
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState('');
   const [newImageUrl, setNewImageUrl] = useState('');
+
+  const handleImageFilesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const maxAllowed = (category === 'room' || category === 'roommate') ? 20 : 10;
+    const currentImgs = (category === 'room' || category === 'roommate')
+      ? roomForm.images
+      : category === 'secondhand'
+      ? secondHandForm.images
+      : serviceForm.images;
+
+    if (currentImgs.length >= maxAllowed) {
+      alert(`Bạn đã đạt số lượng ảnh tối đa (${maxAllowed} ảnh).`);
+      if (e.target) e.target.value = '';
+      return;
+    }
+
+    const availableSlots = maxAllowed - currentImgs.length;
+    const filesToUpload = Array.from(files).slice(0, availableSlots);
+    if (files.length > availableSlots) {
+      alert(`Chỉ có thể thêm ${availableSlots} ảnh nữa để đạt tối đa ${maxAllowed} ảnh.`);
+    }
+
+    setUploadingMedia(true);
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i];
+        setUploadProgressText(`Đang tải ảnh ${i + 1}/${filesToUpload.length}: ${file.name}...`);
+
+        if (file.size > 8 * 1024 * 1024) {
+          alert(`File "${file.name}" vượt quá giới hạn 8MB và sẽ bị bỏ qua.`);
+          continue;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('mediaType', 'IMAGE');
+
+        const res = await api.post('/listings/media', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        if (res.data?.url) {
+          uploadedUrls.push(res.data.url);
+        }
+      }
+
+      if (uploadedUrls.length > 0) {
+        if (category === 'room' || category === 'roommate') {
+          setRoomForm(prev => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
+        } else if (category === 'secondhand') {
+          setSecondHandForm(prev => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
+        } else if (category === 'service') {
+          setServiceForm(prev => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
+        }
+      }
+    } catch (err: any) {
+      console.error('Lỗi khi tải ảnh:', err);
+      alert(err.response?.data?.message || err.message || 'Tải ảnh thất bại. Vui lòng thử lại.');
+    } finally {
+      setUploadingMedia(false);
+      setUploadProgressText('');
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleVideoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 100 * 1024 * 1024) {
+      alert('Video không được vượt quá 100MB.');
+      if (e.target) e.target.value = '';
+      return;
+    }
+
+    setUploadingMedia(true);
+    setUploadProgressText(`Đang tải video "${file.name}" lên máy chủ...`);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('mediaType', 'VIDEO');
+
+      const res = await api.post('/listings/media', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      if (res.data?.url) {
+        setRoomForm(prev => ({ ...prev, videoUrl: res.data.url }));
+      }
+    } catch (err: any) {
+      console.error('Lỗi tải video:', err);
+      alert(err.response?.data?.message || err.message || 'Tải video thất bại.');
+    } finally {
+      setUploadingMedia(false);
+      setUploadProgressText('');
+      if (e.target) e.target.value = '';
+    }
+  };
+
   const addImage = (targetCat: PostCategory) => {
     if (!newImageUrl.trim()) return;
     const url = newImageUrl.trim();
@@ -148,6 +263,44 @@ export default function PostCreatePage() {
     'PCCC đạt chuẩn', 'Chỗ để xe', 'Camera an ninh', 'Wifi tốc độ cao'
   ];
 
+  // Location selection helpers
+  const roomDistricts = getDistrictsByProvince(roomForm.province);
+  const roomWards = getWardsByDistrict(roomForm.province, roomForm.district);
+
+  const handleRoomProvinceChange = (newProvince: string) => {
+    const districts = getDistrictsByProvince(newProvince);
+    const firstDistrict = districts[0] || '';
+    const wards = getWardsByDistrict(newProvince, firstDistrict);
+    const firstWard = wards[0] || '';
+    setRoomForm(prev => ({
+      ...prev,
+      province: newProvince,
+      district: firstDistrict,
+      ward: firstWard
+    }));
+  };
+
+  const handleRoomDistrictChange = (newDistrict: string) => {
+    const wards = getWardsByDistrict(roomForm.province, newDistrict);
+    const firstWard = wards[0] || '';
+    setRoomForm(prev => ({
+      ...prev,
+      district: newDistrict,
+      ward: firstWard
+    }));
+  };
+
+  const secondHandDistricts = getDistrictsByProvince(secondHandForm.province);
+  const handleSecondHandProvinceChange = (newProvince: string) => {
+    const districts = getDistrictsByProvince(newProvince);
+    const firstDistrict = districts[0] || '';
+    setSecondHandForm(prev => ({
+      ...prev,
+      province: newProvince,
+      district: firstDistrict
+    }));
+  };
+
   // Fetch existing item for editing
   useEffect(() => {
     if (!editId) return;
@@ -158,10 +311,13 @@ export default function PostCreatePage() {
           const res = await api.get(`/listings/${editId}`);
           const d = res.data;
           let imgs: string[] = [];
+          let vUrl = '';
           if (d.mediaJson) {
             try {
               const parsed = JSON.parse(d.mediaJson);
-              imgs = parsed.map((item: any) => typeof item === 'string' ? item : item.url).filter(Boolean);
+              imgs = parsed.filter((item: any) => !item.type || item.type === 'IMAGE').map((item: any) => typeof item === 'string' ? item : item.url).filter(Boolean);
+              const vItem = parsed.find((item: any) => item.type === 'VIDEO');
+              if (vItem) vUrl = vItem.url;
             } catch (ignored) {}
           }
           if (imgs.length === 0 && d.imageUrl) {
@@ -203,7 +359,7 @@ export default function PostCreatePage() {
             contactZalo: d.contactZalo || user?.phone || '',
             description: d.description || '',
             images: imgs,
-            videoUrl: ''
+            videoUrl: vUrl || ''
           });
         } else if (category === 'secondhand') {
           const res = await api.get(`/content/secondhand/${editId}`);
@@ -313,8 +469,11 @@ export default function PostCreatePage() {
           contactPhone: roomForm.contactPhone,
           contactZalo: roomForm.contactZalo,
           description: roomForm.description,
-          imageUrl: roomForm.images[0] || '',
-          mediaJson: JSON.stringify(roomForm.images.map(u => ({ type: 'IMAGE', url: u }))),
+          imageUrl: roomForm.images[0] || roomForm.videoUrl || '',
+          mediaJson: JSON.stringify([
+            ...roomForm.images.map(u => ({ type: 'IMAGE', url: u })),
+            ...(roomForm.videoUrl ? [{ type: 'VIDEO', url: roomForm.videoUrl }] : [])
+          ]),
           listingStatus: isDraft ? 'DRAFT' : 'PENDING_REVIEW'
         };
 
@@ -536,37 +695,55 @@ export default function PostCreatePage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1">Tỉnh / Thành</label>
-                    <input
-                      type="text"
+                    <select
                       value={roomForm.province}
-                      onChange={e => setRoomForm({ ...roomForm, province: e.target.value })}
-                      className="w-full text-xs border rounded-xl p-2 bg-white"
-                    />
+                      onChange={e => handleRoomProvinceChange(e.target.value)}
+                      className="w-full text-xs border rounded-xl p-2 bg-white font-medium"
+                    >
+                      {PROVINCE_LIST.map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                      {!PROVINCE_LIST.includes(roomForm.province) && roomForm.province && (
+                        <option value={roomForm.province}>{roomForm.province}</option>
+                      )}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1">Quận / Huyện</label>
-                    <input
-                      type="text"
+                    <select
                       value={roomForm.district}
-                      onChange={e => setRoomForm({ ...roomForm, district: e.target.value })}
-                      className="w-full text-xs border rounded-xl p-2 bg-white"
-                    />
+                      onChange={e => handleRoomDistrictChange(e.target.value)}
+                      className="w-full text-xs border rounded-xl p-2 bg-white font-medium"
+                    >
+                      {roomDistricts.map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                      {!roomDistricts.includes(roomForm.district) && roomForm.district && (
+                        <option value={roomForm.district}>{roomForm.district}</option>
+                      )}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1">Phường / Xã</label>
-                    <input
-                      type="text"
-                      placeholder="VD: Thạch Hòa"
+                    <select
                       value={roomForm.ward}
                       onChange={e => setRoomForm({ ...roomForm, ward: e.target.value })}
-                      className="w-full text-xs border rounded-xl p-2 bg-white"
-                    />
+                      className="w-full text-xs border rounded-xl p-2 bg-white font-medium"
+                    >
+                      <option value="">-- Chọn Phường / Xã --</option>
+                      {roomWards.map(w => (
+                        <option key={w} value={w}>{w}</option>
+                      ))}
+                      {!roomWards.includes(roomForm.ward) && roomForm.ward && (
+                        <option value={roomForm.ward}>{roomForm.ward}</option>
+                      )}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1">Đường / Số nhà</label>
                     <input
                       type="text"
-                      placeholder="VD: Thôn 3"
+                      placeholder="VD: Thôn 3, Số 12"
                       value={roomForm.street}
                       onChange={e => setRoomForm({ ...roomForm, street: e.target.value })}
                       className="w-full text-xs border rounded-xl p-2 bg-white"
@@ -605,23 +782,39 @@ export default function PostCreatePage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1">Giá thuê (đ/tháng) *</label>
-                    <input
-                      type="number"
-                      placeholder="VD: 2500000"
-                      value={roomForm.price}
-                      onChange={e => setRoomForm({ ...roomForm, price: e.target.value })}
-                      className="w-full text-xs border rounded-xl p-2 bg-white font-bold text-indigo-700"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="VD: 2.500.000"
+                        value={formatCurrencyInput(roomForm.price)}
+                        onChange={e => setRoomForm({ ...roomForm, price: e.target.value.replace(/\D/g, '') })}
+                        className="w-full text-xs border rounded-xl p-2 pr-7 bg-white font-bold text-indigo-700"
+                      />
+                      <span className="absolute right-2.5 top-2 text-[11px] text-gray-400 font-bold">₫</span>
+                    </div>
+                    {roomForm.price && (
+                      <p className="text-[10px] text-indigo-600 font-medium mt-0.5 truncate">
+                        {formatAmountWords(roomForm.price)}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1">Tiền cọc (đ)</label>
-                    <input
-                      type="number"
-                      placeholder="VD: 2500000"
-                      value={roomForm.deposit}
-                      onChange={e => setRoomForm({ ...roomForm, deposit: e.target.value })}
-                      className="w-full text-xs border rounded-xl p-2 bg-white"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="VD: 2.500.000"
+                        value={formatCurrencyInput(roomForm.deposit)}
+                        onChange={e => setRoomForm({ ...roomForm, deposit: e.target.value.replace(/\D/g, '') })}
+                        className="w-full text-xs border rounded-xl p-2 pr-7 bg-white font-medium"
+                      />
+                      <span className="absolute right-2.5 top-2 text-[11px] text-gray-400 font-bold">₫</span>
+                    </div>
+                    {roomForm.deposit && (
+                      <p className="text-[10px] text-gray-500 font-medium mt-0.5 truncate">
+                        {formatAmountWords(roomForm.deposit)}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1">Diện tích (m²)</label>
@@ -648,39 +841,55 @@ export default function PostCreatePage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1">Giá điện (đ/kWh)</label>
-                    <input
-                      type="number"
-                      value={roomForm.electricityPrice}
-                      onChange={e => setRoomForm({ ...roomForm, electricityPrice: e.target.value })}
-                      className="w-full text-xs border rounded-xl p-2 bg-white"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="3.500"
+                        value={formatCurrencyInput(roomForm.electricityPrice)}
+                        onChange={e => setRoomForm({ ...roomForm, electricityPrice: e.target.value.replace(/\D/g, '') })}
+                        className="w-full text-xs border rounded-xl p-2 pr-7 bg-white"
+                      />
+                      <span className="absolute right-2.5 top-2 text-[11px] text-gray-400 font-bold">₫</span>
+                    </div>
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Giá nước (đ/khối hoặc người)</label>
-                    <input
-                      type="number"
-                      value={roomForm.waterPrice}
-                      onChange={e => setRoomForm({ ...roomForm, waterPrice: e.target.value })}
-                      className="w-full text-xs border rounded-xl p-2 bg-white"
-                    />
+                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Giá nước (đ/người hoặc khối)</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="30.000"
+                        value={formatCurrencyInput(roomForm.waterPrice)}
+                        onChange={e => setRoomForm({ ...roomForm, waterPrice: e.target.value.replace(/\D/g, '') })}
+                        className="w-full text-xs border rounded-xl p-2 pr-7 bg-white"
+                      />
+                      <span className="absolute right-2.5 top-2 text-[11px] text-gray-400 font-bold">₫</span>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1">Mạng Internet (đ/tháng)</label>
-                    <input
-                      type="number"
-                      value={roomForm.internetPrice}
-                      onChange={e => setRoomForm({ ...roomForm, internetPrice: e.target.value })}
-                      className="w-full text-xs border rounded-xl p-2 bg-white"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="100.000"
+                        value={formatCurrencyInput(roomForm.internetPrice)}
+                        onChange={e => setRoomForm({ ...roomForm, internetPrice: e.target.value.replace(/\D/g, '') })}
+                        className="w-full text-xs border rounded-xl p-2 pr-7 bg-white"
+                      />
+                      <span className="absolute right-2.5 top-2 text-[11px] text-gray-400 font-bold">₫</span>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1">Gửi xe (đ/xe)</label>
-                    <input
-                      type="number"
-                      value={roomForm.parkingFee}
-                      onChange={e => setRoomForm({ ...roomForm, parkingFee: e.target.value })}
-                      className="w-full text-xs border rounded-xl p-2 bg-white"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="0"
+                        value={formatCurrencyInput(roomForm.parkingFee)}
+                        onChange={e => setRoomForm({ ...roomForm, parkingFee: e.target.value.replace(/\D/g, '') })}
+                        className="w-full text-xs border rounded-xl p-2 pr-7 bg-white"
+                      />
+                      <span className="absolute right-2.5 top-2 text-[11px] text-gray-400 font-bold">₫</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -772,31 +981,51 @@ export default function PostCreatePage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">Giá thanh lý (đ) *</label>
-                  <input
-                    type="number"
-                    placeholder="VD: 350000"
-                    value={secondHandForm.price}
-                    onChange={e => setSecondHandForm({ ...secondHandForm, price: e.target.value })}
-                    className="w-full text-xs border rounded-xl p-2.5 font-bold text-indigo-700"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="VD: 350.000"
+                      value={formatCurrencyInput(secondHandForm.price)}
+                      onChange={e => setSecondHandForm({ ...secondHandForm, price: e.target.value.replace(/\D/g, '') })}
+                      className="w-full text-xs border rounded-xl p-2.5 pr-7 font-bold text-indigo-700"
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs text-gray-400 font-bold">₫</span>
+                  </div>
+                  {secondHandForm.price && (
+                    <p className="text-[10px] text-gray-500 font-medium mt-1 truncate">
+                      {formatAmountWords(secondHandForm.price)}
+                    </p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Tỉnh / Thành</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Tỉnh / Thành phố *</label>
+                  <select
                     value={secondHandForm.province}
-                    onChange={e => setSecondHandForm({ ...secondHandForm, province: e.target.value })}
-                    className="w-full text-xs border rounded-xl p-2.5"
-                  />
+                    onChange={e => handleSecondHandProvinceChange(e.target.value)}
+                    className="w-full text-xs border rounded-xl p-2.5 bg-gray-50 font-medium"
+                  >
+                    <option value="">-- Chọn Tỉnh / Thành --</option>
+                    {PROVINCE_LIST.map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Khu vực / Quận Huyện</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Quận / Huyện *</label>
+                  <select
                     value={secondHandForm.district}
                     onChange={e => setSecondHandForm({ ...secondHandForm, district: e.target.value })}
-                    className="w-full text-xs border rounded-xl p-2.5"
-                  />
+                    className="w-full text-xs border rounded-xl p-2.5 bg-gray-50 font-medium"
+                  >
+                    <option value="">-- Chọn Quận / Huyện --</option>
+                    {secondHandDistricts.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                    {secondHandForm.district && !secondHandDistricts.includes(secondHandForm.district) && (
+                      <option value={secondHandForm.district}>{secondHandForm.district}</option>
+                    )}
+                  </select>
                 </div>
               </div>
 
@@ -835,13 +1064,22 @@ export default function PostCreatePage() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">Giá khởi điểm từ (đ) *</label>
-                  <input
-                    type="number"
-                    placeholder="VD: 150000"
-                    value={serviceForm.priceFrom}
-                    onChange={e => setServiceForm({ ...serviceForm, priceFrom: e.target.value })}
-                    className="w-full text-xs border rounded-xl p-2.5 font-bold text-indigo-700"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="VD: 150.000"
+                      value={formatCurrencyInput(serviceForm.priceFrom)}
+                      onChange={e => setServiceForm({ ...serviceForm, priceFrom: e.target.value.replace(/\D/g, '') })}
+                      className="w-full text-xs border rounded-xl p-2.5 pr-7 font-bold text-indigo-700"
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs text-gray-400 font-bold">₫</span>
+                  </div>
+                  {serviceForm.priceFrom && (
+                    <p className="text-[10px] text-gray-500 font-medium mt-1 truncate">
+                      {formatAmountWords(serviceForm.priceFrom)}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -856,11 +1094,28 @@ export default function PostCreatePage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Tỉnh / Thành phố *</label>
+                  <select
+                    value={serviceForm.province}
+                    onChange={e => setServiceForm({ ...serviceForm, province: e.target.value })}
+                    className="w-full text-xs border rounded-xl p-2.5 bg-gray-50 font-medium"
+                  >
+                    <option value="">-- Chọn Tỉnh / Thành --</option>
+                    {PROVINCE_LIST.map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                    {serviceForm.province && !PROVINCE_LIST.includes(serviceForm.province) && (
+                      <option value={serviceForm.province}>{serviceForm.province}</option>
+                    )}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">Phạm vi phục vụ</label>
                   <input
                     type="text"
+                    placeholder="VD: Khu vực Hòa Lạc, Thạch Thất..."
                     value={serviceForm.areaServed}
                     onChange={e => setServiceForm({ ...serviceForm, areaServed: e.target.value })}
                     className="w-full text-xs border rounded-xl p-2.5"
@@ -904,7 +1159,7 @@ export default function PostCreatePage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-extrabold text-gray-900 flex items-center gap-2">
-                  <span>📸</span> Hình ảnh bài đăng
+                  <span>📸</span> Hình ảnh & Video bài đăng
                   <span className="text-xs font-normal text-gray-500">
                     {category === 'room' && '(Tối thiểu 3 ảnh, tối đa 20)'}
                     {category === 'roommate' && '(Tối thiểu 1 ảnh, tối đa 20)'}
@@ -922,22 +1177,102 @@ export default function PostCreatePage() {
               </button>
             </div>
 
-            {/* Input URL or File */}
-            <div className="flex gap-2">
+            {/* Hidden file inputs */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              multiple
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={handleImageFilesUpload}
+              disabled={uploadingMedia}
+            />
+            <input
+              type="file"
+              ref={videoInputRef}
+              accept="video/mp4,video/webm"
+              className="hidden"
+              onChange={handleVideoFileUpload}
+              disabled={uploadingMedia}
+            />
+
+            {/* Uploading progress notification */}
+            {uploadingMedia && (
+              <div className="flex items-center gap-3 p-3.5 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-800 text-xs font-semibold animate-pulse">
+                <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                <span>{uploadProgressText || 'Đang tải tệp lên hệ thống...'}</span>
+              </div>
+            )}
+
+            {/* Upload Buttons */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingMedia}
+                className="flex items-center gap-2 bg-indigo-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition-all shadow-sm disabled:opacity-60 cursor-pointer"
+              >
+                <span>📁</span>
+                <span>Tải ảnh từ máy tính (chọn nhiều ảnh)</span>
+              </button>
+
+              {(category === 'room' || category === 'roommate') && (
+                <button
+                  type="button"
+                  onClick={() => videoInputRef.current?.click()}
+                  disabled={uploadingMedia}
+                  className="flex items-center gap-2 bg-gray-900 text-white font-bold text-xs px-4 py-2.5 rounded-xl hover:bg-black transition-all shadow-sm disabled:opacity-60 cursor-pointer"
+                >
+                  <span>🎥</span>
+                  <span>{roomForm.videoUrl ? 'Đổi video phòng' : 'Tải video phòng (tối đa 100MB)'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Video preview if uploaded */}
+            {(category === 'room' || category === 'roommate') && roomForm.videoUrl && (
+              <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                    <span>🎬 Video phòng trọ đã sẵn sàng:</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setRoomForm(prev => ({ ...prev, videoUrl: '' }))}
+                    className="text-xs font-semibold text-red-600 hover:text-red-800 hover:underline"
+                  >
+                    ✕ Gỡ bỏ video
+                  </button>
+                </div>
+                <div className="max-w-md rounded-xl overflow-hidden bg-black aspect-video">
+                  <video
+                    src={resolveMediaUrl(roomForm.videoUrl)}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Input URL fallback */}
+            <div className="flex gap-2 items-center pt-1">
               <input
                 type="text"
-                placeholder="Nhập đường dẫn hình ảnh (https://... hoặc tải lên)..."
+                placeholder="Hoặc dán URL hình ảnh trực tiếp (https://...)..."
                 value={newImageUrl}
                 onChange={e => setNewImageUrl(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addImage(category); } }}
-                className="flex-1 text-xs border rounded-xl p-2.5"
+                className="flex-1 text-xs border border-gray-200 rounded-xl p-2.5 bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
               <button
                 type="button"
                 onClick={() => addImage(category)}
-                className="bg-gray-900 text-white font-bold text-xs px-4 py-2.5 rounded-xl hover:bg-black transition-colors"
+                className="bg-gray-100 text-gray-700 font-bold text-xs px-3.5 py-2.5 rounded-xl hover:bg-gray-200 border border-gray-200 transition-colors"
               >
-                + Thêm ảnh
+                + Thêm link
               </button>
             </div>
 
@@ -953,13 +1288,16 @@ export default function PostCreatePage() {
                 <div>
                   {currentImages.length === 0 ? (
                     <div className="p-8 border-2 border-dashed border-gray-200 rounded-2xl text-center text-xs text-gray-400">
-                      Chưa có hình ảnh nào. Vui lòng thêm ít nhất {category === 'room' ? 3 : 1} ảnh thật để bài đăng được kiểm duyệt.
+                      Chưa có hình ảnh nào. Nhấn <b>"Tải ảnh từ máy tính"</b> hoặc dán đường dẫn ảnh.
+                      <p className="mt-1 text-[11px] text-gray-400">
+                        Vui lòng thêm ít nhất {category === 'room' ? 3 : 1} ảnh thật để bài đăng được kiểm duyệt.
+                      </p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
                       {currentImages.map((img, idx) => (
-                        <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 aspect-square bg-gray-50">
-                          <img src={img} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                        <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 aspect-square bg-gray-50 shadow-2xs">
+                          <img src={resolveMediaUrl(img)} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
                           <button
                             type="button"
                             onClick={() => removeImage(category, idx)}

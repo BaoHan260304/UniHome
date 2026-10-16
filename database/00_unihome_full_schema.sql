@@ -7,10 +7,10 @@
 -- blog/Q&A, advertising and administration/audit.
 -- ================================================================
 
-CREATE DATABASE IF NOT EXISTS rrmsdb
+CREATE DATABASE IF NOT EXISTS unihome_demo
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_0900_ai_ci;
-USE rrmsdb;
+USE unihome_demo;
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 

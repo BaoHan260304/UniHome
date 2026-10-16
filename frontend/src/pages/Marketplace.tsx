@@ -34,9 +34,23 @@ export default function Marketplace() {
   const pageSize = 12;
 
   const [q, setQ] = useState<any>({ ...DEFAULT_FILTERS });
+  const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
   const user = getUser();
   const nav = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    if (user) {
+      api.get('/listings/favorites')
+        .then(res => {
+          const ids = new Set<number>((res.data || []).map((f: any) => Number(f.listingId || f.id)));
+          setFavoriteIds(ids);
+        })
+        .catch(() => {});
+    } else {
+      setFavoriteIds(new Set());
+    }
+  }, [user?.id]);
 
   const load = (targetPage = page) => {
     setLoading(true);
@@ -99,11 +113,39 @@ export default function Marketplace() {
     () => alert('Không lấy được vị trí. Bạn có thể nhập khu vực/trường.')
   );
 
-  const favorite = (id: number) => {
+  const favorite = async (id: number) => {
     if (!user) return nav('/login', { state: { from: location.pathname, action: 'FAVORITE' } });
-    void api.post(`/listings/${id}/favorite`)
-      .then(() => alert('Đã cập nhật Yêu thích'))
-      .catch(e => alert(e.response?.data?.message || 'Lỗi'));
+    const targetId = Number(id);
+    const wasFav = favoriteIds.has(targetId);
+
+    // Optimistic toggle
+    setFavoriteIds(prev => {
+      const next = new Set(prev);
+      if (wasFav) next.delete(targetId);
+      else next.add(targetId);
+      return next;
+    });
+
+    try {
+      const res = await api.post(`/listings/${targetId}/favorite`);
+      if (res.data?.favorite !== undefined) {
+        setFavoriteIds(prev => {
+          const next = new Set(prev);
+          if (res.data.favorite) next.add(targetId);
+          else next.delete(targetId);
+          return next;
+        });
+      }
+    } catch (e: any) {
+      // Revert on error
+      setFavoriteIds(prev => {
+        const next = new Set(prev);
+        if (wasFav) next.add(targetId);
+        else next.delete(targetId);
+        return next;
+      });
+      alert(e.response?.data?.message || 'Không thể cập nhật yêu thích');
+    }
   };
 
   return (
@@ -212,7 +254,12 @@ export default function Marketplace() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {list.map((x: any) => (
-                <RoomCard key={x.listingId || x.id} item={x} onFavorite={favorite} />
+                <RoomCard
+                  key={x.listingId || x.id}
+                  item={x}
+                  isFavorite={favoriteIds.has(Number(x.listingId || x.id))}
+                  onFavorite={favorite}
+                />
               ))}
             </div>
 

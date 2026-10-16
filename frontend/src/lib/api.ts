@@ -66,16 +66,32 @@ export function money(value?: number | null) {
   return `${Number(value).toLocaleString('vi-VN')} ₫`;
 }
 
-export function mediaList(value?: string | null): string[] {
+export function mediaList(value?: any): string[] {
   if (!value) return [];
-  try {
-    if (value.startsWith('[')) return JSON.parse(value);
-    return [value];
-  } catch { return [value]; }
+  if (Array.isArray(value)) {
+    return value.map(x => (typeof x === 'string' ? x : x?.url)).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    try {
+      if (trimmed.startsWith('[')) {
+        const arr = JSON.parse(trimmed);
+        if (Array.isArray(arr)) {
+          return arr.map(x => (typeof x === 'string' ? x : x?.url)).filter(Boolean);
+        }
+      }
+      return [trimmed];
+    } catch { return [trimmed]; }
+  }
+  return [];
 }
 
-export function resolveMediaUrl(url?: string | null): string {
+export function resolveMediaUrl(url?: any): string {
   if (!url) return '';
+  if (typeof url === 'object' && url.url) {
+    url = url.url;
+  }
+  if (typeof url !== 'string') return '';
   if (url.startsWith('/uploads/')) return `${API_URL}${url}`;
   return url;
 }

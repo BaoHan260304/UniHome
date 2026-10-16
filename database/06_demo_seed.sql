@@ -5,7 +5,7 @@
 -- Safe and idempotent: Uses INSERT IGNORE or ON DUPLICATE KEY
 -- ================================================================
 
-USE rrmsdb;
+USE unihome_demo;
 SET NAMES utf8mb4;
 
 -- 1. SEED 60+ DEMO USERS (Password: 123456)

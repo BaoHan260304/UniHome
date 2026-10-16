@@ -6,7 +6,7 @@
 -- Safe and idempotent: Uses INSERT IGNORE or ON DUPLICATE KEY
 -- ================================================================
 
-USE rrmsdb;
+USE unihome_demo;
 SET NAMES utf8mb4;
 
 -- 1. Ensure any legacy landlord/tenant roles in users are updated to 'USER'

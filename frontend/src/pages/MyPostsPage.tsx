@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { api, getUser, money } from '../lib/api';
+import { api, getUser, money, resolveMediaUrl } from '../lib/api';
 import PostComposerModal from '../components/PostComposerModal';
 
 const STATUS_TABS = [
@@ -315,10 +315,10 @@ export default function MyPostsPage() {
                 {/* Thumbnail */}
                 <div className="relative w-full md:w-48 h-36 shrink-0 rounded-xl overflow-hidden bg-gray-100 border border-gray-100">
                   <img
-                    src={p.imageUrl || '/demo/room-1.jpg'}
+                    src={resolveMediaUrl(p.imageUrl) || '/demo/room-1.jpg'}
                     alt={p.title}
                     onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = '/demo/room-1.jpg';
+                      (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800';
                     }}
                     className="w-full h-full object-cover"
                   />
