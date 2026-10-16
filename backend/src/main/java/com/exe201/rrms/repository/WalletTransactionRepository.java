@@ -1,0 +1,1 @@
+package com.exe201.rrms.repository; import com.exe201.rrms.entity.WalletTransaction; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface WalletTransactionRepository extends JpaRepository<WalletTransaction,Long>{ List<WalletTransaction> findByUserIdOrderByCreatedAtDesc(Long userId); }

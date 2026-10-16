@@ -1,0 +1,1 @@
+package com.exe201.rrms.repository; import com.exe201.rrms.entity.BlogPost; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface BlogPostRepository extends JpaRepository<BlogPost,Long>{ List<BlogPost> findByStatusOrderByPublishedAtDesc(String status); }

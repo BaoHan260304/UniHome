@@ -1,0 +1,1 @@
+package com.exe201.rrms.repository; import com.exe201.rrms.entity.Expense; import org.springframework.data.jpa.repository.JpaRepository; public interface ExpenseRepository extends JpaRepository<Expense,Long>{}

@@ -1,1 +1,348 @@
 @import "tailwindcss";
+
+/* =========================================================================
+   UniHome VIP Premium Cosmetic System (8 Skins - Zero Badge / Pure Animation)
+   NEON_VIOLET, AURORA, SUNSET_GOLD, CRIMSON_EDGE, ICE_BLUE, HOLOGRAPHIC,
+   SAKURA_BLOOM, THUNDER_STRIKE
+   ========================================================================= */
+
+@keyframes vip-shimmer-neon {
+  0% { background-position: 0% 50%; filter: drop-shadow(0 0 2px rgba(168, 85, 247, 0.4)); }
+  50% { background-position: 100% 50%; filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.8)); }
+  100% { background-position: 0% 50%; filter: drop-shadow(0 0 2px rgba(168, 85, 247, 0.4)); }
+}
+
+@keyframes vip-aurora-flow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes vip-sunset-sweep {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes vip-crimson-pulse {
+  0% { filter: drop-shadow(0 0 2px rgba(244, 63, 94, 0.3)); }
+  50% { filter: drop-shadow(0 0 8px rgba(244, 63, 94, 0.85)); }
+  100% { filter: drop-shadow(0 0 2px rgba(244, 63, 94, 0.3)); }
+}
+
+@keyframes vip-ice-sparkle {
+  0% { background-position: 0% 50%; filter: drop-shadow(0 0 3px rgba(6, 182, 212, 0.4)); }
+  50% { background-position: 100% 50%; filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.9)); }
+  100% { background-position: 0% 50%; filter: drop-shadow(0 0 3px rgba(6, 182, 212, 0.4)); }
+}
+
+@keyframes vip-holo-prism {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes vip-sakura-bloom {
+  0% { background-position: 0% 50%; filter: drop-shadow(0 0 2px rgba(244, 114, 182, 0.4)); }
+  50% { background-position: 100% 50%; filter: drop-shadow(0 0 7px rgba(251, 113, 133, 0.75)); }
+  100% { background-position: 0% 50%; filter: drop-shadow(0 0 2px rgba(244, 114, 182, 0.4)); }
+}
+
+@keyframes vip-thunder-spark {
+  0% { background-position: 0% 50%; filter: drop-shadow(0 0 2px rgba(234, 179, 8, 0.4)); }
+  50% { background-position: 100% 50%; filter: drop-shadow(0 0 9px rgba(250, 204, 21, 0.95)); }
+  100% { background-position: 0% 50%; filter: drop-shadow(0 0 2px rgba(234, 179, 8, 0.4)); }
+}
+
+@keyframes vip-ring-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes vip-border-glow {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* VIP Text Name Classes */
+.vip-name-neon {
+  background: linear-gradient(90deg, #c084fc, #a855f7, #e879f9, #a855f7);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  font-weight: 800;
+  animation: vip-shimmer-neon 3s ease infinite;
+}
+
+.vip-name-aurora {
+  background: linear-gradient(90deg, #10b981, #14b8a6, #06b6d4, #10b981);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  font-weight: 800;
+  animation: vip-aurora-flow 4s ease infinite;
+}
+
+.vip-name-sunset {
+  background: linear-gradient(90deg, #f59e0b, #f97316, #ef4444, #f59e0b);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  font-weight: 800;
+  animation: vip-sunset-sweep 3.5s ease infinite;
+}
+
+.vip-name-crimson {
+  background: linear-gradient(90deg, #e11d48, #f43f5e, #fda4af, #e11d48);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  font-weight: 800;
+  animation: vip-crimson-pulse 2.5s ease-in-out infinite;
+}
+
+.vip-name-ice {
+  background: linear-gradient(90deg, #06b6d4, #38bdf8, #93c5fd, #06b6d4);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  font-weight: 800;
+  animation: vip-ice-sparkle 3s ease infinite;
+}
+
+.vip-name-holographic {
+  background: linear-gradient(90deg, #ec4899, #8b5cf6, #3b82f6, #06b6d4, #ec4899);
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  font-weight: 800;
+  animation: vip-holo-prism 4s linear infinite;
+}
+
+.vip-name-sakura {
+  background: linear-gradient(90deg, #f472b6, #fb7185, #fda4af, #f472b6);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  font-weight: 800;
+  animation: vip-sakura-bloom 3.5s ease infinite;
+}
+
+.vip-name-thunder {
+  background: linear-gradient(90deg, #eab308, #f59e0b, #facc15, #eab308);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  font-weight: 800;
+  animation: vip-thunder-spark 2s ease infinite;
+}
+
+/* VIP Glow & Ring Classes for Avatars and Containers */
+@keyframes vip-ring-pulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.03); filter: brightness(1.25); }
+}
+
+.vip-ring-neon {
+  box-shadow: 0 0 0 2px #a855f7, 0 0 16px rgba(168, 85, 247, 0.7);
+  border-color: #c084fc !important;
+  animation: vip-ring-pulse 3s ease-in-out infinite;
+}
+
+.vip-ring-aurora {
+  box-shadow: 0 0 0 2px #10b981, 0 0 16px rgba(16, 185, 129, 0.7);
+  border-color: #34d399 !important;
+  animation: vip-ring-pulse 4s ease-in-out infinite;
+}
+
+.vip-ring-sunset {
+  box-shadow: 0 0 0 2px #f59e0b, 0 0 16px rgba(245, 158, 11, 0.7);
+  border-color: #fbbf24 !important;
+  animation: vip-ring-pulse 3.5s ease-in-out infinite;
+}
+
+.vip-ring-crimson {
+  box-shadow: 0 0 0 2px #e11d48, 0 0 16px rgba(225, 29, 72, 0.75);
+  border-color: #fb7185 !important;
+  animation: vip-ring-pulse 2.5s ease-in-out infinite;
+}
+
+.vip-ring-ice {
+  box-shadow: 0 0 0 2px #06b6d4, 0 0 16px rgba(6, 182, 212, 0.75);
+  border-color: #67e8f9 !important;
+  animation: vip-ring-pulse 3s ease-in-out infinite;
+}
+
+.vip-ring-holographic {
+  box-shadow: 0 0 0 2px #8b5cf6, 0 0 18px rgba(139, 92, 246, 0.8);
+  border-color: #c084fc !important;
+  animation: vip-ring-pulse 4s linear infinite;
+}
+
+.vip-ring-sakura {
+  box-shadow: 0 0 0 2px #f472b6, 0 0 16px rgba(244, 114, 182, 0.7);
+  border-color: #fbcfe8 !important;
+  animation: vip-ring-pulse 3.5s ease-in-out infinite;
+}
+
+.vip-ring-thunder {
+  box-shadow: 0 0 0 2px #eab308, 0 0 18px rgba(234, 179, 8, 0.85);
+  border-color: #fde047 !important;
+  animation: vip-ring-pulse 2s ease-in-out infinite;
+}
+
+/* =========================================================================
+   VIP Message Bubble Border & Background Animations (Codepen-Inspired)
+   ========================================================================= */
+
+@keyframes vip-border-sweep-neon {
+  0% { border-color: #a855f7; box-shadow: 0 0 14px rgba(168, 85, 247, 0.35), inset 0 0 8px rgba(168, 85, 247, 0.15); }
+  50% { border-color: #ec4899; box-shadow: 0 0 20px rgba(236, 72, 153, 0.5), inset 0 0 12px rgba(236, 72, 153, 0.2); }
+  100% { border-color: #a855f7; box-shadow: 0 0 14px rgba(168, 85, 247, 0.35), inset 0 0 8px rgba(168, 85, 247, 0.15); }
+}
+
+@keyframes vip-border-sweep-aurora {
+  0% { border-color: #10b981; box-shadow: 0 0 14px rgba(16, 185, 129, 0.35), inset 0 0 8px rgba(16, 185, 129, 0.15); }
+  50% { border-color: #06b6d4; box-shadow: 0 0 20px rgba(6, 182, 212, 0.5), inset 0 0 12px rgba(6, 182, 212, 0.2); }
+  100% { border-color: #10b981; box-shadow: 0 0 14px rgba(16, 185, 129, 0.35), inset 0 0 8px rgba(16, 185, 129, 0.15); }
+}
+
+@keyframes vip-border-sweep-sunset {
+  0% { border-color: #f59e0b; box-shadow: 0 0 14px rgba(245, 158, 11, 0.35), inset 0 0 8px rgba(245, 158, 11, 0.15); }
+  50% { border-color: #ef4444; box-shadow: 0 0 20px rgba(239, 68, 68, 0.5), inset 0 0 12px rgba(239, 68, 68, 0.2); }
+  100% { border-color: #f59e0b; box-shadow: 0 0 14px rgba(245, 158, 11, 0.35), inset 0 0 8px rgba(245, 158, 11, 0.15); }
+}
+
+@keyframes vip-border-sweep-crimson {
+  0% { border-color: #e11d48; box-shadow: 0 0 14px rgba(225, 29, 72, 0.35), inset 0 0 8px rgba(225, 29, 72, 0.15); }
+  50% { border-color: #be123c; box-shadow: 0 0 22px rgba(225, 29, 72, 0.6), inset 0 0 12px rgba(225, 29, 72, 0.25); }
+  100% { border-color: #e11d48; box-shadow: 0 0 14px rgba(225, 29, 72, 0.35), inset 0 0 8px rgba(225, 29, 72, 0.15); }
+}
+
+@keyframes vip-border-sweep-ice {
+  0% { border-color: #06b6d4; box-shadow: 0 0 14px rgba(6, 182, 212, 0.35), inset 0 0 8px rgba(6, 182, 212, 0.15); }
+  50% { border-color: #38bdf8; box-shadow: 0 0 22px rgba(56, 189, 248, 0.6), inset 0 0 12px rgba(56, 189, 248, 0.25); }
+  100% { border-color: #06b6d4; box-shadow: 0 0 14px rgba(6, 182, 212, 0.35), inset 0 0 8px rgba(6, 182, 212, 0.15); }
+}
+
+@keyframes vip-border-sweep-holo {
+  0% { border-color: #8b5cf6; box-shadow: 0 0 16px rgba(139, 92, 246, 0.4), inset 0 0 8px rgba(139, 92, 246, 0.2); }
+  33% { border-color: #ec4899; box-shadow: 0 0 20px rgba(236, 72, 153, 0.5), inset 0 0 10px rgba(236, 72, 153, 0.25); }
+  66% { border-color: #06b6d4; box-shadow: 0 0 20px rgba(6, 182, 212, 0.5), inset 0 0 10px rgba(6, 182, 212, 0.25); }
+  100% { border-color: #8b5cf6; box-shadow: 0 0 16px rgba(139, 92, 246, 0.4), inset 0 0 8px rgba(139, 92, 246, 0.2); }
+}
+
+@keyframes vip-sakura-float {
+  0% { border-color: #f472b6; box-shadow: 0 0 14px rgba(244, 114, 182, 0.35), inset 0 0 8px rgba(244, 114, 182, 0.15); background-position: 0% 0%; }
+  50% { border-color: #fb7185; box-shadow: 0 0 20px rgba(251, 113, 133, 0.55), inset 0 0 12px rgba(251, 113, 133, 0.25); background-position: 50% 100%; }
+  100% { border-color: #f472b6; box-shadow: 0 0 14px rgba(244, 114, 182, 0.35), inset 0 0 8px rgba(244, 114, 182, 0.15); background-position: 100% 200%; }
+}
+
+@keyframes vip-thunder-flicker {
+  0%, 100% { border-color: #eab308; box-shadow: 0 0 12px rgba(234, 179, 8, 0.35), inset 0 0 6px rgba(234, 179, 8, 0.15); }
+  25% { border-color: #fde047; box-shadow: 0 0 24px rgba(250, 204, 21, 0.8), inset 0 0 14px rgba(250, 204, 21, 0.35); }
+  30% { border-color: #eab308; box-shadow: 0 0 14px rgba(234, 179, 8, 0.4), inset 0 0 8px rgba(234, 179, 8, 0.2); }
+  75% { border-color: #facc15; box-shadow: 0 0 22px rgba(250, 204, 21, 0.75), inset 0 0 12px rgba(250, 204, 21, 0.3); }
+}
+
+.vip-bubble-neon {
+  border: 1.5px solid #a855f7 !important;
+  animation: vip-border-sweep-neon 3.5s ease-in-out infinite;
+  background-color: rgba(250, 245, 255, 0.95) !important;
+  color: #1e1b4b !important;
+}
+
+.vip-bubble-aurora {
+  border: 1.5px solid #10b981 !important;
+  animation: vip-border-sweep-aurora 4s ease-in-out infinite;
+  background-color: rgba(240, 253, 250, 0.95) !important;
+  color: #064e3b !important;
+}
+
+.vip-bubble-sunset {
+  border: 1.5px solid #f59e0b !important;
+  animation: vip-border-sweep-sunset 3.5s ease-in-out infinite;
+  background-color: rgba(255, 251, 235, 0.95) !important;
+  color: #78350f !important;
+}
+
+.vip-bubble-crimson {
+  border: 1.5px solid #e11d48 !important;
+  animation: vip-border-sweep-crimson 2.5s ease-in-out infinite;
+  background-color: rgba(255, 241, 242, 0.95) !important;
+  color: #881337 !important;
+}
+
+.vip-bubble-ice {
+  border: 1.5px solid #06b6d4 !important;
+  animation: vip-border-sweep-ice 3s ease-in-out infinite;
+  background-color: rgba(240, 249, 255, 0.95) !important;
+  color: #0c4a6e !important;
+}
+
+.vip-bubble-holographic {
+  border: 1.5px solid #8b5cf6 !important;
+  animation: vip-border-sweep-holo 4s linear infinite;
+  background-color: rgba(250, 245, 255, 0.95) !important;
+  color: #2e1065 !important;
+}
+
+/* SAKURA BLOOM: Drifting Petals Effect */
+.vip-bubble-sakura {
+  position: relative;
+  border: 1.5px solid #f472b6 !important;
+  background-color: rgba(253, 242, 248, 0.95) !important;
+  animation: vip-sakura-float 4s ease-in-out infinite;
+  background-image: radial-gradient(#fda4af 1.2px, transparent 1.2px), radial-gradient(#f472b6 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: #831843 !important;
+}
+
+/* THUNDER STRIKE: Electric Arcs Effect */
+.vip-bubble-thunder {
+  border: 1.5px solid #eab308 !important;
+  background-color: rgba(254, 252, 232, 0.95) !important;
+  animation: vip-thunder-flicker 2s ease-in-out infinite;
+  color: #713f12 !important;
+}
+
+/* Accessibility: prefers-reduced-motion fallback */
+@media (prefers-reduced-motion: reduce) {
+  .vip-name-neon,
+  .vip-name-aurora,
+  .vip-name-sunset,
+  .vip-name-crimson,
+  .vip-name-ice,
+  .vip-name-holographic,
+  .vip-name-sakura,
+  .vip-name-thunder,
+  .vip-ring-neon,
+  .vip-ring-aurora,
+  .vip-ring-sunset,
+  .vip-ring-crimson,
+  .vip-ring-ice,
+  .vip-ring-holographic,
+  .vip-ring-sakura,
+  .vip-ring-thunder,
+  .vip-bubble-neon,
+  .vip-bubble-aurora,
+  .vip-bubble-sunset,
+  .vip-bubble-crimson,
+  .vip-bubble-ice,
+  .vip-bubble-holographic,
+  .vip-bubble-sakura,
+  .vip-bubble-thunder {
+    animation: none !important;
+    filter: none !important;
+    background-size: 100% 100% !important;
+  }
+}
+

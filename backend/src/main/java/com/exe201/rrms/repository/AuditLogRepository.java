@@ -1,0 +1,1 @@
+package com.exe201.rrms.repository; import com.exe201.rrms.entity.AuditLog; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface AuditLogRepository extends JpaRepository<AuditLog,Long>{ List<AuditLog> findTop200ByOrderByCreatedAtDesc(); }

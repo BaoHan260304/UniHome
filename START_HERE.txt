@@ -1,0 +1,29 @@
+UNIHOME COMPLETE - START HERE
+
+1) MySQL Workbench
+   - Chạy database/00_unihome_full_schema.sql đúng 1 lần.
+   - Dữ liệu demo sẽ được backend tự tạo khi khởi động.
+   - Nếu muốn insert demo trực tiếp trong Workbench trước khi bật backend, chạy thêm database/03_demo_seed.sql.
+
+2) Tài khoản demo (mật khẩu chung: 123456)
+   admin@unihome.vn      -> SUPER_ADMIN
+   landlord@unihome.vn   -> LANDLORD
+   service@unihome.vn    -> SERVICE_PROVIDER
+   student@unihome.vn    -> TENANT
+   student2@unihome.vn   -> TENANT
+   student3@unihome.vn   -> TENANT
+
+3) Backend
+   - application.properties đang mặc định DB user root, password 123456@123 theo máy hiện tại.
+   - Nếu password MySQL khác, sửa DB_PASSWORD hoặc application.properties.
+   - Run RrmsApplication.java.
+   - Backend: http://localhost:8080
+
+4) Frontend
+   cd frontend
+   npm install
+   npm run dev
+   - Frontend: http://localhost:5173
+
+5) Các trang /services, /qa, /secondhand, /blog luôn có Loading / Error / Empty state, không còn màn trắng.
+   Login/Register luôn có nút về Trang chủ và sau khi đăng nhập sẽ quay lại đúng trang người dùng đang xem.

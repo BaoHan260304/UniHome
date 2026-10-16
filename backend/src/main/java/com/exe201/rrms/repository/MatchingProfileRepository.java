@@ -1,0 +1,1 @@
+package com.exe201.rrms.repository; import com.exe201.rrms.entity.MatchingProfile; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface MatchingProfileRepository extends JpaRepository<MatchingProfile,Long>{ Optional<MatchingProfile> findByUserId(Long userId); List<MatchingProfile> findByEnabledTrue(); }
