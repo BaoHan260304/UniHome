@@ -187,6 +187,28 @@ export default function VerifyOtp() {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Quick Demo OTP Hint */}
+            <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl flex items-center justify-between text-xs text-amber-900 shadow-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-base">⚡</span>
+                <div>
+                  <strong className="font-semibold text-amber-950">Mã OTP thử nghiệm nhanh:</strong> Nhập{' '}
+                  <span className="bg-white px-1.5 py-0.5 rounded border border-amber-300 font-mono font-bold text-indigo-700">123456</span>{' '}
+                  để kích hoạt ngay mà không cần chờ email/SMS.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmailCode('123456');
+                  setPhoneCode('123456');
+                }}
+                className="ml-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-2.5 py-1 rounded-lg text-xs whitespace-nowrap transition-colors"
+              >
+                Điền nhanh
+              </button>
+            </div>
+
             {/* Channel Selection if both available */}
             {email && phone && (
               <div className="flex bg-gray-100 p-1 rounded-xl">

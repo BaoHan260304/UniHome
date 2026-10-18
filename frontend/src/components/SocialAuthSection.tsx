@@ -50,7 +50,7 @@ export default function SocialAuthSection({ from = '/', onError }: Props) {
   const nav = useNavigate();
   const googleRef = useRef<HTMLDivElement>(null);
 
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '677321146530-kgbfvsajpacefkt95e5j6l2ngc9lqm30.apps.googleusercontent.com';
   const fbAppId = import.meta.env.VITE_FACEBOOK_APP_ID;
 
   // Google state
