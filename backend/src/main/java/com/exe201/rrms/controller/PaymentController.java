@@ -216,9 +216,13 @@ public class PaymentController {
     }
 
     @PostMapping("/{id}/demo-paid")
-    public Map<String, Object> demoPaid(@PathVariable Long id) {
+    public Map<String, Object> demoPaid(@PathVariable Long id, HttpServletRequest r) {
         if (!demo) throw new SecurityException("Demo payment bị tắt trên môi trường Production");
-        Payment p = payments.findById(id).orElseThrow();
+        User u = auth.current(r);
+        Payment p = payments.findById(id).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch"));
+        if (!Objects.equals(p.getUserId(), u.getId()) && !List.of("ADMIN", "SUPER_ADMIN", "MODERATOR").contains(u.getRole())) {
+            throw new SecurityException("Không phải giao dịch của bạn");
+        }
         pay.markPaid(p);
         return Map.of("message", "Đã xác nhận thanh toán demo");
     }

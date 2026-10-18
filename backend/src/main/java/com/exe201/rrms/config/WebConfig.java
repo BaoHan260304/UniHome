@@ -13,10 +13,14 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${unihome.upload.dir:uploads}")
     private String uploadDir;
 
+    @Value("${unihome.cors.allowed-origins:*}")
+    private String corsAllowedOrigins;
+
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+        String[] origins = corsAllowedOrigins.split(",");
         registry.addMapping("/**")
-                .allowedOrigins("http://localhost:5173", "http://localhost", "http://127.0.0.1:5173")
+                .allowedOriginPatterns(origins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders("*");
     }
