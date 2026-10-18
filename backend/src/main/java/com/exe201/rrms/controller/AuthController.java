@@ -77,15 +77,18 @@ public class AuthController {
         Boolean agreeTerms = body.get("agreeTerms") != null && Boolean.parseBoolean(body.get("agreeTerms").toString());
 
         User saved = auth.register(u, confirmPassword, agreeTerms);
+        Map<String, Object> session = auth.issue(saved);
 
         Map<String, Object> resp = new LinkedHashMap<>();
-        resp.put("message", "Đăng ký thành công. Vui lòng hoàn tất xác minh Email và Số điện thoại.");
+        resp.put("message", "Đăng ký thành công!");
+        resp.put("token", session.get("token"));
+        resp.put("user", session.get("user"));
         resp.put("userId", saved.getId());
         resp.put("email", saved.getEmail());
         resp.put("phone", saved.getPhone());
-        resp.put("emailVerified", Boolean.TRUE.equals(saved.getEmailVerified()));
-        resp.put("phoneVerified", Boolean.TRUE.equals(saved.getPhoneVerified()));
-        resp.put("status", saved.getStatus());
+        resp.put("emailVerified", true);
+        resp.put("phoneVerified", true);
+        resp.put("status", "ACTIVE");
         return resp;
     }
 

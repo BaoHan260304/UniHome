@@ -96,24 +96,14 @@ public class AuthService {
         u.setTermsAcceptedAt(LocalDateTime.now());
         u.setPrivacyVersion("1.0");
         u.setPrivacyAcceptedAt(LocalDateTime.now());
-        u.setStatus("PENDING_VERIFICATION");
-        u.setEmailVerified(false);
-        u.setPhoneVerified(false);
+        u.setStatus("ACTIVE");
+        u.setEmailVerified(true);
+        u.setPhoneVerified(true);
         u.setAuthProvider("LOCAL");
         u.setPassword(PasswordUtil.hash(u.getPassword()));
         u.setCreatedAt(LocalDateTime.now());
 
-        User saved = users.save(u);
-
-        // Send initial OTP via preferred channel (Email if provided, else Phone)
-        try {
-            String initialChannel = (saved.getEmail() != null && !saved.getEmail().isBlank()) ? "EMAIL" : "PHONE";
-            verification.sendOtp(saved, initialChannel, "REGISTER");
-        } catch (Exception e) {
-            // log and continue
-        }
-
-        return saved;
+        return users.save(u);
     }
 
     public Map<String, Object> login(String identifier, String password) {
@@ -144,15 +134,10 @@ public class AuthService {
         }
 
         if ("PENDING_VERIFICATION".equalsIgnoreCase(u.getStatus())) {
-            Map<String, Object> pendingRes = new LinkedHashMap<>();
-            pendingRes.put("status", "PENDING_VERIFICATION");
-            pendingRes.put("message", "Tài khoản cần hoàn tất xác minh trước khi sử dụng");
-            pendingRes.put("userId", u.getId());
-            pendingRes.put("email", u.getEmail() != null ? u.getEmail() : "");
-            pendingRes.put("phone", u.getPhone() != null ? u.getPhone() : "");
-            pendingRes.put("emailVerified", Boolean.TRUE.equals(u.getEmailVerified()));
-            pendingRes.put("phoneVerified", Boolean.TRUE.equals(u.getPhoneVerified()));
-            return pendingRes;
+            u.setStatus("ACTIVE");
+            u.setEmailVerified(true);
+            u.setPhoneVerified(true);
+            users.save(u);
         }
 
         u.setLastLoginAt(LocalDateTime.now());

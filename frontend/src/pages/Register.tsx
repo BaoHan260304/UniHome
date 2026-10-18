@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { api } from '../lib/api';
+import { api, saveAuth } from '../lib/api';
 import SocialAuthSection from '../components/SocialAuthSection';
 import TermsModal from '../components/TermsModal';
 
@@ -88,17 +88,13 @@ export default function Register() {
         agreeTerms
       });
 
-      // Redirect to Verify OTP screen
-      nav('/verify-otp', {
-        state: {
-          userId: res.data.userId,
-          email: res.data.email,
-          phone: res.data.phone,
-          emailVerified: res.data.emailVerified,
-          phoneVerified: res.data.phoneVerified,
-          from
-        }
-      });
+      if (res.data?.token) {
+        saveAuth(res.data);
+        nav(from === '/register' ? '/' : from, { replace: true });
+        return;
+      }
+
+      nav('/login', { replace: true });
     } catch (err: any) {
       if (err.response?.data?.fieldErrors) {
         setErrors(err.response.data.fieldErrors);
