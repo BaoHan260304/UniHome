@@ -44,8 +44,8 @@ const listingsData = [
     zalo: '0359572820',
     desc: 'Chính chủ cho thuê căn hộ chung cư mini mới hoàn thiện ngõ 1 Tân Xã, cách cổng FPT 800m. Phòng đầy đủ tiện nghi cao cấp: điều hòa Inverter, tủ lạnh 2 cánh, máy giặt riêng/chung, bếp từ hút mùi, giường nệm cao su non, tủ quần áo 3 cánh. Cửa khóa vân tay 24/7, thang máy tốc độ cao, camera an ninh từng tầng. Điện nước công tơ riêng minh bạch.',
     verifLevel: 'ON_SITE_VERIFIED',
-    views: 820,
-    interests: 34
+    views: 42,
+    interests: 5
   },
   {
     propId: 11,
@@ -84,8 +84,8 @@ const listingsData = [
     zalo: '0988668899',
     desc: 'Căn Studio cao cấp vừa hoàn thiện, nội thất hoàn toàn mới 100%. Vị trí đắc địa ngay mặt đường đôi Thạch Hòa, đi bộ sang ĐHQG hoặc FPT đều rất gần. Phòng trang bị đầy đủ sofa thư giãn, giường nệm lò xo, tủ quần áo kịch trần, khu bếp riêng biệt sạch sẽ. Giờ giấc tự do 100%, bãi xe rộng có bảo vệ và camera.',
     verifLevel: 'ON_SITE_VERIFIED',
-    views: 940,
-    interests: 42
+    views: 42,
+    interests: 6
   },
 
   // --- 5 x VIP 2 (59k) ---
@@ -126,8 +126,8 @@ const listingsData = [
     zalo: '0768497735',
     desc: 'Phòng khép kín có gác xép kiên cố, trần cao thoáng đãng không bị bí bách. Đã lắp sẵn điều hòa, bình nóng lạnh, kệ bếp nấu nướng thoải mái. Ngõ vào trọ rộng rãi, gần các quán ăn sinh viên và chợ cóc. Bác chủ nhiệt tình, có trách nhiệm sửa chữa bảo trì nhanh.',
     verifLevel: 'ON_SITE_VERIFIED',
-    views: 650,
-    interests: 25
+    views: 41,
+    interests: 3
   },
   {
     propId: 13,
@@ -166,8 +166,8 @@ const listingsData = [
     zalo: '0375849201',
     desc: 'Phòng khép kín sạch sẽ khu TĐC Thạch Hòa, yên tĩnh rất phù hợp cho các bạn sinh viên cần không gian tập trung học tập. Đã trang bị điều hòa, nóng lạnh, giường tủ, bàn ghế học tập. Điện nước tính theo công tơ từng phòng rõ ràng minh bạch.',
     verifLevel: 'ON_SITE_VERIFIED',
-    views: 580,
-    interests: 21
+    views: 63,
+    interests: 4
   },
   {
     propId: 14,
@@ -206,8 +206,8 @@ const listingsData = [
     zalo: '0912445566',
     desc: 'Phòng đơn khép kín giá sinh viên tại Thôn 3 Tân Xã, không gian thoáng đãng mát mẻ. Đầy đủ điều hòa mát lạnh, bình nóng lạnh tắm ấm mùa đông. Chỗ để xe máy rộng rãi trong sân có camera giám sát.',
     verifLevel: 'ON_SITE_VERIFIED',
-    views: 490,
-    interests: 18
+    views: 45,
+    interests: 4
   },
   {
     propId: 15,
@@ -246,8 +246,8 @@ const listingsData = [
     zalo: '0987332211',
     desc: 'Phòng tầng 3 có ban công riêng view hồ thoáng mát, ban công phơi đồ ngập nắng. Nhà có thang máy, máy giặt trên sân thượng dùng miễn phí. Ra điểm đón xe buýt 74 chỉ 2 phút đi bộ.',
     verifLevel: 'ON_SITE_VERIFIED',
-    views: 530,
-    interests: 22
+    views: 49,
+    interests: 2
   },
   {
     propId: 16,
@@ -286,8 +286,8 @@ const listingsData = [
     zalo: '0904556677',
     desc: 'Vị trí siêu tiện lợi ngay sau cổng phụ ĐH FPT, đi bộ đi học tiết kiệm tiền xăng xe. Phòng khép kín đầy đủ đồ dùng chỉ việc xách vali vào ở. Dân trí cao, an ninh tuyệt đối.',
     verifLevel: 'ON_SITE_VERIFIED',
-    views: 610,
-    interests: 27
+    views: 55,
+    interests: 2
   },
 
   // --- 10 x VIP 3 (29k) ---
@@ -328,8 +328,8 @@ const listingsData = [
     zalo: '0936112233',
     desc: 'Phòng trọ khép kín xã Bình Yên giá cực rẻ chỉ 2tr/tháng, điện 3.5k/số giá chuẩn. Đường to ô tô đỗ cổng, không gian xanh mát mẻ yên bình.',
     verifLevel: 'CONTENT_REVIEWED',
-    views: 420,
-    interests: 14
+    views: 61,
+    interests: 4
   },
   {
     propId: 18,
@@ -368,8 +368,8 @@ const listingsData = [
     zalo: '0979445522',
     desc: 'Dãy trọ Hưng Thịnh vừa xây xong đầu kỳ, phòng ốc sáng bóng thơm mùi sơn mới. Thiết bị vệ sinh cao cấp, gạch ốp tường sạch sẽ chống ẩm mốc.',
     verifLevel: 'ON_SITE_VERIFIED',
-    views: 460,
-    interests: 16
+    views: 50,
+    interests: 5
   },
   {
     propId: 19,
@@ -408,8 +408,8 @@ const listingsData = [
     zalo: '0965332299',
     desc: 'Phòng trọ gần hồ Tân Xã chiều ra hóng gió rất thích. Bếp riêng biệt nấu ăn không lo ám mùi vào phòng ngủ. Cổng vân tay tự do giờ giấc 24/7.',
     verifLevel: 'CONTENT_REVIEWED',
-    views: 410,
-    interests: 13
+    views: 46,
+    interests: 5
   },
   {
     propId: 20,
@@ -448,8 +448,8 @@ const listingsData = [
     zalo: '0981992200',
     desc: 'Căn Studio thiết kế mở, ban công cực rộng đón ánh nắng tự nhiên. Có máy giặt riêng, tủ lạnh, bếp từ hiện đại. Khu dân cư văn minh yên tĩnh.',
     verifLevel: 'ON_SITE_VERIFIED',
-    views: 510,
-    interests: 19
+    views: 38,
+    interests: 4
   },
   {
     propId: 21,
@@ -488,8 +488,8 @@ const listingsData = [
     zalo: '0972665544',
     desc: 'Điểm đặc biệt là khu bếp có vách kính ngăn mùi riêng biệt, chiên xào nấu nướng thỏa thích mà giường đệm vẫn luôn thơm tho sạch sẽ.',
     verifLevel: 'CONTENT_REVIEWED',
-    views: 440,
-    interests: 15
+    views: 55,
+    interests: 5
   },
   {
     propId: 22,
@@ -528,8 +528,8 @@ const listingsData = [
     zalo: '0884159957',
     desc: 'Mình chuẩn bị đi thực tập trong TP.HCM nên cần nhượng lại gấp phòng trọ tầng 2 ngõ 1 Tân Xã. Phòng sạch đẹp y ảnh, tặng lại toàn bộ bát đĩa, giá để giày và nửa tháng tiền mạng.',
     verifLevel: 'ON_SITE_VERIFIED',
-    views: 520,
-    interests: 20
+    views: 56,
+    interests: 5
   },
   {
     propId: 23,
@@ -568,8 +568,8 @@ const listingsData = [
     zalo: '0364549767',
     desc: 'Mình là sinh viên năm 2 ĐHQG, thuê nguyên căn Studio 30m2 rộng quá nên muốn tìm 1 bạn nam ở ghép chia đôi tiền phòng. Đồ đạc mình đã mua đủ từ tủ lạnh, nồi niêu xoong chảo chỉ cần xách balo đến.',
     verifLevel: 'CONTENT_REVIEWED',
-    views: 480,
-    interests: 18
+    views: 61,
+    interests: 2
   },
   {
     propId: 24,
@@ -608,8 +608,8 @@ const listingsData = [
     zalo: '0982786965',
     desc: 'Phòng ngõ 2 Tân Xã ở rất lành, an ninh tốt, đi bộ ra trường mất 7 phút. Bác chủ dễ tính hỗ trợ sinh viên hết nấc.',
     verifLevel: 'CONTENT_REVIEWED',
-    views: 390,
-    interests: 12
+    views: 40,
+    interests: 3
   },
   {
     propId: 25,
@@ -648,8 +648,8 @@ const listingsData = [
     zalo: '0844766511',
     desc: 'Mình tìm 1 bạn nữ cùng ở ghép căn hộ mini tầng 4 ban công trồng cây rất chill. Phòng decor tông pastel xinh xắn, đầy đủ đồ gia dụng.',
     verifLevel: 'ON_SITE_VERIFIED',
-    views: 540,
-    interests: 24
+    views: 42,
+    interests: 4
   },
   {
     propId: 26,
@@ -688,8 +688,8 @@ const listingsData = [
     zalo: '0333964007',
     desc: 'Phòng chuyển giao nhanh trong tuần, phòng thoáng mát có cửa sổ thông gió. Hợp đồng trực tiếp ký lại với bác chủ không mất phí trung gian.',
     verifLevel: 'CONTENT_REVIEWED',
-    views: 430,
-    interests: 15
+    views: 55,
+    interests: 3
   },
 
   // --- 8 x BOOST (10k) ---
@@ -730,8 +730,8 @@ const listingsData = [
     zalo: '0382408011',
     desc: 'Trọ nhà anh Khoa Thôn 1 Tân Xã còn 1 phòng tầng 1 khép kín sạch sẽ. Đi lại thuận tiện, không chung chủ.',
     verifLevel: 'CONTENT_REVIEWED',
-    views: 380,
-    interests: 11
+    views: 43,
+    interests: 2
   },
   {
     propId: 28,
@@ -770,8 +770,8 @@ const listingsData = [
     zalo: '0915667788',
     desc: 'Khu trọ ít phòng nên rất yên tĩnh và an ninh. Cô chủ sống ngay gần hỗ trợ nhận bưu phẩm cho các cháu sinh viên.',
     verifLevel: 'CONTENT_REVIEWED',
-    views: 340,
-    interests: 9
+    views: 60,
+    interests: 5
   },
   {
     propId: 29,
@@ -810,8 +810,8 @@ const listingsData = [
     zalo: '0934889900',
     desc: 'Phòng nhỏ gọn đầy đủ công năng giá tiết kiệm, đi chợ mua đồ ăn hàng ngày cực tiện chỉ cách 50m.',
     verifLevel: 'CONTENT_REVIEWED',
-    views: 310,
-    interests: 8
+    views: 57,
+    interests: 4
   },
   {
     propId: 30,
@@ -850,8 +850,8 @@ const listingsData = [
     zalo: '0978112244',
     desc: 'Căn hộ mini thiết kế phong cách hiện đại, ngõ lớn ô tô ra vào tận nơi đón trả đồ đạc thoải mái. Thang máy xịn.',
     verifLevel: 'ON_SITE_VERIFIED',
-    views: 450,
-    interests: 16
+    views: 58,
+    interests: 3
   },
   {
     propId: 31,
@@ -890,8 +890,8 @@ const listingsData = [
     zalo: '0963221155',
     desc: 'Phòng setup đầy đủ bàn học đôi rộng rãi cho các bạn học IT / Đồ họa cắm máy tính làm việc thoải mái.',
     verifLevel: 'CONTENT_REVIEWED',
-    views: 360,
-    interests: 10
+    views: 53,
+    interests: 7
   },
   {
     propId: 32,
@@ -930,8 +930,8 @@ const listingsData = [
     zalo: '0908778899',
     desc: 'Khu trọ an ninh số 1 Tân Xã, hệ thống camera phủ kín các góc và hành lang, phụ huynh gửi con ở đây rất yên tâm.',
     verifLevel: 'ON_SITE_VERIFIED',
-    views: 490,
-    interests: 17
+    views: 45,
+    interests: 7
   },
   {
     propId: 33,
@@ -970,8 +970,8 @@ const listingsData = [
     zalo: '0918556633',
     desc: 'Phòng có cửa sổ kính lớn lấy trọn ánh sáng tự nhiên, ban ngày không cần bật đèn. Nhà xây chắc chắn, chống nóng tốt.',
     verifLevel: 'ON_SITE_VERIFIED',
-    views: 470,
-    interests: 15
+    views: 47,
+    interests: 6
   },
   {
     propId: 34,
@@ -1010,8 +1010,8 @@ const listingsData = [
     zalo: '0943552211',
     desc: 'Mình cần nhượng gấp phòng chuyển về ở cùng anh trai. Đã thanh toán sẵn 3 tháng tiền mạng tặng lại luôn cho bạn nào vào ở.',
     verifLevel: 'CONTENT_REVIEWED',
-    views: 350,
-    interests: 11
+    views: 62,
+    interests: 3
   }
 ];
 
