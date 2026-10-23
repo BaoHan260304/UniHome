@@ -1,12 +1,12 @@
 -- ==============================================================================
 -- UniHome: Seed 30 Realistic VIP Bills & 200+ Authentic Student Chat Messages (09/10 - 23/10/2026)
 -- Target: TiDB Cloud / MySQL
--- Modest Realistic Revenue: 913,000 VND (13 x 10k, 10 x 29k, 5 x 59k, 2 x 99k)
+-- Modest Realistic Revenue: 943,000 VND (16 x 10k, 10 x 29k, 5 x 59k, 2 x 99k)
 -- ==============================================================================
 
 USE unihome;
 
--- 1. CẬP NHẬT 30 TÀI KHOẢN VIP ENTITLEMENT & HIỆU ỨNG SKIN Ô CHAT
+-- 1. CẬP NHẬT 33 TÀI KHOẢN VIP ENTITLEMENT & HIỆU ỨNG SKIN Ô CHAT
 UPDATE users SET vip_tier = 'VIP1', vip_until = '2026-12-31 23:59:59', cosmetic_style = 'NEON_VIOLET', profile_badge = '👑 VIP 1' WHERE id = 161;
 UPDATE users SET vip_tier = 'VIP1', vip_until = '2026-12-31 23:59:59', cosmetic_style = 'HOLOGRAPHIC', profile_badge = '👑 VIP 1' WHERE id = 30002;
 UPDATE users SET vip_tier = 'VIP2', vip_until = '2026-12-31 23:59:59', cosmetic_style = 'AURORA', profile_badge = '💎 VIP 2' WHERE id = 162;
@@ -37,8 +37,11 @@ UPDATE users SET vip_tier = 'BOOST', vip_until = '2026-12-31 23:59:59', cosmetic
 UPDATE users SET vip_tier = 'BOOST', vip_until = '2026-12-31 23:59:59', cosmetic_style = 'ICE_BLUE', profile_badge = '⚡ BOOST' WHERE id = 30;
 UPDATE users SET vip_tier = 'BOOST', vip_until = '2026-12-31 23:59:59', cosmetic_style = 'THUNDER_STRIKE', profile_badge = '⚡ BOOST' WHERE id = 35;
 UPDATE users SET vip_tier = 'BOOST', vip_until = '2026-12-31 23:59:59', cosmetic_style = 'HOLOGRAPHIC', profile_badge = '⚡ BOOST' WHERE id = 40;
+UPDATE users SET vip_tier = 'BOOST', vip_until = '2026-12-31 23:59:59', cosmetic_style = 'AURORA', profile_badge = '⚡ BOOST' WHERE id = 45;
+UPDATE users SET vip_tier = 'BOOST', vip_until = '2026-12-31 23:59:59', cosmetic_style = 'SUNSET_GOLD', profile_badge = '⚡ BOOST' WHERE id = 50;
+UPDATE users SET vip_tier = 'BOOST', vip_until = '2026-12-31 23:59:59', cosmetic_style = 'ICE_BLUE', profile_badge = '⚡ BOOST' WHERE id = 55;
 
--- 2. TẠO 30 BẢN GHI HÓA ĐƠN THANH TOÁN (PAYMENT) VỚI TRẠNG THÁI PAID
+-- 2. TẠO 33 BẢN GHI HÓA ĐƠN THANH TOÁN (PAYMENT) VỚI TRẠNG THÁI PAID
 DELETE FROM payment WHERE code LIKE 'PAY-%';
 INSERT INTO payment (user_id, code, amount, type, status, reference_type, reference_id, plan_id, qr_url, created_at, paid_at) VALUES
   (161, 'PAY-VIP1-261012102415-001', 99000, 'PACKAGE_DIRECT', 'PAID', 'LISTING', 161, 4, 'https://img.vietqr.io/image/970436-0000000000-compact2.png?amount=99000&addInfo=PAY-VIP1-261012102415-001&accountName=UNIHOME', '2026-10-12 10:24:15', '2026-10-12 10:24:15'),
@@ -70,9 +73,12 @@ INSERT INTO payment (user_id, code, amount, type, status, reference_type, refere
   (25, 'PAY-BOOST-261019153020-027', 10000, 'PACKAGE_DIRECT', 'PAID', 'LISTING', 1, 6, 'https://img.vietqr.io/image/970436-0000000000-compact2.png?amount=10000&addInfo=PAY-BOOST-261019153020-027&accountName=UNIHOME', '2026-10-19 15:30:20', '2026-10-19 15:30:20'),
   (30, 'PAY-BOOST-261021114500-028', 10000, 'PACKAGE_DIRECT', 'PAID', 'LISTING', 1, 6, 'https://img.vietqr.io/image/970436-0000000000-compact2.png?amount=10000&addInfo=PAY-BOOST-261021114500-028&accountName=UNIHOME', '2026-10-21 11:45:00', '2026-10-21 11:45:00'),
   (35, 'PAY-BOOST-261022142010-029', 10000, 'PACKAGE_DIRECT', 'PAID', 'LISTING', 1, 6, 'https://img.vietqr.io/image/970436-0000000000-compact2.png?amount=10000&addInfo=PAY-BOOST-261022142010-029&accountName=UNIHOME', '2026-10-22 14:20:10', '2026-10-22 14:20:10'),
-  (40, 'PAY-BOOST-261023081500-030', 10000, 'PACKAGE_DIRECT', 'PAID', 'LISTING', 1, 6, 'https://img.vietqr.io/image/970436-0000000000-compact2.png?amount=10000&addInfo=PAY-BOOST-261023081500-030&accountName=UNIHOME', '2026-10-23 08:15:00', '2026-10-23 08:15:00');
+  (40, 'PAY-BOOST-261023081500-030', 10000, 'PACKAGE_DIRECT', 'PAID', 'LISTING', 1, 6, 'https://img.vietqr.io/image/970436-0000000000-compact2.png?amount=10000&addInfo=PAY-BOOST-261023081500-030&accountName=UNIHOME', '2026-10-23 08:15:00', '2026-10-23 08:15:00'),
+  (45, 'PAY-BOOST-261021173510-031', 10000, 'PACKAGE_DIRECT', 'PAID', 'LISTING', 1, 6, 'https://img.vietqr.io/image/970436-0000000000-compact2.png?amount=10000&addInfo=PAY-BOOST-261021173510-031&accountName=UNIHOME', '2026-10-21 17:35:10', '2026-10-21 17:35:10'),
+  (50, 'PAY-BOOST-261022101245-032', 10000, 'PACKAGE_DIRECT', 'PAID', 'LISTING', 1, 6, 'https://img.vietqr.io/image/970436-0000000000-compact2.png?amount=10000&addInfo=PAY-BOOST-261022101245-032&accountName=UNIHOME', '2026-10-22 10:12:45', '2026-10-22 10:12:45'),
+  (55, 'PAY-BOOST-261023090520-033', 10000, 'PACKAGE_DIRECT', 'PAID', 'LISTING', 1, 6, 'https://img.vietqr.io/image/970436-0000000000-compact2.png?amount=10000&addInfo=PAY-BOOST-261023090520-033&accountName=UNIHOME', '2026-10-23 09:05:20', '2026-10-23 09:05:20');
 
--- 3. TẠO 30 BẢN GHI BIẾN ĐỘNG SỐ DƯ VÍ / DỊCH VỤ (WALLET_TRANSACTION)
+-- 3. TẠO 33 BẢN GHI BIẾN ĐỘNG SỐ DƯ VÍ / DỊCH VỤ (WALLET_TRANSACTION)
 DELETE FROM wallet_transaction WHERE description LIKE '%VietQR%';
 INSERT INTO wallet_transaction (user_id, type, amount, balance_after, reference_type, reference_id, description, created_at) VALUES
   (161, 'DEBIT', -99000, 0, 'PACKAGE', 4, 'Thanh toán gói Tin VIP 1 (VIP1) qua VietQR ngân hàng', '2026-10-12 10:24:15'),
@@ -104,7 +110,10 @@ INSERT INTO wallet_transaction (user_id, type, amount, balance_after, reference_
   (25, 'DEBIT', -10000, 0, 'PACKAGE', 6, 'Thanh toán gói Đẩy tin (BOOST) qua VietQR ngân hàng', '2026-10-19 15:30:20'),
   (30, 'DEBIT', -10000, 0, 'PACKAGE', 6, 'Thanh toán gói Đẩy tin (BOOST) qua VietQR ngân hàng', '2026-10-21 11:45:00'),
   (35, 'DEBIT', -10000, 0, 'PACKAGE', 6, 'Thanh toán gói Đẩy tin (BOOST) qua VietQR ngân hàng', '2026-10-22 14:20:10'),
-  (40, 'DEBIT', -10000, 0, 'PACKAGE', 6, 'Thanh toán gói Đẩy tin (BOOST) qua VietQR ngân hàng', '2026-10-23 08:15:00');
+  (40, 'DEBIT', -10000, 0, 'PACKAGE', 6, 'Thanh toán gói Đẩy tin (BOOST) qua VietQR ngân hàng', '2026-10-23 08:15:00'),
+  (45, 'DEBIT', -10000, 0, 'PACKAGE', 6, 'Thanh toán gói Đẩy tin (BOOST) qua VietQR ngân hàng', '2026-10-21 17:35:10'),
+  (50, 'DEBIT', -10000, 0, 'PACKAGE', 6, 'Thanh toán gói Đẩy tin (BOOST) qua VietQR ngân hàng', '2026-10-22 10:12:45'),
+  (55, 'DEBIT', -10000, 0, 'PACKAGE', 6, 'Thanh toán gói Đẩy tin (BOOST) qua VietQR ngân hàng', '2026-10-23 09:05:20');
 
 -- 4. TẠO CÁC TIN NHẮN TÁN GẪU CỘNG ĐỒNG THỰC TẾ (09/10 - 23/10/2026)
 DELETE FROM community_message_reaction;

@@ -12,7 +12,7 @@ const plans = {
   VIP1: { id: 4, code: 'VIP1', name: 'Tin VIP 1', price: 99000, days: 15 }
 };
 
-// 30 VIP buyers: Exactly 2 x VIP1 (99k), 5 x VIP2 (59k), 10 x VIP3 (29k), 13 x BOOST (10k)
+// 33 VIP buyers: Exactly 2 x VIP1 (99k), 5 x VIP2 (59k), 10 x VIP3 (29k), 16 x BOOST (10k)
 const vipBuyers = [
   // 2 x VIP1 (99k)
   { userId: 161, plan: 'VIP1', date: '2026-10-12 10:24:15', cosmetic: 'NEON_VIOLET', badge: '👑 VIP 1' },
@@ -50,25 +50,28 @@ const vipBuyers = [
   { userId: 25,  plan: 'BOOST', date: '2026-10-19 15:30:20', cosmetic: 'SUNSET_GOLD', badge: '⚡ BOOST' },
   { userId: 30,  plan: 'BOOST', date: '2026-10-21 11:45:00', cosmetic: 'ICE_BLUE', badge: '⚡ BOOST' },
   { userId: 35,  plan: 'BOOST', date: '2026-10-22 14:20:10', cosmetic: 'THUNDER_STRIKE', badge: '⚡ BOOST' },
-  { userId: 40,  plan: 'BOOST', date: '2026-10-23 08:15:00', cosmetic: 'HOLOGRAPHIC', badge: '⚡ BOOST' }
+  { userId: 40,  plan: 'BOOST', date: '2026-10-23 08:15:00', cosmetic: 'HOLOGRAPHIC', badge: '⚡ BOOST' },
+  { userId: 45,  plan: 'BOOST', date: '2026-10-21 17:35:10', cosmetic: 'AURORA', badge: '⚡ BOOST' },
+  { userId: 50,  plan: 'BOOST', date: '2026-10-22 10:12:45', cosmetic: 'SUNSET_GOLD', badge: '⚡ BOOST' },
+  { userId: 55,  plan: 'BOOST', date: '2026-10-23 09:05:20', cosmetic: 'ICE_BLUE', badge: '⚡ BOOST' }
 ];
 
 let sql = `-- ==============================================================================
 -- UniHome: Seed 30 Realistic VIP Bills & 200+ Authentic Student Chat Messages (09/10 - 23/10/2026)
 -- Target: TiDB Cloud / MySQL
--- Modest Realistic Revenue: 913,000 VND (13 x 10k, 10 x 29k, 5 x 59k, 2 x 99k)
+-- Modest Realistic Revenue: 943,000 VND (16 x 10k, 10 x 29k, 5 x 59k, 2 x 99k)
 -- ==============================================================================
 
 USE unihome;
 
--- 1. CẬP NHẬT 30 TÀI KHOẢN VIP ENTITLEMENT & HIỆU ỨNG SKIN Ô CHAT
+-- 1. CẬP NHẬT 33 TÀI KHOẢN VIP ENTITLEMENT & HIỆU ỨNG SKIN Ô CHAT
 `;
 
 vipBuyers.forEach(b => {
   sql += `UPDATE users SET vip_tier = '${b.plan}', vip_until = '2026-12-31 23:59:59', cosmetic_style = '${b.cosmetic}', profile_badge = '${b.badge}' WHERE id = ${b.userId};\n`;
 });
 
-sql += `\n-- 2. TẠO 30 BẢN GHI HÓA ĐƠN THANH TOÁN (PAYMENT) VỚI TRẠNG THÁI PAID\n`;
+sql += `\n-- 2. TẠO 33 BẢN GHI HÓA ĐƠN THANH TOÁN (PAYMENT) VỚI TRẠNG THÁI PAID\n`;
 sql += `DELETE FROM payment WHERE code LIKE 'PAY-%';\n`;
 sql += `INSERT INTO payment (user_id, code, amount, type, status, reference_type, reference_id, plan_id, qr_url, created_at, paid_at) VALUES\n`;
 
@@ -81,7 +84,7 @@ const paymentRows = vipBuyers.map((b, idx) => {
 });
 sql += paymentRows.join(',\n') + ';\n\n';
 
-sql += `-- 3. TẠO 30 BẢN GHI BIẾN ĐỘNG SỐ DƯ VÍ / DỊCH VỤ (WALLET_TRANSACTION)\n`;
+sql += `-- 3. TẠO 33 BẢN GHI BIẾN ĐỘNG SỐ DƯ VÍ / DỊCH VỤ (WALLET_TRANSACTION)\n`;
 sql += `DELETE FROM wallet_transaction WHERE description LIKE '%VietQR%';\n`;
 sql += `INSERT INTO wallet_transaction (user_id, type, amount, balance_after, reference_type, reference_id, description, created_at) VALUES\n`;
 
