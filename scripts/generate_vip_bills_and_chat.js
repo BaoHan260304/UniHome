@@ -1,5 +1,5 @@
 /**
- * Generator script for 30 VIP bills and 80+ realistic community chat messages
+ * Generator script for 30 VIP bills and realistic community chat messages
  * Outputs: database/seed_30_vip_bills_and_realistic_chat.sql
  */
 const fs = require('fs');
@@ -12,12 +12,7 @@ const plans = {
   VIP1: { id: 4, code: 'VIP1', name: 'Tin VIP 1', price: 99000, days: 15 }
 };
 
-// 30 VIP buyers breakdown:
-// 2 x VIP1 (99k)
-// 5 x VIP2 (59k)
-// 10 x VIP3 (29k)
-// 13 x BOOST (10k)
-// Total = 30 buyers, 913,000 VND
+// 30 VIP buyers: Exactly 2 x VIP1 (99k), 5 x VIP2 (59k), 10 x VIP3 (29k), 13 x BOOST (10k)
 const vipBuyers = [
   // 2 x VIP1 (99k)
   { userId: 161, plan: 'VIP1', date: '2026-10-12 10:24:15', cosmetic: 'NEON_VIOLET', badge: '👑 VIP 1' },
@@ -59,7 +54,7 @@ const vipBuyers = [
 ];
 
 let sql = `-- ==============================================================================
--- UniHome: Seed 30 Realistic VIP Bills & 80+ Community Chat Messages (09/10 - 23/10/2026)
+-- UniHome: Seed 30 Realistic VIP Bills & Authentic Student Chat Messages (09/10 - 23/10/2026)
 -- Target: TiDB Cloud / MySQL
 -- Modest Realistic Revenue: 913,000 VND (13 x 10k, 10 x 29k, 5 x 59k, 2 x 99k)
 -- ==============================================================================
@@ -74,6 +69,7 @@ vipBuyers.forEach(b => {
 });
 
 sql += `\n-- 2. TẠO 30 BẢN GHI HÓA ĐƠN THANH TOÁN (PAYMENT) VỚI TRẠNG THÁI PAID\n`;
+sql += `DELETE FROM payment WHERE code LIKE 'PAY-%';\n`;
 sql += `INSERT INTO payment (user_id, code, amount, type, status, reference_type, reference_id, plan_id, qr_url, created_at, paid_at) VALUES\n`;
 
 const paymentRows = vipBuyers.map((b, idx) => {
@@ -86,6 +82,7 @@ const paymentRows = vipBuyers.map((b, idx) => {
 sql += paymentRows.join(',\n') + ';\n\n';
 
 sql += `-- 3. TẠO 30 BẢN GHI BIẾN ĐỘNG SỐ DƯ VÍ / DỊCH VỤ (WALLET_TRANSACTION)\n`;
+sql += `DELETE FROM wallet_transaction WHERE description LIKE '%VietQR%';\n`;
 sql += `INSERT INTO wallet_transaction (user_id, type, amount, balance_after, reference_type, reference_id, description, created_at) VALUES\n`;
 
 const txRows = vipBuyers.map((b, idx) => {
@@ -95,117 +92,115 @@ const txRows = vipBuyers.map((b, idx) => {
 });
 sql += txRows.join(',\n') + ';\n\n';
 
-// 4. Kịch bản ~82 tin nhắn tán gẫu cộng đồng từ 09/10 đến 23/10/2026
+// 4. Kịch bản ~75 tin nhắn tán gẫu cộng đồng thực tế: 85% Sinh viên, 15% Chủ trọ đăng tin ngắn gọn, KHÔNG sến súa/nịnh bợ
 const chatMessages = [
   // Ngày 09/10
-  { uid: 2, text: "Chào mọi người ạ, e là sinh viên năm nhất FPT mới nhập học, rất vui đc làm quen với cả nhà!", time: "2026-10-09 08:35:10" },
-  { uid: 167, text: "Chào cháu, chào mừng cháu lên Hòa Lạc nhé! Cần hỏi gì trọ hay xe cộ cháu cứ nhắn lên đây mọi người chỉ cho.", time: "2026-10-09 08:42:00" },
-  { uid: 4, text: "Mn ơi cho e hỏi quanh trường FPT có chỗ nào photo in ấn tài liệu rẻ k ạ?", time: "2026-10-09 10:15:30" },
-  { uid: 7, text: "Ở ngay cổng số 2 có tiệm in Sinh Viên đó b, in 2 mặt tầm 300đ/tờ nha.", time: "2026-10-09 10:22:15" },
-  { uid: 172, text: "Bên nhà bác trọ ở Thôn 1 Tân Xã vừa có bạn sv trả phòng về quê, phòng 22m2 khép kín sạch đẹp, cháu nào chưa có phòng thì ới bác nhé.", time: "2026-10-09 16:32:00" },
-  { uid: 11, text: "Giá phòng bên bác bn 1 tháng thế ạ? Có điều hòa nóng lạnh k bác?", time: "2026-10-09 16:45:20", replyIdx: 4 },
-  { uid: 172, text: "Phòng 2tr6 cháu nhé, đầy đủ điều hòa, nóng lạnh, wifi riêng, có chỗ nấu ăn ban công thoáng.", time: "2026-10-09 16:50:10", replyIdx: 5 },
+  { uid: 2, text: "Mn ơi cho e hỏi quanh FPT có quán photo in ấn nào rẻ k ạ?", time: "2026-10-09 08:35:10" },
+  { uid: 7, text: "Cổng số 2 có quán in Sinh Viên nha b, in 2 mặt 300đ/tờ.", time: "2026-10-09 08:42:00", replyIdx: 0 },
+  { uid: 11, text: "Tks b nhé, vừa qua in xấp slide môn C++ rồi.", time: "2026-10-09 10:15:30", replyIdx: 1 },
+  { uid: 172, text: "Trọ Minh Anh (Thôn 1 Tân Xã) trống 1 phòng 22m2 khép kín tầng 2, có điều hòa, nóng lạnh, máy giặt chung. Bạn nào cần phòng liên hệ qua xem nhé.", time: "2026-10-09 16:30:00" },
+  { uid: 14, text: "Phòng bên mình giá bn 1 tháng thế ạ?", time: "2026-10-09 16:45:20", replyIdx: 3 },
+  { uid: 172, text: "2tr5/tháng b nhé, điện nước công tơ riêng.", time: "2026-10-09 16:50:10", replyIdx: 4 },
 
   // Ngày 10/10
-  { uid: 9, text: "Mọi người cho e hỏi trọ Thôn 1 hay Thôn 3 Tân Xã bên nào tiện xe bus 74 hơn ạ?", time: "2026-10-10 09:12:40" },
-  { uid: 162, text: "Thôn 1 đi bộ ra điểm đón bus ở cổng trường FPT gần hơn cháu nhé, tầm 5 phút đi bộ thôi.", time: "2026-10-10 09:20:00", replyIdx: 7 },
-  { uid: 13, text: "Đúng r đó b, nhưng Thôn 3 thì yên tĩnh hơn với giá phòng mềm hơn khoảng 200k - 300k so với Thôn 1.", time: "2026-10-10 09:28:15" },
-  { uid: 18, text: "E chuẩn bị chuyển trọ có thừa 1 tủ lạnh mini Casper 93L còn dùng rất tốt, pass lại 850k cho b nào cần quanh Hòa Lạc ạ.", time: "2026-10-10 14:18:30" },
-  { uid: 22, text: "Tủ lạnh dùng lâu chưa b ơi? Có bớt k ạ e ở bên ĐHQG.", time: "2026-10-10 14:30:10", replyIdx: 10 },
-  { uid: 18, text: "Mình mua đc 8 tháng thôi b, máy chạy êm tiết kiệm điện. B qua lấy fix b 800k tròn nhé.", time: "2026-10-10 14:38:00", replyIdx: 11 },
-  { uid: 173, text: "Bác chủ trọ Thôn 2 chúc các bạn sinh viên cuối tuần vui vẻ nhé!", time: "2026-10-10 19:15:00" },
+  { uid: 9, text: "Mọi người cho e hỏi trọ Thôn 1 hay Thôn 3 Tân Xã bên nào tiện đi xe 74 hơn ạ?", time: "2026-10-10 09:12:40" },
+  { uid: 13, text: "Thôn 1 đi bộ ra điểm đón cổng trường gần hơn b nha, Thôn 3 thì yên tĩnh hơn với giá rẻ hơn tầm 200-300k.", time: "2026-10-10 09:20:00", replyIdx: 6 },
+  { uid: 9, text: "Oki tks b, chắc e tìm bên Thôn 3 cho đỡ ồn.", time: "2026-10-10 09:28:15", replyIdx: 7 },
+  { uid: 18, text: "E chuyển trọ dư 1 tủ lạnh mini Casper 93L còn dùng tốt, pass lại 800k ở Thôn 1 Tân Xã nhé.", time: "2026-10-10 14:18:30" },
+  { uid: 22, text: "Tủ lạnh dùng lâu chưa b? Có fix thêm tiền xăng xe k e qua chở.", time: "2026-10-10 14:30:10", replyIdx: 9 },
+  { uid: 18, text: "Dùng đc 8 tháng b ơi, qua lấy bớt b 50k xăng xe nha.", time: "2026-10-10 14:38:00", replyIdx: 10 },
+  { uid: 22, text: "Ok b, cho e xin địa chỉ ngõ với sđt lát chiều e qua xem nhé.", time: "2026-10-10 14:45:00", replyIdx: 11 },
 
   // Ngày 11/10
-  { uid: 168, text: "Sáng chủ nhật đẹp trời, có bạn nào đang tìm trọ quanh khu công nghệ cao k nhỉ?", time: "2026-10-11 08:50:20" },
-  { uid: 26, text: "E cần tìm phòng cho 2 người ở ghép tầm 2tr5 - 3tr khu Thạch Hòa bác ơi.", time: "2026-10-11 09:05:00", replyIdx: 14 },
-  { uid: 29, text: "Mn cho e hỏi tiền điện ở Hòa Lạc các trọ thường tính bn 1 số vậy mn, e sợ bị hớ tiền điện.", time: "2026-10-11 15:40:10" },
-  { uid: 32, text: "Mặt bằng chung là 3.8k - 4k/số b nha, có đồng hồ điện riêng. Chỗ nào tính trên 4.5k thì nên hỏi kỹ.", time: "2026-10-11 15:52:00", replyIdx: 16 },
-  { uid: 30002, text: "Web UniHome đợt này mượt phết mn nhỉ, lướt tìm phòng với lọc giá nhanh ghê.", time: "2026-10-11 20:10:00" },
+  { uid: 26, text: "E cần tìm phòng cho 2 người ở ghép tầm 2tr5 - 3tr khu Thạch Hòa, ai biết trọ nào ổn chỉ e với.", time: "2026-10-11 08:50:20" },
+  { uid: 29, text: "Mn cho e hỏi tiền điện ở Hòa Lạc các trọ thường tính bn 1 số vậy mn, e sv năm nhất sợ bị hớ.", time: "2026-10-11 15:40:10" },
+  { uid: 32, text: "Đa số 3.8k - 4k/số b nha, có đồng hồ riêng từng phòng. Chỗ nào tính trên 4.5k thì nên hỏi kỹ.", time: "2026-10-11 15:52:00", replyIdx: 14 },
+  { uid: 29, text: "Dạ e cảm ơn b nhiều ạ.", time: "2026-10-11 16:05:00", replyIdx: 15 },
+  { uid: 30002, text: "Ai tìm bạn ở ghép nhớ điền đầy đủ phần thói quen sinh hoạt nhé, ghép trúng bạn hợp tính ở thích lắm.", time: "2026-10-11 20:10:00" },
 
   // Ngày 12/10
-  { uid: 174, text: "Đầu tuần mới chúc các bạn học tập tốt. Nhà bác vừa lắp thêm camera an ninh ở nhà xe nhé các cháu yên tâm gửi xe.", time: "2026-10-12 08:25:00" },
-  { uid: 161, text: "Chủ trọ Tân Xã xin chào cả nhà, khu nhà bác 16 phòng hiện còn 2 phòng tầng 3 thoáng mát, có thang máy nhé.", time: "2026-10-12 10:30:00" },
-  { uid: 36, text: "Ôi sao ô chat của bác chủ trọ có viền tím neon phát sáng chuyển màu đẹp thế ạ??", time: "2026-10-12 10:35:10", replyIdx: 20 },
-  { uid: 161, text: "Bác vừa đăng ký gói VIP 1 đẩy tin trên web đấy cháu, nó tự động kích hoạt hiệu ứng khung chat VIP cho bác luôn.", time: "2026-10-12 10:40:00", replyIdx: 21 },
-  { uid: 41, text: "Xịn thế, nhìn nổi bật hẳn luôn á bác!", time: "2026-10-12 10:42:15" },
-  { uid: 175, text: "Bác vừa đẩy tin xong thấy bài nhảy lên đầu trang luôn, tiện lợi ghê.", time: "2026-10-12 15:00:20" },
+  { uid: 161, text: "Khu trọ Tân Xã còn 2 phòng studio tầng 3 ban công thoáng mát, có thang máy, khóa vân tay 24/7. Bạn nào cần xem phòng nhắn mình nhé.", time: "2026-10-12 10:25:00" },
+  { uid: 36, text: "Ủa sao ô chat của bạn kia có viền tím neon phát sáng hay thế mn?", time: "2026-10-12 10:35:10" },
+  { uid: 1, text: "Nạp gói VIP trên web là có á b, bấm vào nút 'Hiệu ứng VIP' ở thanh trên cùng để chọn màu.", time: "2026-10-12 10:40:00", replyIdx: 19 },
+  { uid: 36, text: "À ra thế, nhìn nổi bật ghê haha.", time: "2026-10-12 10:42:15", replyIdx: 20 },
+  { uid: 41, text: "Có ai pass ấm siêu tốc vs quạt cây k ạ, phòng e trống chưa có gì.", time: "2026-10-12 15:00:20" },
+  { uid: 43, text: "Mình có ấm siêu tốc Sunhouse 1.8L còn mới 90k nè, ngõ 3 Tân Xã qua lấy nhé.", time: "2026-10-12 15:15:00", replyIdx: 22 },
 
   // Ngày 13/10
-  { uid: 163, text: "Bác chủ trọ Thôn 1 chào các cháu. Bác có hỗ trợ làm tạm trú tạm vắng đầy đủ cho sinh viên nhé.", time: "2026-10-13 09:35:00" },
-  { uid: 44, text: "Bác ơi thủ tục làm tạm trú cần chuẩn bị những giấy tờ gì ạ?", time: "2026-10-13 09:42:10", replyIdx: 25 },
-  { uid: 163, text: "Chỉ cần CCCD gắn chip với ảnh chụp hợp đồng thuê phòng là bác gửi công an xã làm trên VNeID luôn cháu nhé.", time: "2026-10-13 09:50:00", replyIdx: 26 },
-  { uid: 48, text: "Có b nào pass lại quạt cây lửng k ạ, phòng e đang hơi nóng.", time: "2026-10-13 14:15:30" },
-  { uid: 169, text: "Nhà bác thừa 1 cái quạt Senko cháu qua ngõ 4 bác để lại 100k cho nhé.", time: "2026-10-13 15:25:00", replyIdx: 28 },
+  { uid: 44, text: "Mn ơi làm tạm trú tạm vắng thì chủ trọ làm cho hay mình tự đi làm ở công an xã ạ?", time: "2026-10-13 09:35:00" },
+  { uid: 163, text: "Chủ trọ làm cho b nhé, chỉ cần gửi ảnh CCCD gắn chip với thông tin là làm trên VNeID đc.", time: "2026-10-13 09:42:10", replyIdx: 24 },
+  { uid: 44, text: "Dạ vâng e cảm ơn ạ.", time: "2026-10-13 09:48:00", replyIdx: 25 },
+  { uid: 48, text: "Quanh ĐHQG có quán cơm nào ngon bổ rẻ nhận ship k mn, nay e lười ra ngoài quá.", time: "2026-10-13 11:20:00" },
+  { uid: 50, text: "Cơm sinh viên quán Chị Nga ở ngõ 1 ship từ 2 suất b nhé, 30k 1 suất ăn no căng.", time: "2026-10-13 11:32:00", replyIdx: 27 },
 
   // Ngày 14/10
   { uid: 51, text: "Mn ơi cho e hỏi làm sao để bật tính năng tìm bạn ở ghép thế ạ? E cập nhật hồ sơ rồi mà k thấy hiện danh sách gợi ý.", time: "2026-10-14 09:20:00" },
-  { uid: 54, text: "B vào mục 'Ghép phòng' trên thanh menu, điền thói quen ngủ nghỉ với tầm giá là hệ thống AI tự chấm điểm match % đó b.", time: "2026-10-14 09:32:00", replyIdx: 30 },
-  { uid: 170, text: "Khu nhà trọ bác cũng nhiều bạn ghép phòng hợp tính nhau ở vui vẻ lắm.", time: "2026-10-14 10:10:00" },
-  { uid: 58, text: "Mình pass lại bàn gấp học bài 50k vs giá phơi đồ inox 120k, ai lấy qua ngõ trọ Minh Anh lấy giúp mình nhé.", time: "2026-10-14 16:45:10" },
-  { uid: 62, text: "Bàn gấp còn mới k b ơi, cho e xin ảnh vào ib với ạ.", time: "2026-10-14 17:05:00", replyIdx: 33 },
-  { uid: 176, text: "Tối nay quanh FPT có quán lẩu nào ngon mn chỉ bác với, dẫn cháu gái đi ăn sinh nhật.", time: "2026-10-14 21:05:00" },
-  { uid: 65, text: "Quán lẩu nướng 88 ở đường gom đại lộ Thăng Long ngon bổ rẻ bác ơi!", time: "2026-10-14 21:12:00", replyIdx: 35 },
+  { uid: 54, text: "B vào mục 'Ghép phòng' trên menu, điền thói quen ngủ nghỉ với tầm giá là hệ thống tự tính điểm match % đó b.", time: "2026-10-14 09:32:00", replyIdx: 29 },
+  { uid: 51, text: "À e thấy rồi, tks b nhiều!", time: "2026-10-14 09:38:00", replyIdx: 30 },
+  { uid: 58, text: "Mình pass lại bàn gấp học bài 50k vs giá phơi inox 100k, ai lấy qua ngõ trọ Minh Anh lấy giúp mình nhé.", time: "2026-10-14 16:45:10" },
+  { uid: 62, text: "Bàn gấp còn chắc chắn k b, cho e xin kích thước với.", time: "2026-10-14 17:05:00", replyIdx: 32 },
+  { uid: 58, text: "Bàn 40x60 chân sắt chắc chắn b nha, b qua lấy nhắn mình nhé.", time: "2026-10-14 17:15:00", replyIdx: 33 },
 
   // Ngày 15/10
-  { uid: 177, text: "Bác vừa nạp gói Đẩy tin qua mã QR VietQR, quét xong cái là hệ thống tự duyệt ngay trong 5 giây, nhanh thật.", time: "2026-10-15 09:45:00" },
-  { uid: 68, text: "Dạ đúng r bác, web này tích hợp thanh toán tự động tiện lắm k phải đợi ai duyệt tay.", time: "2026-10-15 09:55:00", replyIdx: 37 },
-  { uid: 164, text: "Chào buổi chiều cả nhà, trọ bên Thạch Hòa còn 1 phòng tầng 2 có ban công lộng gió nhé.", time: "2026-10-15 16:10:00" },
-  { uid: 72, text: "Có chỗ để xe máy k chung chủ k bác?", time: "2026-10-15 16:20:00", replyIdx: 39 },
-  { uid: 164, text: "Có khóa vân tay cổng riêng, giờ giấc 24/24 tự do cháu nhé.", time: "2026-10-15 16:28:00", replyIdx: 40 },
-  { uid: 171, text: "Khung chat màu băng thanh xanh ngọc này nhìn mát mắt ghê mn.", time: "2026-10-15 19:18:00" },
+  { uid: 68, text: "Mn cho e hỏi nạp đẩy tin trên web quét QR ngân hàng có tự duyệt luôn k ạ?", time: "2026-10-15 09:45:00" },
+  { uid: 70, text: "Tự động đó b, quét VietQR tầm 5-10 giây là tin nhảy lên đầu luôn.", time: "2026-10-15 09:55:00", replyIdx: 35 },
+  { uid: 164, text: "Trọ Hoa Sữa (Thạch Hòa) còn 1 phòng tầng 2 có ban công thoáng mát, khép kín, giờ giấc tự do chìa khóa riêng.", time: "2026-10-15 16:10:00" },
+  { uid: 72, text: "Bên mình tiền điện nước tính thế nào ạ?", time: "2026-10-15 16:20:00", replyIdx: 37 },
+  { uid: 164, text: "Điện 3k8/số, nước 80k/người/tháng b nhé.", time: "2026-10-15 16:28:00", replyIdx: 38 },
 
   // Ngày 16/10
-  { uid: 1, text: "Hôm nay mình nạp thử gói VIP 3 có 29k mà đc mở khóa skin lăng kính hologram xịn xò quá này mn haha!", time: "2026-10-16 09:35:00" },
-  { uid: 76, text: "Đẹp xỉu b ơi, nhìn viền chuyển sắc chuyển động mê thật sự.", time: "2026-10-16 09:42:00", replyIdx: 43 },
-  { uid: 81, text: "Cho e hỏi có xe bus nào chạy thẳng từ bến xe Mỹ Đình lên trường FPT Hòa Lạc k ạ?", time: "2026-10-16 14:10:00" },
-  { uid: 84, text: "Có xe bus 74 hoặc 107 từ Kim Mã b nha, đi tầm 45-50 phút là tới cổng trường r á.", time: "2026-10-16 14:22:00", replyIdx: 45 },
-  { uid: 178, text: "Xe 74 cứ 15 phút 1 chuyến nhé các cháu, đi lại rất thuận tiện.", time: "2026-10-16 17:20:00" },
+  { uid: 1, text: "Mới nạp thử gói VIP 3 có 29k mà đc mở khóa skin lăng kính hologram này mn haha.", time: "2026-10-16 09:35:00" },
+  { uid: 76, text: "Nhìn viền đổi màu chuyển động hay ghê b.", time: "2026-10-16 09:42:00", replyIdx: 40 },
+  { uid: 81, text: "Cho e hỏi xe bus 74 từ Mỹ Đình lên Hòa Lạc chuyến muộn nhất mấy giờ thế ạ?", time: "2026-10-16 14:10:00" },
+  { uid: 84, text: "Chuyến cuối ở bến Mỹ Đình tầm 20h30 nha b, nên ra trước 20h cho yên tâm.", time: "2026-10-16 14:22:00", replyIdx: 42 },
+  { uid: 81, text: "Tks b nhiều nha.", time: "2026-10-16 14:30:00", replyIdx: 43 },
 
   // Ngày 17/10
-  { uid: 15, text: "E pass lại bộ nồi cơm điện Cuckoo 1.8L còn bảo hành 4 tháng giá 350k nhé mn.", time: "2026-10-17 11:10:00" },
-  { uid: 88, text: "Nồi còn nấu cơm ngon k b? Nắp có bị hở k ạ?", time: "2026-10-17 11:25:00", replyIdx: 48 },
-  { uid: 15, text: "Nồi ngon lành nguyên vẹn b nha, mình đổi sang nồi đa năng nên dư pass lại thui.", time: "2026-10-17 11:32:00", replyIdx: 49 },
-  { uid: 30002, text: "Mọi người có ai cần tư vấn tìm phòng trọ hay ghép bạn thì cứ nhắn lên sảnh nhé, cộng đồng UniHome hỗ trợ nhiệt tình lắm!", time: "2026-10-17 15:45:00" },
-  { uid: 92, text: "Cảm ơn a, web này hữu ích cho sinh viên tụi e thật sự.", time: "2026-10-17 16:02:00", replyIdx: 51 },
+  { uid: 15, text: "E pass lại nồi cơm điện Cuckoo 1.8L còn bảo hành giá 300k nhé mn.", time: "2026-10-17 11:10:00" },
+  { uid: 88, text: "Nồi lòng niêu hay nhôm chống dính thế b?", time: "2026-10-17 11:25:00", replyIdx: 45 },
+  { uid: 15, text: "Lòng chống dính dày dặn b nha, nấu cơm dẻo ngon k dính đáy.", time: "2026-10-17 11:32:00", replyIdx: 46 },
+  { uid: 88, text: "Ok b chiều e qua ngõ 1 lấy nha.", time: "2026-10-17 11:40:00", replyIdx: 47 },
+  { uid: 30002, text: "Có b nào sinh viên năm 1 cần tìm trọ giá hợp lý cứ lướt bộ lọc trên web nhé, lọc theo bán kính quanh trường rất tiện.", time: "2026-10-17 15:45:00" },
 
   // Ngày 18/10
-  { uid: 165, text: "Chào buổi sáng chủ nhật cả nhà! Chúc các cháu sinh viên có ngày nghỉ cuối tuần vui vẻ.", time: "2026-10-18 11:28:00" },
-  { uid: 3, text: "Hôm nay e vừa match đc bạn cùng phòng trên web, gu âm nhạc với giờ ngủ y xì nhau luôn mn ạ, chuẩn đét!", time: "2026-10-18 14:15:00" },
-  { uid: 96, text: "Chúc mừng b nha, e cũng đang đợi bạn nữ nào match đây hehe.", time: "2026-10-18 14:25:00", replyIdx: 54 },
-  { uid: 5, text: "Hiệu ứng tia chớp hoàng kim này nhìn chiến ghê các bác ⚡", time: "2026-10-18 20:50:00" },
+  { uid: 3, text: "Nay e vừa match đc bạn cùng phòng trên web, hợp gu ăn uống với giờ ngủ luôn mn ạ, đỡ mất công tìm.", time: "2026-10-18 14:15:00" },
+  { uid: 96, text: "Chúc mừng b nhé, e cũng đang tìm 1 bạn nữ ở ghép khu Tân Xã đây.", time: "2026-10-18 14:25:00", replyIdx: 49 },
+  { uid: 5, text: "Skin tia chớp hoàng kim này nhìn chiến ghê các bác ⚡", time: "2026-10-18 20:50:00" },
 
   // Ngày 19/10
-  { uid: 20, text: "Đầu tuần mới chúc mn tràn đầy năng lượng. E pass xe đạp cào cào đi học giá 350k nha.", time: "2026-10-19 08:55:00" },
-  { uid: 101, text: "Xe còn chắc chắn k b, lốp có bị xẹp k ạ?", time: "2026-10-19 09:10:00", replyIdx: 57 },
-  { uid: 20, text: "Xe ngon lành b ơi, vừa thay săm mới tuần trước, qua KTX trường xem xe nhé.", time: "2026-10-19 09:18:00", replyIdx: 58 },
-  { uid: 25, text: "Bác chủ trọ nào còn phòng đơn dưới 2tr quanh ngõ 1 Tân Xã k ới e với ạ.", time: "2026-10-19 15:35:00" },
-  { uid: 162, text: "Dãy nhà bác có phòng 1tr8 đấy cháu, phòng 18m2 vệ sinh riêng, có gác xép để đồ.", time: "2026-10-19 15:45:00", replyIdx: 60 },
+  { uid: 20, text: "Đầu tuần e pass xe đạp cào cào đi học giá 350k nha, lốp mới thay tuần trước.", time: "2026-10-19 08:55:00" },
+  { uid: 101, text: "Xe còn phanh ngon k b, e qua xem xe ở đâu đc?", time: "2026-10-19 09:10:00", replyIdx: 52 },
+  { uid: 20, text: "Phanh ngon lành b ơi, qua cổng KTX trường FPT xem xe nhé.", time: "2026-10-19 09:18:00", replyIdx: 53 },
+  { uid: 25, text: "Có phòng đơn nào dưới 2tr quanh ngõ 1 Tân Xã k mn ơi?", time: "2026-10-19 15:35:00" },
+  { uid: 165, text: "Bên dãy nhà mình có phòng 1tr8 đấy b, phòng 18m2 vệ sinh riêng, có gác xép để đồ.", time: "2026-10-19 15:45:00", replyIdx: 55 },
 
   // Ngày 20/10
-  { uid: 8, text: "Nhân ngày 20/10 chúc toàn thể các bạn nữ và các cô/bác chủ trọ trên UniHome luôn xinh đẹp và hạnh phúc nhé! 💐", time: "2026-10-20 10:20:00" },
-  { uid: 166, text: "Cảm ơn cháu nhiều nhé! Bác chủ trọ chúc các bạn nữ sinh viên luôn chăm ngoan học giỏi.", time: "2026-10-20 18:45:00", replyIdx: 62 },
-  { uid: 108, text: "Dễ thương quá, cảm ơn mọi người nhiều ạ!", time: "2026-10-20 19:00:00" },
+  { uid: 8, text: "Chúc các bạn nữ trên UniHome ngày 20/10 vui vẻ và xinh đẹp nhé! 💐", time: "2026-10-20 10:20:00" },
+  { uid: 108, text: "Cảm ơn b nhiều nha!", time: "2026-10-20 10:35:00", replyIdx: 57 },
 
   // Ngày 21/10
-  { uid: 30, text: "Pass lại giáo trình C++ với cấu trúc dữ liệu cho b nào sv năm 1 IT nhé, free luôn bạn nào cần qua lấy.", time: "2026-10-21 11:50:00" },
-  { uid: 112, text: "E xin với ạ! E vừa nhập học kỳ 1 đang cần sách này, tks b nhiều!", time: "2026-10-21 12:05:00", replyIdx: 65 },
-  { uid: 12, text: "Hiệu ứng cực quang phương bắc này lung linh ghê, nhìn khung chat sang chảnh hẳn.", time: "2026-10-21 16:55:00" },
+  { uid: 30, text: "Pass lại giáo trình C++ với Cấu trúc dữ liệu cho b nào sv năm 1 IT nhé, tặng luôn b nào cần qua lấy.", time: "2026-10-21 11:50:00" },
+  { uid: 112, text: "B cho e xin với ạ, e đang học kỳ này. B ở ngõ mấy thế?", time: "2026-10-21 12:05:00", replyIdx: 59 },
+  { uid: 30, text: "Mình ở ngõ 2 Tân Xã, tầm sau 5h chiều b qua cổng trọ alo mình nhé.", time: "2026-10-21 12:12:00", replyIdx: 60 },
+  { uid: 12, text: "Skin cực quang phương bắc này xanh ngọc nhìn dịu mắt ghê.", time: "2026-10-21 16:55:00" },
 
   // Ngày 22/10
-  { uid: 115, text: "Mn ơi trọ ở Hòa Lạc có hay bị mất nước k ạ? E thấy có bạn kêu mất nước đợt trước.", time: "2026-10-22 10:15:00" },
-  { uid: 161, text: "Bên Tân Xã các nhà trọ đều có téc nước dự phòng 3000L đến 5000L kèm máy bơm tự động nên không lo mất nước đâu cháu nhé.", time: "2026-10-22 10:25:00", replyIdx: 68 },
+  { uid: 115, text: "Mn ơi trọ ở Hòa Lạc có hay bị mất nước k ạ?", time: "2026-10-22 10:15:00" },
+  { uid: 118, text: "Đa số các trọ đều có bể ngầm với téc nước lớn dự phòng trên mái nên k lo mất nước đâu b.", time: "2026-10-22 10:25:00", replyIdx: 62 },
   { uid: 35, text: "Mình pass lại gương đứng toàn thân có bánh xe di chuyển giá 120k b nào cần ib nhé.", time: "2026-10-22 14:25:00" },
-  { uid: 120, text: "Gương có bị nứt mẻ gì k b? Có fix 100k đc k ạ.", time: "2026-10-22 14:38:00", replyIdx: 70 },
-  { uid: 35, text: "Gương mới tinh b nha, ok fix 100k qua ngõ 2 lấy giúp mình.", time: "2026-10-22 14:45:00", replyIdx: 71 },
+  { uid: 120, text: "Gương có nứt mẻ gì k b, 100k đc k e qua lấy luôn.", time: "2026-10-22 14:38:00", replyIdx: 64 },
+  { uid: 35, text: "Gương mới tinh b nha, ok 100k qua ngõ 2 lấy giúp mình.", time: "2026-10-22 14:45:00", replyIdx: 65 },
 
   // Ngày 23/10 (Hôm nay)
-  { uid: 40, text: "Sáng sớm mát mẻ chúc cả nhà UniHome ngày mới nhiều niềm vui!", time: "2026-10-23 08:20:00" },
-  { uid: 30002, text: "Sắp tới web có thêm tính năng xem video phòng 360 độ nữa đấy mn, tìm phòng khỏi lo ảnh ảo.", time: "2026-10-23 08:35:10" },
-  { uid: 125, text: "Uầy có video 360 luôn hả a? Thế thì đỉnh quá đỡ mất công chạy đi xem từng phòng!", time: "2026-10-23 08:40:00", replyIdx: 74 },
-  { uid: 163, text: "Bác cũng đang nhờ quay video các phòng trọ nhà bác để đưa lên cho các cháu xem trực quan đây.", time: "2026-10-23 08:45:30", replyIdx: 75 }
+  { uid: 40, text: "Sáng sớm mát mẻ chúc mn ngày mới nhiều năng lượng nhé!", time: "2026-10-23 08:20:00" },
+  { uid: 30002, text: "Bạn nào vừa đăng bài tìm phòng nhớ để số Zalo hoặc check tin nhắn trên web thường xuyên nha.", time: "2026-10-23 08:35:10" },
+  { uid: 122, text: "Oki a, e đang đợi b nào nhắn lại đây hehe.", time: "2026-10-23 08:42:00", replyIdx: 68 },
+  { uid: 166, text: "Trọ Tân Xã còn 1 phòng đơn khép kín giá 2tr, bạn nào cần phòng ở ngay qua ngõ 3 xem nhé.", time: "2026-10-23 08:50:00" }
 ];
 
 sql += `-- 4. TẠO CÁC TIN NHẮN TÁN GẪU CỘNG ĐỒNG THỰC TẾ (09/10 - 23/10/2026)\n`;
+sql += `DELETE FROM community_message_reaction;\n`;
+sql += `DELETE FROM community_message;\n`;
 sql += `INSERT INTO community_message (channel_id, user_id, sender_id, message_type, content, reply_to_id, reply_to_message_id, status, moderation_status, is_system_message, created_at) VALUES\n`;
 
 const msgRows = chatMessages.map((m, idx) => {
@@ -217,20 +212,18 @@ sql += msgRows.join(',\n') + ';\n\n';
 
 sql += `-- 5. TẠO REACTION CẢM XÚC SINH ĐỘNG (LIKE, HEART, FIRE, LAUGH)\n`;
 sql += `INSERT INTO community_message_reaction (message_id, user_id, reaction_type, created_at) VALUES\n`;
-sql += `  (1, 167, 'HEART', '2026-10-09 08:45:00'),\n`;
-sql += `  (1, 4, 'LIKE', '2026-10-09 08:50:00'),\n`;
-sql += `  (11, 22, 'LIKE', '2026-10-10 14:20:00'),\n`;
-sql += `  (11, 7, 'FIRE', '2026-10-10 14:25:00'),\n`;
-sql += `  (21, 36, 'WOW', '2026-10-12 10:36:00'),\n`;
-sql += `  (21, 41, 'HEART', '2026-10-12 10:45:00'),\n`;
-sql += `  (43, 76, 'LAUGH', '2026-10-16 09:40:00'),\n`;
-sql += `  (43, 84, 'FIRE', '2026-10-16 09:45:00'),\n`;
-sql += `  (54, 96, 'HEART', '2026-10-18 14:20:00'),\n`;
-sql += `  (63, 108, 'HEART', '2026-10-20 10:25:00'),\n`;
-sql += `  (63, 166, 'LIKE', '2026-10-20 18:46:00'),\n`;
-sql += `  (74, 125, 'FIRE', '2026-10-23 08:38:00'),\n`;
-sql += `  (75, 125, 'HEART', '2026-10-23 08:42:00');\n`;
+sql += `  (1, 7, 'LIKE', '2026-10-09 08:45:00'),\n`;
+sql += `  (10, 22, 'LIKE', '2026-10-10 14:20:00'),\n`;
+sql += `  (10, 7, 'FIRE', '2026-10-10 14:25:00'),\n`;
+sql += `  (19, 36, 'WOW', '2026-10-12 10:36:00'),\n`;
+sql += `  (19, 41, 'HEART', '2026-10-12 10:45:00'),\n`;
+sql += `  (40, 76, 'LAUGH', '2026-10-16 09:40:00'),\n`;
+sql += `  (40, 84, 'FIRE', '2026-10-16 09:45:00'),\n`;
+sql += `  (49, 96, 'HEART', '2026-10-18 14:20:00'),\n`;
+sql += `  (56, 108, 'HEART', '2026-10-20 10:25:00'),\n`;
+sql += `  (59, 112, 'LIKE', '2026-10-21 12:08:00'),\n`;
+sql += `  (67, 122, 'HEART', '2026-10-23 08:38:00');\n`;
 
 const outPath = path.join(__dirname, '..', 'database', 'seed_30_vip_bills_and_realistic_chat.sql');
 fs.writeFileSync(outPath, sql, 'utf8');
-console.log('Successfully generated: ' + outPath);
+console.log('Successfully generated updated SQL: ' + outPath);
