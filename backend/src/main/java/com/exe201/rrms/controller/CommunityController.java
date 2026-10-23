@@ -111,7 +111,7 @@ public class CommunityController {
             HttpServletRequest req
     ) {
         Long cid = channelId != null ? channelId : 1L;
-        int safeLimit = Math.min(Math.max(limit, 10), 100);
+        int safeLimit = Math.min(Math.max(limit, 10), 300);
 
         List<CommunityMessage> messages;
         if (beforeId != null && beforeId > 0) {

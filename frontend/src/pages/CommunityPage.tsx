@@ -84,7 +84,7 @@ export default function CommunityPage() {
   const fetchMessages = async (isInitial = false) => {
     try {
       const [msgRes, previewRes] = await Promise.all([
-        api.get('/community/messages?limit=60'),
+        api.get('/community/messages?limit=250'),
         api.get('/community/preview')
       ]);
       if (msgRes.data?.messages) {
