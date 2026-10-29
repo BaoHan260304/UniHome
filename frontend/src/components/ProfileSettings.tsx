@@ -102,12 +102,14 @@ export default function ProfileSettings({ profile, setProfile, onSaved, showMatc
       setProfile(r.data);
       onSaved(r.data);
       setProfileMsg('Đã lưu toàn bộ thông tin hồ sơ.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e: any) {
       if (e.response?.data?.fieldErrors) {
         setFieldErrors(e.response.data.fieldErrors);
       } else {
         alert(e.response?.data?.message || 'Không thể cập nhật hồ sơ.');
       }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSaving(false);
     }

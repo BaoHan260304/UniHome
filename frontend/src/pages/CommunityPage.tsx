@@ -80,6 +80,16 @@ export default function CommunityPage() {
   const [popoverUserId, setPopoverUserId] = useState<number | null>(null);
   const [activeReactionPickerId, setActiveReactionPickerId] = useState<number | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatStreamRef = useRef<HTMLDivElement>(null);
+
+  const scrollToChatBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (chatStreamRef.current) {
+      chatStreamRef.current.scrollTo({
+        top: chatStreamRef.current.scrollHeight,
+        behavior
+      });
+    }
+  };
 
   const fetchMessages = async (isInitial = false) => {
     try {
@@ -90,7 +100,7 @@ export default function CommunityPage() {
       if (msgRes.data?.messages) {
         setMessages(msgRes.data.messages);
         if (isInitial) {
-          setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+          setTimeout(() => scrollToChatBottom('auto'), 80);
         }
       }
       if (previewRes.data) {
@@ -154,7 +164,7 @@ export default function CommunityPage() {
       setMessages(prev => [...prev, res.data]);
       setInputText('');
       setReplyTarget(null);
-      setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+      setTimeout(() => scrollToChatBottom('smooth'), 50);
     } catch (e: any) {
       setError(e.response?.data?.message || 'Không thể gửi tin nhắn.');
     } finally {
@@ -178,7 +188,7 @@ export default function CommunityPage() {
       const res = await api.post('/community/messages', payload);
       setMessages(prev => [...prev, res.data]);
       setReplyTarget(null);
-      setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+      setTimeout(() => scrollToChatBottom('smooth'), 50);
     } catch (e: any) {
       setError(e.response?.data?.message || 'Không thể gửi nhãn dán.');
     } finally {
@@ -382,7 +392,7 @@ export default function CommunityPage() {
       {/* Chat Container */}
       <div className="bg-white rounded-3xl shadow-xl border border-gray-100 flex flex-col h-[650px] overflow-hidden relative">
         {/* Messages Stream */}
-        <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-gray-50/40">
+        <div ref={chatStreamRef} className="flex-1 p-6 overflow-y-auto space-y-4 bg-gray-50/40">
           {loading ? (
             <div className="flex items-center justify-center h-full text-xs text-gray-400">
               Đang tải sảnh tán gẫu cộng đồng...

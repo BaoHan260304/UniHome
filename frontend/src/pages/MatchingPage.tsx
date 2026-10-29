@@ -47,19 +47,27 @@ export default function MatchingPage() {
     ];
     const miss = required.find(([k]) => p[k] === undefined || p[k] === null || String(p[k]).trim() === '');
     if (miss) {
-      setErrorMsg(`Vui lòng hoàn thành mục "${miss[1]}" trước khi lưu hồ sơ Matching.`);
+      const msg = `Vui lòng hoàn thành mục "${miss[1]}" trước khi lưu hồ sơ Matching.`;
+      setErrorMsg(msg);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return false;
     }
     if (p.budgetMin && p.budgetMax && Number(p.budgetMin) > Number(p.budgetMax)) {
-      setErrorMsg('Ngân sách tối đa phải lớn hơn hoặc bằng ngân sách tối thiểu.');
+      const msg = 'Ngân sách tối đa phải lớn hơn hoặc bằng ngân sách tối thiểu.';
+      setErrorMsg(msg);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return false;
     }
     if (!p.facebookUrl && !p.zaloUrl && !p.otherSocialUrl) {
-      setErrorMsg('Hãy cung cấp ít nhất một link liên hệ (Facebook, Zalo hoặc MXH khác) để người phù hợp có thể liên hệ.');
+      const msg = 'Hãy cung cấp ít nhất một link liên hệ (Facebook, Zalo hoặc MXH khác) để người phù hợp có thể liên hệ.';
+      setErrorMsg(msg);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return false;
     }
     if (!p.enabled) {
-      setErrorMsg('Bạn cần bật đồng ý tham gia Matching.');
+      const msg = 'Bạn cần bật đồng ý tham gia Matching.';
+      setErrorMsg(msg);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return false;
     }
     return true;
@@ -69,11 +77,15 @@ export default function MatchingPage() {
     if (!validate()) return false;
     try {
       await api.put('/matching/profile', p);
-      if (!quiet) setSuccessMsg('Đã lưu hồ sơ Matching thành công.');
+      if (!quiet) {
+        setSuccessMsg('Đã lưu hồ sơ Matching thành công.');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
       return true;
     } catch (e: any) {
       const msg = e.response?.data?.message || 'Không thể lưu hồ sơ Matching';
       setErrorMsg(msg);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return false;
     }
   };
@@ -83,6 +95,7 @@ export default function MatchingPage() {
     setSuccessMsg('');
     if (!listingId && (!p.latitude || !p.longitude)) {
       setErrorMsg('Vui lòng cung cấp tọa độ vị trí (vĩ độ, kinh độ) hoặc bấm "📍 Lấy vị trí hiện tại" để tìm bạn cùng phòng xung quanh.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -99,8 +112,10 @@ export default function MatchingPage() {
       const r = await req;
       setResults(r.data || []);
       setMode('results');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e: any) {
       setErrorMsg(e.response?.data?.message || 'Không tìm được kết quả phù hợp');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
@@ -324,6 +339,20 @@ export default function MatchingPage() {
             </span>
           </label>
 
+          {errorMsg && (
+            <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700 font-bold flex items-center gap-2">
+              <span>⚠️</span>
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-sm text-green-700 font-bold flex items-center gap-2">
+              <span>✓</span>
+              <span>{successMsg}</span>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-3 pt-2">
             <button type="button" onClick={() => void save(false)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-6 py-3 rounded-xl font-medium transition-colors">
               Lưu hồ sơ
@@ -337,7 +366,7 @@ export default function MatchingPage() {
 
       {mode === 'results' && (
         <>
-          <button onClick={() => setMode('profile')} className="text-indigo-600 hover:text-indigo-800 font-medium">
+          <button onClick={() => { setMode('profile'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-indigo-600 hover:text-indigo-800 font-medium">
             ← Chỉnh hồ sơ
           </button>
           <div className="space-y-4">
