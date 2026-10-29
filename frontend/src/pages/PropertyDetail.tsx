@@ -704,43 +704,89 @@ export default function PropertyDetail() {
             )}
 
             {/* Reviews */}
-            <div className="mt-8">
-              <h3 className="text-base font-bold mb-3 text-gray-900">Đánh giá phòng/khu trọ</h3>
+            <div className="mt-8 bg-white border border-gray-100 rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div>
+                  <h3 className="text-base font-extrabold text-gray-900">Đánh giá & Nhận xét khu trọ ({prop.reviews?.length || 0})</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Phản hồi thực tế từ các bạn sinh viên đã và đang thuê</p>
+                </div>
+                {user && (
+                  <button
+                    onClick={() => {
+                      const c = prompt('Nhập nhận xét của bạn:');
+                      if (c) {
+                        api.post('/community/reviews', {
+                          propertyId: prop.propertyId,
+                          rating: 5,
+                          accuracyRating: 5,
+                          priceTransparencyRating: 5,
+                          utilityTransparencyRating: 5,
+                          landlordCommunicationRating: 5,
+                          comment: c
+                        }).then(() => {
+                          alert('Đã gửi đánh giá thành công.');
+                          void load();
+                        });
+                      }
+                    }}
+                    className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs px-3.5 py-2 rounded-xl transition-colors"
+                  >
+                    + Viết đánh giá
+                  </button>
+                )}
+              </div>
+
               <div className="space-y-3">
                 {(prop.reviews || []).map((r: any) => (
-                  <div key={r.id} className="border rounded-xl p-4 bg-gray-50">
-                    <div className="font-bold text-amber-500 text-sm">{'★'.repeat(r.rating || 5)}</div>
-                    <div className="text-xs text-gray-700 mt-1">{r.comment}</div>
+                  <div key={r.id} className="border border-gray-100 rounded-2xl p-4 bg-gray-50/60 hover:bg-gray-50 transition-colors space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-indigo-600 text-white font-bold text-[11px] flex items-center justify-center shrink-0">
+                          {r.userId ? 'SV' : 'U'}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-gray-900">Sinh viên UniHome #{r.userId || r.id}</span>
+                            <span className="text-[10px] text-green-700 bg-green-100/70 px-1.5 py-0.2 rounded font-medium">✓ Đã thuê</span>
+                          </div>
+                          <div className="text-[10px] text-gray-400">
+                            {r.createdAt ? new Date(r.createdAt).toLocaleDateString('vi-VN', { year: 'numeric', month: 'numeric', day: 'numeric' }) : 'Gần đây'}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 font-bold text-amber-500 text-xs">
+                        <span>{'★'.repeat(r.rating || 5)}</span>
+                        <span className="text-gray-500 text-[11px]">({r.rating || 5}.0)</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-700 leading-relaxed pl-9">{r.comment}</p>
+                    {(r.accuracyRating || r.priceTransparencyRating || r.utilityTransparencyRating) && (
+                      <div className="flex flex-wrap gap-2 pl-9 pt-1">
+                        {r.accuracyRating && (
+                          <span className="text-[10px] text-gray-500 bg-white border border-gray-100 px-2 py-0.5 rounded-md">
+                            Thông tin chuẩn xác: <b className="text-gray-700">{r.accuracyRating}/5</b>
+                          </span>
+                        )}
+                        {r.priceTransparencyRating && (
+                          <span className="text-[10px] text-gray-500 bg-white border border-gray-100 px-2 py-0.5 rounded-md">
+                            Giá cả minh bạch: <b className="text-gray-700">{r.priceTransparencyRating}/5</b>
+                          </span>
+                        )}
+                        {r.utilityTransparencyRating && (
+                          <span className="text-[10px] text-gray-500 bg-white border border-gray-100 px-2 py-0.5 rounded-md">
+                            Điện nước rõ ràng: <b className="text-gray-700">{r.utilityTransparencyRating}/5</b>
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
                 {!(prop.reviews || []).length && (
-                  <div className="text-xs text-gray-500">Chưa có đánh giá nào cho khu trọ này.</div>
+                  <div className="text-xs text-gray-400 text-center py-6">
+                    Chưa có đánh giá nào cho khu trọ này. Hãy là người đầu tiên chia sẻ cảm nhận!
+                  </div>
                 )}
               </div>
-              {user && (
-                <button
-                  onClick={() => {
-                    const c = prompt('Nhập nhận xét của bạn:');
-                    if (c) {
-                      api.post('/community/reviews', {
-                        propertyId: prop.propertyId,
-                        rating: 5,
-                        accuracyRating: 5,
-                        priceTransparencyRating: 5,
-                        utilityTransparencyRating: 5,
-                        landlordCommunicationRating: 5,
-                        comment: c
-                      }).then(() => {
-                        alert('Đã gửi đánh giá thành công.');
-                        void load();
-                      });
-                    }
-                  }}
-                  className="mt-3 text-indigo-600 font-bold text-xs hover:underline"
-                >
-                  + Viết đánh giá
-                </button>
-              )}
             </div>
 
             <div className="mt-8 flex flex-wrap gap-4 text-xs">
