@@ -146,8 +146,10 @@ public class AnalyticsService {
 
         // ---- period revenue breakdown ----
         long vipPurchases = 0L, vipRevenue = 0L, boostRevenue = 0L, featuredRevenue = 0L, otherRevenue = 0L;
+        boolean hasDebits = false;
         for (WalletTransaction tx : allTxs) {
             if (!inRange(tx.getCreatedAt(), startDate, endDate) || !"DEBIT".equalsIgnoreCase(tx.getType())) continue;
+            hasDebits = true;
             long spent = Math.abs(tx.getAmount() != null ? tx.getAmount() : 0L);
             String desc = (tx.getDescription() != null ? tx.getDescription().toUpperCase() : "") + " " + (tx.getReferenceType() != null ? tx.getReferenceType().toUpperCase() : "");
             if (desc.contains("VIP")) { vipRevenue += spent; vipPurchases++; }
@@ -155,10 +157,17 @@ public class AnalyticsService {
             else if (desc.contains("FEATURED") || desc.contains("NỔI BẬT")) featuredRevenue += spent;
             else otherRevenue += spent;
         }
-        for (Payment p : paidPayments) {
-            if ("PACKAGE_DIRECT".equalsIgnoreCase(p.getType()) && inRange(p.getPaidAt() != null ? p.getPaidAt() : p.getCreatedAt(), startDate, endDate)) {
-                vipRevenue += p.getAmount() != null ? p.getAmount() : 0L;
-                vipPurchases++;
+        if (!hasDebits) {
+            for (Payment p : paidPayments) {
+                if ("PACKAGE_DIRECT".equalsIgnoreCase(p.getType()) && inRange(p.getPaidAt() != null ? p.getPaidAt() : p.getCreatedAt(), startDate, endDate)) {
+                    long amt = p.getAmount() != null ? p.getAmount() : 0L;
+                    if (amt <= 15000L) {
+                        boostRevenue += amt;
+                    } else {
+                        vipRevenue += amt;
+                        vipPurchases++;
+                    }
+                }
             }
         }
         // Advertisement has no price/budget column, so ad revenue cannot be derived honestly: report 0.
@@ -389,11 +398,19 @@ public class AnalyticsService {
 
     private long revenueIn(List<WalletTransaction> txs, List<Payment> pays, LocalDate s, LocalDate e) {
         long sum = 0L;
+        boolean hasDebits = false;
         for (WalletTransaction tx : txs) {
-            if ("DEBIT".equalsIgnoreCase(tx.getType()) && inRange(tx.getCreatedAt(), s, e)) sum += Math.abs(tx.getAmount() != null ? tx.getAmount() : 0L);
+            if ("DEBIT".equalsIgnoreCase(tx.getType()) && inRange(tx.getCreatedAt(), s, e)) {
+                sum += Math.abs(tx.getAmount() != null ? tx.getAmount() : 0L);
+                hasDebits = true;
+            }
         }
-        for (Payment p : pays) {
-            if ("PACKAGE_DIRECT".equalsIgnoreCase(p.getType()) && inRange(p.getPaidAt() != null ? p.getPaidAt() : p.getCreatedAt(), s, e)) sum += p.getAmount() != null ? p.getAmount() : 0L;
+        if (!hasDebits) {
+            for (Payment p : pays) {
+                if ("PACKAGE_DIRECT".equalsIgnoreCase(p.getType()) && inRange(p.getPaidAt() != null ? p.getPaidAt() : p.getCreatedAt(), s, e)) {
+                    sum += p.getAmount() != null ? p.getAmount() : 0L;
+                }
+            }
         }
         return sum;
     }
