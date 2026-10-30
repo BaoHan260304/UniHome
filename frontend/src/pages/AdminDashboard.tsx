@@ -1278,11 +1278,11 @@ export default function AdminDashboard() {
 
             <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-xs">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-teal-700">Dịch vụ tiện ích sinh viên</span>
-                <span className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-sm font-bold">🛠️</span>
+                <span className="text-xs font-bold text-teal-700">Lượt kết nối chủ trọ</span>
+                <span className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-sm font-bold">📞</span>
               </div>
-              <div className="text-2xl font-black text-teal-700 mt-2">4</div>
-              <div className="text-[11px] text-gray-400 mt-1">Chuyển trọ, giặt ủi, sửa điện nước</div>
+              <div className="text-2xl font-black text-teal-700 mt-2">355+</div>
+              <div className="text-[11px] text-gray-400 mt-1">Liên hệ trực tiếp qua Zalo / SĐT</div>
             </div>
           </div>
         </div>
@@ -1526,12 +1526,12 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="bg-white p-4 rounded-2xl border shadow-xs">
-              <span className="text-xs text-gray-500 font-medium">Dịch vụ tiện ích sinh viên</span>
+              <span className="text-xs text-gray-500 font-medium">Lượt kết nối chủ trọ</span>
               <div className="text-xl font-extrabold text-teal-700 mt-1">
-                4 dịch vụ
+                355 lượt
               </div>
               <div className="text-[11px] text-teal-600 mt-0.5">
-                Chuyển trọ, giặt ủi, sửa điện nước
+                Liên hệ trực tiếp qua Zalo / SĐT
               </div>
             </div>
             <div className="bg-white p-4 rounded-2xl border shadow-xs">
