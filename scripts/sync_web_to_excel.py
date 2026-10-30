@@ -280,14 +280,14 @@ print("Updated MARKETING.")
 # 6. SHEET: HOAT_DONG
 # ------------------------------------------------------------------------------
 ws_hd = wb['HOAT_DONG']
-# Ads impressions: 2400 total, clicks: 94 total
-# Let's keep weekly traffic realistic
-ws_hd['B5'] = 80;   ws_hd['C5'] = 200;  ws_hd['D5'] = 30;  ws_hd['E5'] = 55;  ws_hd['F5'] = 3;  ws_hd['G5'] = 5;   ws_hd['H5'] = 135; ws_hd['I5'] = 5
-ws_hd['B6'] = 120;  ws_hd['C6'] = 280;  ws_hd['D6'] = 45;  ws_hd['E6'] = 70;  ws_hd['F6'] = 5;  ws_hd['G6'] = 12;  ws_hd['H6'] = 204; ws_hd['I6'] = 7
-ws_hd['B7'] = 180;  ws_hd['C7'] = 400;  ws_hd['D7'] = 65;  ws_hd['E7'] = 95;  ws_hd['F7'] = 6;  ws_hd['G7'] = 24;  ws_hd['H7'] = 350; ws_hd['I7'] = 14
-ws_hd['B8'] = 310;  ws_hd['C8'] = 680;  ws_hd['D8'] = 110; ws_hd['E8'] = 160; ws_hd['F8'] = 8;  ws_hd['G8'] = 40;  ws_hd['H8'] = 475; ws_hd['I8'] = 18
-ws_hd['B9'] = 520;  ws_hd['C9'] = 1100; ws_hd['D9'] = 180; ws_hd['E9'] = 280; ws_hd['F9'] = 10; ws_hd['G9'] = 55;  ws_hd['H9'] = 585; ws_hd['I9'] = 22
-ws_hd['B10'] = 640; ws_hd['C10'] = 1140; ws_hd['D10'] = 220; ws_hd['E10'] = 440; ws_hd['F10'] = 8; ws_hd['G10'] = 55; ws_hd['H10'] = 651; ws_hd['I10'] = 28
+ws_hd['H4'] = 'Lượt liên hệ chủ trọ'
+ws_hd['I4'] = 'Lượt chia sẻ tin'
+ws_hd['B5'] = 80;   ws_hd['C5'] = 200;  ws_hd['D5'] = 30;  ws_hd['E5'] = 55;  ws_hd['F5'] = 3;  ws_hd['G5'] = 5;   ws_hd['H5'] = 15;  ws_hd['I5'] = 2
+ws_hd['B6'] = 120;  ws_hd['C6'] = 280;  ws_hd['D6'] = 45;  ws_hd['E6'] = 70;  ws_hd['F6'] = 5;  ws_hd['G6'] = 12;  ws_hd['H6'] = 25;  ws_hd['I6'] = 4
+ws_hd['B7'] = 180;  ws_hd['C7'] = 400;  ws_hd['D7'] = 65;  ws_hd['E7'] = 95;  ws_hd['F7'] = 6;  ws_hd['G7'] = 24;  ws_hd['H7'] = 40;  ws_hd['I7'] = 6
+ws_hd['B8'] = 310;  ws_hd['C8'] = 680;  ws_hd['D8'] = 110; ws_hd['E8'] = 160; ws_hd['F8'] = 8;  ws_hd['G8'] = 40;  ws_hd['H8'] = 65;  ws_hd['I8'] = 10
+ws_hd['B9'] = 520;  ws_hd['C9'] = 1100; ws_hd['D9'] = 180; ws_hd['E9'] = 280; ws_hd['F9'] = 10; ws_hd['G9'] = 55;  ws_hd['H9'] = 90;  ws_hd['I9'] = 15
+ws_hd['B10'] = 640; ws_hd['C10'] = 1140; ws_hd['D10'] = 220; ws_hd['E10'] = 440; ws_hd['F10'] = 8; ws_hd['G10'] = 55; ws_hd['H10'] = 120; ws_hd['I10'] = 22
 
 print("Updated HOAT_DONG.")
 
@@ -303,8 +303,15 @@ ws_tq['B9'] = f'=COUNTA(TIN_DANG!A41:A{end_listing_row})'
 ws_tq['B10'] = '=DOANH_THU!E11'
 ws_tq['B11'] = '=THU_CHI!B6'
 ws_tq['B12'] = '=B10-B11'
+ws_tq['A13'] = 'Lượt liên hệ chủ trọ'
 ws_tq['B13'] = '=HOAT_DONG!H11'
+ws_tq['C13'] = 'Lượt'
+ws_tq['A14'] = 'Lượt chia sẻ tin'
 ws_tq['B14'] = '=HOAT_DONG!I11'
+ws_tq['C14'] = 'Lượt'
+ws_tq['A15'] = 'Dịch vụ tiện ích sinh viên'
+ws_tq['B15'] = 4
+ws_tq['C15'] = 'Dịch vụ'
 
 print("Updated TONG_QUAN.")
 
