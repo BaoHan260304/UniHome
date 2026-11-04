@@ -43,10 +43,10 @@ ws_dt['E12'] = f'=SUM(NGUOI_DUNG!$J$43:$J${end_usr_row})'
 
 ws_dt['B16'] = 0; ws_dt['C16'] = 0
 ws_dt['B17'] = 0; ws_dt['C17'] = 0
-ws_dt['B18'] = 4; ws_dt['C18'] = 138000
-ws_dt['B19'] = 26; ws_dt['C19'] = 775000
-ws_dt['B20'] = 23; ws_dt['C20'] = 420000
-ws_dt['B21'] = 20; ws_dt['C21'] = 390000
+ws_dt['B18'] = 5; ws_dt['C18'] = 137000
+ws_dt['B19'] = 17; ws_dt['C19'] = 609000
+ws_dt['B20'] = 21; ws_dt['C20'] = 411000
+ws_dt['B21'] = 30; ws_dt['C21'] = 566000
 
 for r in range(43, max(ws_dt.max_row + 1, 150)):
     for c in range(1, 10):
@@ -54,14 +54,14 @@ for r in range(43, max(ws_dt.max_row + 1, 150)):
 
 for idx, p in enumerate(payments):
     r = 43 + idx
-    pkg_name = 'Gói VIP 1 (VIP Vàng)' if p.get('amount') == 99000 or 'VIP1' in p.get('code', '') else \
-               'Gói VIP 2 (VIP Bạc)' if p.get('amount') == 59000 or 'VIP2' in p.get('code', '') else \
-               'Gói VIP 3 (VIP Sinh viên)' if p.get('amount') == 29000 or 'VIP3' in p.get('code', '') else 'Gói Đẩy tin (BOOST)'
+    pkg_code = 'VIP_1' if p.get('amount') == 99000 or 'VIP1' in p.get('code', '') else \
+               'VIP_2' if p.get('amount') == 59000 or 'VIP2' in p.get('code', '') else \
+               'VIP_3' if p.get('amount') == 29000 or 'VIP3' in p.get('code', '') else 'BOOST'
     paid_date = (p.get('paidAt') or p.get('createdAt') or '2026-10-25')[:10]
     ws_dt.cell(r, 1).value = p['code']
     ws_dt.cell(r, 2).value = f"DEMO-U{p['userId']:04d}" if p['userId'] < 1000 else f"DEMO-U{p['userId']}"
     ws_dt.cell(r, 3).value = paid_date
-    ws_dt.cell(r, 4).value = pkg_name
+    ws_dt.cell(r, 4).value = pkg_code
     ws_dt.cell(r, 5).value = 1
     ws_dt.cell(r, 6).value = p['amount']
     ws_dt.cell(r, 7).value = 'PAID'
