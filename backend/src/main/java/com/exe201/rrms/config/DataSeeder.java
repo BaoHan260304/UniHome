@@ -48,7 +48,7 @@ public class DataSeeder implements CommandLineRunner {
         migrateLegacyProperties();
         List<Listing> demoListings = seedRooms(demo.landlord());
         seedVerificationAndReviews(demo, demoListings);
-        seedServices(demo.provider());
+        // seedServices(demo.provider()); // Disabled for EXE201
         seedSecondHand(demo.student1(), demo.student2());
         seedBlogs(demo.admin());
         seedQa(demo.student1(), demo.landlord(), demo.admin());
@@ -167,11 +167,7 @@ public class DataSeeder implements CommandLineRunner {
     }
 
     private void seedServices(User provider) {
-        if (services.count() > 0) return;
-        services.save(service(provider, "Moving", "Chuyển trọ sinh viên Hòa Lạc", "Nhận chuyển đồ, vali, bàn ghế nhỏ; báo giá trước khi đi.", 120000L, true));
-        services.save(service(provider, "Cleaning", "Dọn phòng trước khi chuyển vào", "Vệ sinh sàn, WC, khu bếp và cửa kính cho phòng sinh viên.", 150000L, false));
-        services.save(service(provider, "Repair", "Sửa điện nước tại phòng trọ", "Hỗ trợ thay vòi, bóng đèn, ổ cắm và xử lý sự cố nhỏ.", 80000L, false));
-        services.save(service(provider, "Internet", "Lắp Internet sinh viên", "Tư vấn gói Internet theo khu vực và nhu cầu học online.", 180000L, true));
+        // Disabled: UniHome does not seed service listings for EXE201
     }
 
     private ServiceListing service(User provider, String category, String title, String description, Long price, boolean featured) {
